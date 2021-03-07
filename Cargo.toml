@@ -1,0 +1,12 @@
+[package]
+name = "sscanf"
+version = "0.1.0"
+authors = ["mich101mich <mich101mich@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+regex = "1.4"
+const_format = "0.2.13"
+
+[dependencies.sscanf_macro]
+path = "sscanf_macro"

@@ -1,0 +1,16 @@
+[package]
+name = "sscanf_macro"
+version = "0.1.0"
+authors = ["mich101mich <mich101mich@gmail.com>"]
+edition = "2018"
+
+[lib]
+proc-macro = true
+
+[dev-dependencies]
+trybuild = { version = "1.0", features = ["diff"] }
+
+[dependencies]
+syn = { version = "1.0.62", features = ["parsing"] }
+quote = "1.0.9"
+proc-macro2 = "1.0.24"
