@@ -2,8 +2,8 @@
 
 A Rust crate with a sscanf-style Macro based on Regex
 
-[![Build](https://github.com/mich101mich/sscanf/actions/workflows/rust.yml/badge.svg)](https://github.com/mich101mich/sscanf/actions/workflows/build.yml)
-[![Tests](https://github.com/mich101mich/sscanf/actions/workflows/rust.yml/badge.svg)](https://github.com/mich101mich/sscanf/actions/workflows/test.yml)
+[![Build](https://github.com/mich101mich/sscanf/actions/workflows/build.yml/badge.svg)](https://github.com/mich101mich/sscanf/actions/workflows/build.yml)
+[![Tests](https://github.com/mich101mich/sscanf/actions/workflows/test.yml/badge.svg)](https://github.com/mich101mich/sscanf/actions/workflows/test.yml)
 
 TODO: Add Text here
 
