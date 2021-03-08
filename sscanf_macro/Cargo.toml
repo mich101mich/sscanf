@@ -11,6 +11,7 @@ proc-macro = true
 trybuild = { version = "1.0", features = ["diff"] }
 
 [dependencies]
-syn = { version = "1.0.62", features = ["parsing"] }
-quote = "1.0.9"
-proc-macro2 = "1.0.24"
+syn = { version = "1.0", features = ["parsing"] }
+quote = "1.0"
+proc-macro2 = "1.0"
+regex-syntax = "0.6.22"

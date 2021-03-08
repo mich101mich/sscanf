@@ -145,7 +145,7 @@ fn scanf_internal(input: TokenStream, escape_input: bool, return_regex: bool) ->
             );
         }
 
-        if escape_input && "-^$*+?.()|[]{}".chars().any(|x| x == c) {
+        if escape_input && regex_syntax::is_meta_character(c) {
             current_regex.push('\\');
         }
 

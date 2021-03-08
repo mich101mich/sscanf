@@ -10,11 +10,81 @@
     unused_import_braces,
     unused_qualifications
 )]
-//! A
+//! A Rust crate with a sscanf-style Macro based on Regex
+//!
+//! TODO: Add more
+//! ```
+//! use sscanf::scanf;
+//!
+//! let input = "4-5 t: ftttttrvts";
+//! let parsed = scanf!(input, "{}-{} {}: {}", usize, usize, char, String);
+//! assert_eq!(parsed, Some((4, 5, 't', String::from("ftttttrvts"))));
+//!
+//! let input = "<x=3, y=-6, z=6>";
+//! let parsed = scanf!(input, "<x={}, y={}, z={}>", i32, i32, i32);
+//! assert_eq!(parsed, Some((3, -6, 6)));
+//!
+//! let input = "Goto N36E21";
+//! let parsed = scanf!(input, "Goto {}{}{}{}", char, usize, char, usize);
+//! assert_eq!(parsed, Some(('N', 36, 'E', 21)));
+//! ```
+//!
+//! ## Custom Types
+//!
+//! ```
+//! # use sscanf::scanf;
+//! # #[derive(Debug, PartialEq)]
+//! struct TimeStamp {
+//!     year: usize, month: u8, day: u8,
+//!     hour: u8, minute: u8,
+//! }
+//! impl sscanf::RegexRepresentation for TimeStamp {
+//!     const REGEX: &'static str = r"\d\d\d\d-\d\d-\d\d \d\d:\d\d";
+//! }
+//! impl std::str::FromStr for TimeStamp {
+//!     // ...
+//! #   type Err = std::num::ParseIntError;
+//! #   fn from_str(s: &str) -> Result<Self, Self::Err> {
+//! #       let res = s.split(&['-', ' ', ':'][..]).collect::<Vec<_>>();
+//! #       Ok(TimeStamp {
+//! #           year: res[0].parse::<usize>()?,
+//! #           month: res[1].parse::<u8>()?,
+//! #           day: res[2].parse::<u8>()?,
+//! #           hour: res[3].parse::<u8>()?,
+//! #           minute: res[4].parse::<u8>()?,
+//! #       })
+//! #   }
+//! }
+//!
+//! let input = "[1518-10-08 23:51] Guard #751 begins shift";
+//! let parsed = scanf!(input, "[{}] Guard #{} begins shift", TimeStamp, usize);
+//! assert_eq!(parsed, Some((TimeStamp{
+//!     year: 1518, month: 10, day: 8,
+//!     hour: 23, minute: 51
+//! }, 751)));
+//! ```
+//!
 
 /// A Macro to parse a String based on a format-String, similar to sscanf in C
 ///
 /// TODO: usage
+/// ```
+/// use sscanf::scanf;
+///
+/// let input = "4-5 t: ftttttrvts";
+/// let parsed = scanf!(input, "{}-{} {}: {}", usize, usize, char, String);
+/// assert_eq!(parsed, Some((4, 5, 't', String::from("ftttttrvts"))));
+///
+/// let input = "<x=3, y=-6, z=6>";
+/// let parsed = scanf!(input, "<x={}, y={}, z={}>", i32, i32, i32);
+/// assert_eq!(parsed, Some((3, -6, 6)));
+///
+/// let input = "Goto N36E21";
+/// let parsed = scanf!(input, "Goto {}{}{}{}", char, usize, char, usize);
+/// assert_eq!(parsed, Some(('N', 36, 'E', 21)));
+/// ```
+///
+/// TODO: Regex
 ///
 /// TODO: Error Message notice
 ///
@@ -34,7 +104,7 @@ pub use sscanf_macro::scanf;
 /// use sscanf::scanf_get_regex;
 /// let input = "Test 5 -2";
 /// let regex = scanf_get_regex!("Test {} {}", usize, i32);
-/// assert_eq!(regex.as_str(), r"^Test (?P<type_1>\+?\d+) (?P<type_2>[-+]?\d+)$");
+/// assert_eq!(regex.as_str(), r"^Test (?P<type_1>\+?\d+) (?P<type_2>[-+]?\d{1,10})$");
 ///
 /// let output = regex.captures(input);
 /// assert!(output.is_some());
