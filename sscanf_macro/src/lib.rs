@@ -47,22 +47,27 @@ fn split_at_comma(stream: TokenStream) -> Vec<TokenStream> {
 
 #[proc_macro]
 pub fn scanf(input: TokenStream) -> TokenStream {
-    scanf_internal(input, false)
+    scanf_internal(input, true, false)
 }
 
 #[proc_macro]
 pub fn scanf_get_regex(input: TokenStream) -> TokenStream {
-    scanf_internal(input, true)
+    scanf_internal(input, true, true)
 }
 
-fn scanf_internal(input: TokenStream, just_regex: bool) -> TokenStream {
+#[proc_macro]
+pub fn scanf_unescaped(input: TokenStream) -> TokenStream {
+    scanf_internal(input, false, false)
+}
+
+fn scanf_internal(input: TokenStream, escape_input: bool, return_regex: bool) -> TokenStream {
     let mut tokens = split_at_comma(input);
     if tokens.len() < 2 {
         proc_panic!("scanf needs at least an input and a format string");
     }
     tokens.reverse();
 
-    let src_string = if just_regex {
+    let src_string = if return_regex {
         proc_macro2::TokenStream::new()
     } else {
         proc_macro2::TokenStream::from(tokens.pop().unwrap())
@@ -140,12 +145,15 @@ fn scanf_internal(input: TokenStream, just_regex: bool) -> TokenStream {
             );
         }
 
-        if "-/^$*+?.()|[]{}".chars().any(|x| x == c) {
+        if escape_input && "-^$*+?.()|[]{}".chars().any(|x| x == c) {
             current_regex.push('\\');
         }
 
         current_regex.push(c);
     }
+
+    current_regex.push('$');
+
     let len = fmt.len();
     if last_was_open {
         proc_panic!(
@@ -173,7 +181,7 @@ fn scanf_internal(input: TokenStream, just_regex: bool) -> TokenStream {
     }
 
     if type_tokens.is_empty() {
-        if just_regex {
+        if return_regex {
             proc_panic!("Cannot generate Regex without Type Parameters");
         }
         return quote!( if #src_string.starts_with(#fmt) { Some(()) } else { None } ).into();
@@ -187,7 +195,7 @@ fn scanf_internal(input: TokenStream, just_regex: bool) -> TokenStream {
         match_grabber.push(quote!(cap.name(#name)?.as_str().parse::<#ty>().ok()?))
     }
 
-    if just_regex {
+    if return_regex {
         return quote!({
             let regex = ::sscanf::const_format!(#(#regex_builder),*, #current_regex);
             ::sscanf::Regex::new(regex).unwrap()

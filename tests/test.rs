@@ -40,7 +40,7 @@ fn get_regex() {
     let regex = scanf_get_regex!("Test {} {} {{}} {}!", usize, f32, std::string::String);
     assert_eq!(
         regex.as_str(),
-        r"^Test (?P<type_1>\+?\d+) (?P<type_2>[-+]?\d+\.?\d*) \{\} (?P<type_3>.+)!"
+        r"^Test (?P<type_1>\+?\d+) (?P<type_2>[-+]?\d+\.?\d*) \{\} (?P<type_3>.+)!$"
     );
 
     let output = regex.captures(input);
@@ -52,4 +52,11 @@ fn get_regex() {
     assert_eq!(output.get(1).map(|m| m.as_str()), Some("5"));
     assert_eq!(output.get(2).map(|m| m.as_str()), Some("1.4"));
     assert_eq!(output.get(3).map(|m| m.as_str()), Some("bob"));
+}
+
+#[test]
+fn unescaped() {
+    let input = "5.0SOME_RANDOM_TEXT3";
+    let output = scanf_unescaped!(input, "{}.*{}", f32, usize);
+    assert_eq!(output, Some((5.0, 3)));
 }

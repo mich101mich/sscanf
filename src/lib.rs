@@ -16,6 +16,8 @@
 ///
 /// TODO: usage
 ///
+/// TODO: Error Message notice
+///
 /// Supports any Type that implements both [`FromStr`](::std::str::FromStr) and [`RegexRepresentation`]
 pub use sscanf_macro::scanf;
 
@@ -32,7 +34,7 @@ pub use sscanf_macro::scanf;
 /// use sscanf::scanf_get_regex;
 /// let input = "Test 5 -2";
 /// let regex = scanf_get_regex!("Test {} {}", usize, i32);
-/// assert_eq!(regex.as_str(), r"^Test (?P<type_1>\+?\d+) (?P<type_2>[-+]?\d+)");
+/// assert_eq!(regex.as_str(), r"^Test (?P<type_1>\+?\d+) (?P<type_2>[-+]?\d+)$");
 ///
 /// let output = regex.captures(input);
 /// assert!(output.is_some());
@@ -43,16 +45,120 @@ pub use sscanf_macro::scanf;
 /// assert_eq!(capture_5.unwrap().as_str(), "5");
 /// assert_eq!(capture_5, output.get(1));
 ///
-/// let capture_2 = output.name("type_2");
-/// assert!(capture_2.is_some());
-/// assert_eq!(capture_2.unwrap().as_str(), "-2");
-/// assert_eq!(capture_2, output.get(2));
+/// let capture_negative_2 = output.name("type_2");
+/// assert!(capture_negative_2.is_some());
+/// assert_eq!(capture_negative_2.unwrap().as_str(), "-2");
+/// assert_eq!(capture_negative_2, output.get(2));
 /// ```
 pub use sscanf_macro::scanf_get_regex;
 
+/// Same as [`scanf`], but allows use of Regex in the format String.
+///
+/// ```
+/// use sscanf::scanf_unescaped;
+/// let input = "5.0SOME_RANDOM_TEXT3";
+/// let output = scanf_unescaped!(input, "{}.*{}", f32, usize);
+/// assert_eq!(output, Some((5.0, 3)));
+/// ```
+///
+/// The basic [`scanf`] would escape the `.` and `*`and match against the literal Characters,
+/// as one would expect from a Text matcher:
+/// ```
+/// use sscanf::scanf;
+/// let input = "5.0SOME_RANDOM_TEXT3";
+/// let output = scanf!(input, "{}.*{}", f32, usize);
+/// assert_eq!(output, None); // does not match
+///
+/// let input2 = "5.0.*3";
+/// let output2 = scanf!(input2, "{}.*{}", f32, usize);
+/// assert_eq!(output2, Some((5.0, 3)));
+/// ```
+///
+/// Note that the `{{` and `}}` Escaping for literal `{` and `}` is still in Place:
+/// ```
+/// use sscanf::scanf_unescaped;
+/// let input = "5.0 } aaaaaa 3";
+/// let output = scanf_unescaped!(input, r"{} \}} a{{6}} {}", f32, usize);
+///   // in regular Regex this would be   ...  \} a{6} ...
+/// assert_eq!(output, Some((5.0, 3)));
+/// ```
+///
+/// Also Note: `^` and `$` are added automatically to the start and end.
+pub use sscanf_macro::scanf_unescaped;
+
 /// A Trait used by [`scanf`] to obtain the Regex of a Type
 ///
-/// Has one associated Constant: `REGEX`, which should be set to a regular Expression
+/// Has one associated Constant: `REGEX`, which should be set to a regular Expression.
+/// Implement this trait for a Type that you want to be parsed using scanf.
+/// TODO: talk about exactness
+///
+/// ## Example
+/// Let's say we want to add a Fraction parser
+/// ```
+/// #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// struct Fraction(isize, usize);
+/// ```
+/// Which can be obtained from any string of the kind `±X/Y` or just `X`
+/// ```
+/// # #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// # struct Fraction(isize, usize);
+/// impl sscanf::RegexRepresentation for Fraction {
+///     /// matches an optional '-' or '+' followed by a number.
+///     /// possibly with a '/' and another Number
+///     const REGEX: &'static str = r"[-+]?\d+(/\d+)?";
+/// }
+/// impl std::str::FromStr for Fraction {
+///     type Err = std::num::ParseIntError;
+///     fn from_str(s: &str) -> Result<Self, Self::Err> {
+///         let mut iter = s.split('/');
+///         let num = iter.next().unwrap().parse::<isize>()?;
+///         let mut denom = 1;
+///         if let Some(d) = iter.next() {
+///             denom = d.parse::<usize>()?;
+///         }
+///         Ok(Fraction(num, denom))
+///     }
+/// }
+/// ```
+/// Now we can use this `Fraction` struct in `scanf`:
+/// ```
+/// # #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// # struct Fraction(isize, usize);
+/// # impl sscanf::RegexRepresentation for Fraction {
+/// #     const REGEX: &'static str = r"[-+]?\d+(/\d+)?";
+/// # }
+/// # impl std::str::FromStr for Fraction {
+/// #     type Err = std::num::ParseIntError;
+/// #     fn from_str(s: &str) -> Result<Self, Self::Err> {
+/// #         let mut iter = s.split('/');
+/// #         let num = iter.next().unwrap().parse::<isize>()?;
+/// #         let mut denom = 1;
+/// #         if let Some(d) = iter.next() {
+/// #             denom = d.parse::<usize>()?;
+/// #         }
+/// #         Ok(Fraction(num, denom))
+/// #     }
+/// # }
+/// use sscanf::scanf;
+///
+/// let output = scanf!("2/5", "{}", Fraction);
+/// assert_eq!(output, Some(Fraction(2, 5)));
+///
+/// let output = scanf!("-25/3", "{}", Fraction);
+/// assert_eq!(output, Some(Fraction(-25, 3)));
+///
+/// let output = scanf!("8", "{}", Fraction);
+/// assert_eq!(output, Some(Fraction(8, 1)));
+///
+/// let output = scanf!("6e/3", "{}", Fraction);
+/// assert_eq!(output, None);
+///
+/// let output = scanf!("6/-3", "{}", Fraction);
+/// assert_eq!(output, None); // only first number can be negative
+///
+/// let output = scanf!("6/3", "{}", Fraction);
+/// assert_eq!(output, Some(Fraction(6, 3)));
+/// ```
 pub trait RegexRepresentation {
     /// A regular Expression that exactly matches any String representation of the implementing Type
     const REGEX: &'static str;
@@ -66,26 +172,35 @@ pub use const_format::concatcp as const_format;
 pub use regex::Regex;
 
 macro_rules! impl_num {
-    (u32: $($ty: ty),+) => {
+    (u64: $($ty: ty),+) => {
         $(impl RegexRepresentation for $ty {
+            /// Matches any positive number
+            ///
+            /// The length of this match might not fit into the size of the type
             const REGEX: &'static str = r"\+?\d+";
         })+
     };
-    (i32: $($ty: ty),+) => {
+    (i64: $($ty: ty),+) => {
         $(impl RegexRepresentation for $ty {
+            /// Matches any positive or negative number
+            ///
+            /// The length of this match might not fit into the size of the type
             const REGEX: &'static str = r"[-+]?\d+";
         })+
     };
-    (f32: $($ty: ty),+) => {
+    (f64: $($ty: ty),+) => {
         $(impl RegexRepresentation for $ty {
+            /// Matches any floating point number
+            ///
+            /// Does **NOT** support stuff like `inf` `nan` or `3E10`
             const REGEX: &'static str = r"[-+]?\d+\.?\d*";
         })+
     };
 }
 
-impl_num!(u32: usize, u8, u16, u32, u64, u128);
-impl_num!(i32: isize, i8, i16, i32, i64, i128);
-impl_num!(f32: f32, f64);
+impl_num!(u64: usize, u64, u128);
+impl_num!(i64: isize, i64, i128);
+impl_num!(f64: f32, f64);
 
 impl RegexRepresentation for String {
     const REGEX: &'static str = r".+";
@@ -95,4 +210,41 @@ impl RegexRepresentation for char {
 }
 impl RegexRepresentation for bool {
     const REGEX: &'static str = r"true|false";
+}
+
+impl RegexRepresentation for u8 {
+    /// Matches a number with up to 3 digits.
+    ///
+    /// The Number matched by this might be too big for the type
+    const REGEX: &'static str = r"\+?\d{1,3}";
+}
+impl RegexRepresentation for u16 {
+    /// Matches a number with up to 5 digits.
+    ///
+    /// The Number matched by this might be too big for the type
+    const REGEX: &'static str = r"\+?\d{1,5}";
+}
+impl RegexRepresentation for u32 {
+    /// Matches a number with up to 10 digits.
+    ///
+    /// The Number matched by this might be too big for the type
+    const REGEX: &'static str = r"\+?\d{1,10}";
+}
+impl RegexRepresentation for i8 {
+    /// Matches a number with possible sign and up to 3 digits.
+    ///
+    /// The Number matched by this might be too big for the type
+    const REGEX: &'static str = r"[-+]?\d{1,3}";
+}
+impl RegexRepresentation for i16 {
+    /// Matches a number with possible sign and up to 5 digits.
+    ///
+    /// The Number matched by this might be too big for the type
+    const REGEX: &'static str = r"[-+]?\d{1,5}";
+}
+impl RegexRepresentation for i32 {
+    /// Matches a number with possible sign and up to 10 digits.
+    ///
+    /// The Number matched by this might be too big for the type
+    const REGEX: &'static str = r"[-+]?\d{1,10}";
 }
