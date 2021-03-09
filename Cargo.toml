@@ -10,3 +10,7 @@ const_format = "0.2.13"
 
 [dependencies.sscanf_macro]
 path = "sscanf_macro"
+
+[dev-dependencies]
+trybuild = "1.0"
+rustc_version = "0.3.3"

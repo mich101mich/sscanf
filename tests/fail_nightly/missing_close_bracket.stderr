@@ -1,0 +1,5 @@
+error: Expected '}' after '{'. Literal '{' need to be escaped as '{{'
+ --> $DIR/missing_close_bracket.rs:2:31
+  |
+2 |     sscanf::scanf!("hi", "asdf{asdf");
+  |                               ^

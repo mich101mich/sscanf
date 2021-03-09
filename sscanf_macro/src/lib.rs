@@ -19,7 +19,7 @@ macro_rules! proc_panic {
         if let Some(span) = $span_src.subspan($start..=$end) {
             proc_panic!($message, span);
         } else {
-            let m = format!("{} at \"{}\" <--", $message, &$src[0..$end]);
+            let m = format!("{}.  At \"{}\" <--", $message, &$src[0..$end]);
             proc_panic!(m, $span_src.span());
         }
     }};

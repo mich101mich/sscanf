@@ -1,0 +1,5 @@
+error: Missing Type for given '{}'.  At "asdf{}" <--
+ --> $DIR/missing_type.rs:2:26
+  |
+2 |     sscanf::scanf!("hi", "asdf{}asdf");
+  |                          ^^^^^^^^^^^^

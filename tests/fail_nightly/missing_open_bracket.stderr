@@ -1,0 +1,5 @@
+error: Unexpected standalone '}'. Literal '}' need to be escaped as '}}'
+ --> $DIR/missing_open_bracket.rs:2:31
+  |
+2 |     sscanf::scanf!("hi", "asdf}asdf");
+  |                               ^

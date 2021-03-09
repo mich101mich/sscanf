@@ -60,3 +60,15 @@ fn unescaped() {
     let output = scanf_unescaped!(input, "{}.*{}", f32, usize);
     assert_eq!(output, Some((5.0, 3)));
 }
+
+#[test]
+fn failing_tests() {
+    trybuild::TestCases::new().compile_fail("tests/fail/*.rs");
+
+    // Error Messages are better in nightly => Different .stderr files
+    if rustc_version::version_meta().unwrap().channel == rustc_version::Channel::Nightly {
+        trybuild::TestCases::new().compile_fail("tests/fail_nightly/*.rs");
+    } else {
+        trybuild::TestCases::new().compile_fail("tests/fail_stable/*.rs");
+    }
+}

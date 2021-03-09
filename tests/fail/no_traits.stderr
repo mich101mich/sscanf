@@ -1,0 +1,8 @@
+error[E0277]: the trait bound `Test: RegexRepresentation` is not satisfied
+ --> $DIR/no_traits.rs:4:5
+  |
+4 |     sscanf::scanf!("hi", "{}", Test);
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `RegexRepresentation` is not implemented for `Test`
+  |
+  = note: required by `REGEX`
+  = note: this error originates in a macro (in Nightly builds, run with -Z macro-backtrace for more info)
