@@ -3,12 +3,13 @@ name = "sscanf_macro"
 version = "0.1.0"
 authors = ["mich101mich <mich101mich@gmail.com>"]
 edition = "2018"
+description = "Proc-Macro for the sscanf Crate. Useless as a standalone Crate"
+repository = "https://github.com/mich101mich/sscanf"
+readme = "Readme.md"
+license = "MIT"
 
 [lib]
 proc-macro = true
-
-[dev-dependencies]
-trybuild = { version = "1.0", features = ["diff"] }
 
 [dependencies]
 syn = { version = "1.0", features = ["parsing"] }

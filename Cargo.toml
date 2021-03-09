@@ -3,6 +3,13 @@ name = "sscanf"
 version = "0.1.0"
 authors = ["mich101mich <mich101mich@gmail.com>"]
 edition = "2018"
+description = "A sscanf-style Macro based on Regex"
+repository = "https://github.com/mich101mich/sscanf"
+readme = "Readme.md"
+license = "MIT"
+keywords = ["macro", "parsing", "regex", "text", "scanf"]
+categories = ["parsing"]
+exclude = ["/.vscode/*", "/sscanf_macro/", "/.gitignore", "/.github/*"]
 
 [dependencies]
 regex = "1.4"
