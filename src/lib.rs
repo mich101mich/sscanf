@@ -10,9 +10,38 @@
     unused_import_braces,
     unused_qualifications
 )]
-//! A Rust crate with a sscanf-style Macro based on Regex
+//! A sscanf (inverse of format!()) Macro based on Regex
 //!
-//! TODO: Add more
+//! ## sscanf
+//! `sscanf` is a C-function that takes a String, a format String with placeholders and several
+//! Variables (in the Rust version replaced with Types). It then parses the input String, writing
+//! the values behind the placeholders into the Variables (the Rust version returns a Tuple of
+//! the specified Types). This process can be thought of as reversing a call to `format!()`:
+//! ```
+//! let s = format!("Hello {} #{}", "World", 5);
+//! assert_eq!(s, "Hello World #5");
+//!
+//! let parsed = sscanf::scanf!(s, "Hello {} #{}", String, usize);
+//! // parsed is Option<(String, usize)>
+//! assert_eq!(parsed, Some((String::from("World"), 5)));
+//! ```
+//! As can be seen in the example, [`scanf`] takes a format String like `format!()`, but instead of
+//! writing the values from the remaining parameters into the `{}` it instead extracts the contents
+//! of the input string. Those parts are then parsed according to the specified Types and returned
+//! as a Tuple, or `None` if the parsing failed or the strings don't match.
+//! ```
+//! let s = "Random Text";
+//! let parsed = sscanf::scanf!(s, "Hello {} #{}", String, usize);
+//! assert_eq!(parsed, None); // "Random Text" and "Hello..." do not match
+//! ```
+//!
+//! Note that the original C-function (and this Crate) are called sscanf, which is the correct
+//! version in this context. `scanf` is itself a C-function with the same functionality, but
+//! reading the input from stdin instead of taking a String parameter. The macro itself is called
+//! [`scanf`] because that is shorter, can be pronounced without sounding too weird and nobody uses
+//! the stdin version anyway.
+//!
+//! More examples of the capabilities of [`scanf`]:
 //! ```
 //! use sscanf::scanf;
 //!
@@ -27,10 +56,39 @@
 //! let input = "Goto N36E21";
 //! let parsed = scanf!(input, "Goto {}{}{}{}", char, usize, char, usize);
 //! assert_eq!(parsed, Some(('N', 36, 'E', 21)));
+//!
+//! let input = "A Sentence. Another Sentence. Yet more Words with Spaces.";
+//! let parsed = scanf!(input, "{}. {}. {}.", String, String, String);
+//! assert!(parsed.is_some());
+//! let (a, b, c) = parsed.unwrap();
+//! assert_eq!(a, "A Sentence");
+//! assert_eq!(b, "Another Sentence");
+//! assert_eq!(c, "Yet more Words with Spaces");
 //! ```
+//!
+//! The parsing part of this macro has very few limitations, since it replaces the `{}` with a Regular
+//! Expression ([`regex`](https://docs.rs/regex)) that corresponds to that type.
+//! For example:
+//! - `char` is just one Character (regex `"."`)
+//! - `String` is any sequence of Characters (regex `".+"`)
+//! - Numbers are any sequence of digits (regex `"\d+"`)
+//!
+//! And so on. The actual implementation for numbers tries to take the size of the Type into
+//! account and some other details, but that is the gist of the parsing.
+//!
+//! This means that any sequence of replacements is possible as long as the Regex finds a
+//! combination that works. In the `char, usize, char, usize` example above it manages to assign
+//! the `N` and `E` to the `char`s because they cannot be matched by the `usize`s. If the input
+//! were slightly different then it might have matched the `6` of the `36` or the `2` of the `21`
+//! to the second `char`.
 //!
 //! ## Custom Types
 //!
+//! [`scanf`] works with the most primitive Types from `std` as well as `String` by default. The
+//! full list can be seen here: [Implementations of `RegexRepresentation`](./trait.RegexRepresentation.html#foreign-impls).
+//!
+//! More Types can easily be added, as long as they implement [`FromStr`](https://doc.rust-lang.org/std/str/trait.FromStr.html) for the parsing
+//! and [`RegexRepresentation`] for `scanf` to obtain the Regex of the Type:
 //! ```
 //! # use sscanf::scanf;
 //! # #[derive(Debug, PartialEq)]
@@ -39,35 +97,88 @@
 //!     hour: u8, minute: u8,
 //! }
 //! impl sscanf::RegexRepresentation for TimeStamp {
-//!     const REGEX: &'static str = r"\d\d\d\d-\d\d-\d\d \d\d:\d\d";
+//!     /// Matches "[year-month-day hour:minute]"
+//!     const REGEX: &'static str = r"\[\d\d\d\d-\d\d-\d\d \d\d:\d\d\]";
 //! }
 //! impl std::str::FromStr for TimeStamp {
 //!     // ...
 //! #   type Err = std::num::ParseIntError;
 //! #   fn from_str(s: &str) -> Result<Self, Self::Err> {
-//! #       let res = s.split(&['-', ' ', ':'][..]).collect::<Vec<_>>();
+//! #       // if you read this: Stop stalking my Code, and yes I know this is lazy. shut up.
+//! #       let res = s.split(&['-', ' ', ':', '[', ']'][..]).collect::<Vec<_>>();
 //! #       Ok(TimeStamp {
-//! #           year: res[0].parse::<usize>()?,
-//! #           month: res[1].parse::<u8>()?,
-//! #           day: res[2].parse::<u8>()?,
-//! #           hour: res[3].parse::<u8>()?,
-//! #           minute: res[4].parse::<u8>()?,
+//! #           year: res[1].parse::<usize>()?,
+//! #           month: res[2].parse::<u8>()?,
+//! #           day: res[3].parse::<u8>()?,
+//! #           hour: res[4].parse::<u8>()?,
+//! #           minute: res[5].parse::<u8>()?,
 //! #       })
 //! #   }
 //! }
 //!
 //! let input = "[1518-10-08 23:51] Guard #751 begins shift";
-//! let parsed = scanf!(input, "[{}] Guard #{} begins shift", TimeStamp, usize);
+//! let parsed = scanf!(input, "{} Guard #{} begins shift", TimeStamp, usize);
 //! assert_eq!(parsed, Some((TimeStamp{
 //!     year: 1518, month: 10, day: 8,
 //!     hour: 23, minute: 51
 //! }, 751)));
 //! ```
 //!
+//! ## A Note on Error Messages
+//!
+//! Errors in the format string would ideally point to the exact position in the string that
+//! caused the error. This is already the case if you compile/check with nightly, but not on
+//! stable, or at least until Rust Issue [`#54725`](https://github.com/rust-lang/rust/issues/54725)
+//! is far enough to allow for [`this method`](https://doc.rust-lang.org/proc_macro/struct.Literal.html#method.subspan)
+//! to be called from stable.
+//!
+//! Error Messages on nightly currently look like this:
+//! ```compile_fail
+//! sscanf::scanf!("", "Some Text {}{}{} and stuff", usize);
+//! ```
+//! ```text
+//! error: Missing Type for given '{}'
+//!   |
+//! 4 | sscanf::scanf!("", "Some Text {}{}{} and stuff", usize);
+//!   |                                 ^^
+//! ```
+//! But on stable, you are limited to only pointing at the entire format string:
+//! ```text
+//! error: Missing Type for given '{}'.  At "Some Text {}{}" <--
+//!   |
+//! 4 | sscanf::scanf!("", "Some Text {}{}{} and stuff", usize);
+//!   |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+//! ```
+//! The current workaround is to point at the incorrect part of the string in the Error Message
+//! itself (the `<--`). The alternative is to use `cargo +nightly check` to see the better Errors
+//! whenever something goes wrong, or setting your Editor plugin to check with nightly.
+//!
+//! This does _**not**_ influence the functionality in any way. This Crate works entirely on stable
+//! with no drawbacks in functionality or performance. The only difference is the compiler errors
+//! that you get while writing format strings.
 
 /// A Macro to parse a String based on a format-String, similar to sscanf in C
 ///
-/// TODO: usage
+/// Takes at least two Parameters:
+/// - An input string (`String`, `str`, ... as long as it can be dereferenced into `&str`)
+/// - A format string literal (see below)
+///
+/// As well as any number of Types.
+///
+/// The format string _has_ to be a str literal (with some form of `"` on either side),
+/// because it is parsed by the procedural macro at compile time and checks if all the types
+/// and placeholders are matched. This is not possible from inside a Variable or even a `const
+/// &str` somewhere else.
+///
+/// Placeholders within the format string are marked with `{}`. Any `{` or `}` that should not be
+/// treated as placeholders need to be escaped by writing `{{` or `}}`. For any placeholder there
+/// has to be exactly one Type in the parameters after the format string.
+///
+/// There are currently no additional formatting options inside of the `{}`. This might be added
+/// later (no guarantees).
+///
+/// ## Examples
+/// More examples can be seen in the crate root documentation.
 /// ```
 /// use sscanf::scanf;
 ///
@@ -83,15 +194,9 @@
 /// let parsed = scanf!(input, "Goto {}{}{}{}", char, usize, char, usize);
 /// assert_eq!(parsed, Some(('N', 36, 'E', 21)));
 /// ```
-///
-/// TODO: Regex
-///
-/// TODO: Error Message notice
-///
-/// Supports any Type that implements both [`FromStr`](::std::str::FromStr) and [`RegexRepresentation`]
 pub use sscanf_macro::scanf;
 
-/// Same to [`scanf`], but returns the Regex without running it. Useful for Debugging or Efficiency.
+/// Same as [`scanf`], but returns the Regex without running it. Useful for Debugging or Efficiency.
 ///
 /// The Placeholders can be obtained by capturing the Regex and using either Name or index of the Group.
 ///
@@ -156,165 +261,12 @@ pub use sscanf_macro::scanf_get_regex;
 /// Also Note: `^` and `$` are added automatically to the start and end.
 pub use sscanf_macro::scanf_unescaped;
 
-/// A Trait used by [`scanf`] to obtain the Regex of a Type
-///
-/// Has one associated Constant: `REGEX`, which should be set to a regular Expression.
-/// Implement this trait for a Type that you want to be parsed using scanf.
-/// TODO: talk about exactness
-///
-/// ## Example
-/// Let's say we want to add a Fraction parser
-/// ```
-/// #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-/// struct Fraction(isize, usize);
-/// ```
-/// Which can be obtained from any string of the kind `±X/Y` or just `X`
-/// ```
-/// # #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-/// # struct Fraction(isize, usize);
-/// impl sscanf::RegexRepresentation for Fraction {
-///     /// matches an optional '-' or '+' followed by a number.
-///     /// possibly with a '/' and another Number
-///     const REGEX: &'static str = r"[-+]?\d+(/\d+)?";
-/// }
-/// impl std::str::FromStr for Fraction {
-///     type Err = std::num::ParseIntError;
-///     fn from_str(s: &str) -> Result<Self, Self::Err> {
-///         let mut iter = s.split('/');
-///         let num = iter.next().unwrap().parse::<isize>()?;
-///         let mut denom = 1;
-///         if let Some(d) = iter.next() {
-///             denom = d.parse::<usize>()?;
-///         }
-///         Ok(Fraction(num, denom))
-///     }
-/// }
-/// ```
-/// Now we can use this `Fraction` struct in `scanf`:
-/// ```
-/// # #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-/// # struct Fraction(isize, usize);
-/// # impl sscanf::RegexRepresentation for Fraction {
-/// #     const REGEX: &'static str = r"[-+]?\d+(/\d+)?";
-/// # }
-/// # impl std::str::FromStr for Fraction {
-/// #     type Err = std::num::ParseIntError;
-/// #     fn from_str(s: &str) -> Result<Self, Self::Err> {
-/// #         let mut iter = s.split('/');
-/// #         let num = iter.next().unwrap().parse::<isize>()?;
-/// #         let mut denom = 1;
-/// #         if let Some(d) = iter.next() {
-/// #             denom = d.parse::<usize>()?;
-/// #         }
-/// #         Ok(Fraction(num, denom))
-/// #     }
-/// # }
-/// use sscanf::scanf;
-///
-/// let output = scanf!("2/5", "{}", Fraction);
-/// assert_eq!(output, Some(Fraction(2, 5)));
-///
-/// let output = scanf!("-25/3", "{}", Fraction);
-/// assert_eq!(output, Some(Fraction(-25, 3)));
-///
-/// let output = scanf!("8", "{}", Fraction);
-/// assert_eq!(output, Some(Fraction(8, 1)));
-///
-/// let output = scanf!("6e/3", "{}", Fraction);
-/// assert_eq!(output, None);
-///
-/// let output = scanf!("6/-3", "{}", Fraction);
-/// assert_eq!(output, None); // only first number can be negative
-///
-/// let output = scanf!("6/3", "{}", Fraction);
-/// assert_eq!(output, Some(Fraction(6, 3)));
-/// ```
-pub trait RegexRepresentation {
-    /// A regular Expression that exactly matches any String representation of the implementing Type
-    const REGEX: &'static str;
-}
+mod regex_representation;
+pub use regex_representation::*;
 
-/// re-export of [`const_format::concatcp`](https://docs.rs/const_format/0.2/const_format/macro.concatcp.html) to be used by the proc_macro expansion.
+/// re-export of [`const_format::concatcp`](https://docs.rs/const_format/^0/const_format/macro.concatcp.html) to be used by the proc_macro expansion.
 ///
 pub use const_format::concatcp as const_format;
 /// re-export of [`regex::Regex`](https://docs.rs/regex/1.4/regex/struct.Regex.html) to be used by the proc_macro expansion.
 ///
 pub use regex::Regex;
-
-macro_rules! impl_num {
-    (u64: $($ty: ty),+) => {
-        $(impl RegexRepresentation for $ty {
-            /// Matches any positive number
-            ///
-            /// The length of this match might not fit into the size of the type
-            const REGEX: &'static str = r"\+?\d+";
-        })+
-    };
-    (i64: $($ty: ty),+) => {
-        $(impl RegexRepresentation for $ty {
-            /// Matches any positive or negative number
-            ///
-            /// The length of this match might not fit into the size of the type
-            const REGEX: &'static str = r"[-+]?\d+";
-        })+
-    };
-    (f64: $($ty: ty),+) => {
-        $(impl RegexRepresentation for $ty {
-            /// Matches any floating point number
-            ///
-            /// Does **NOT** support stuff like `inf` `nan` or `3E10`
-            const REGEX: &'static str = r"[-+]?\d+\.?\d*";
-        })+
-    };
-}
-
-impl_num!(u64: usize, u64, u128);
-impl_num!(i64: isize, i64, i128);
-impl_num!(f64: f32, f64);
-
-impl RegexRepresentation for String {
-    const REGEX: &'static str = r".+";
-}
-impl RegexRepresentation for char {
-    const REGEX: &'static str = r".";
-}
-impl RegexRepresentation for bool {
-    const REGEX: &'static str = r"true|false";
-}
-
-impl RegexRepresentation for u8 {
-    /// Matches a number with up to 3 digits.
-    ///
-    /// The Number matched by this might be too big for the type
-    const REGEX: &'static str = r"\+?\d{1,3}";
-}
-impl RegexRepresentation for u16 {
-    /// Matches a number with up to 5 digits.
-    ///
-    /// The Number matched by this might be too big for the type
-    const REGEX: &'static str = r"\+?\d{1,5}";
-}
-impl RegexRepresentation for u32 {
-    /// Matches a number with up to 10 digits.
-    ///
-    /// The Number matched by this might be too big for the type
-    const REGEX: &'static str = r"\+?\d{1,10}";
-}
-impl RegexRepresentation for i8 {
-    /// Matches a number with possible sign and up to 3 digits.
-    ///
-    /// The Number matched by this might be too big for the type
-    const REGEX: &'static str = r"[-+]?\d{1,3}";
-}
-impl RegexRepresentation for i16 {
-    /// Matches a number with possible sign and up to 5 digits.
-    ///
-    /// The Number matched by this might be too big for the type
-    const REGEX: &'static str = r"[-+]?\d{1,5}";
-}
-impl RegexRepresentation for i32 {
-    /// Matches a number with possible sign and up to 10 digits.
-    ///
-    /// The Number matched by this might be too big for the type
-    const REGEX: &'static str = r"[-+]?\d{1,10}";
-}

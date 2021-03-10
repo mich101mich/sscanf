@@ -207,7 +207,7 @@ fn scanf_internal(input: TokenStream, escape_input: bool, return_regex: bool) ->
         {
             let regex = ::sscanf::const_format!(#(#regex_builder),*, #current_regex);
             let regex = ::sscanf::Regex::new(regex).unwrap();
-            regex.captures(#src_string).and_then(|cap| Some(( #(#match_grabber),* )))
+            regex.captures(&#src_string).and_then(|cap| Some(( #(#match_grabber),* )))
         }
     )
     .into()
