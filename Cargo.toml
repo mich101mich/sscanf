@@ -14,9 +14,7 @@ exclude = ["/.vscode/*", "/sscanf_macro/", "/.gitignore", "/.github/*"]
 [dependencies]
 regex = "1.4"
 const_format = "0.2.13"
-
-[dependencies.sscanf_macro]
-path = "sscanf_macro"
+sscanf_macro = "0.1.0"
 
 [dev-dependencies]
 trybuild = "1.0"
