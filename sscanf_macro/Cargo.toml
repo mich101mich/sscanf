@@ -1,9 +1,9 @@
 [package]
 name = "sscanf_macro"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["mich101mich <mich101mich@gmail.com>"]
 edition = "2018"
-description = "Proc-Macro for the sscanf Crate. Useless as a standalone Crate"
+description = "Proc-Macros for the sscanf Crate. Not meant to be used as a standalone Crate"
 repository = "https://github.com/mich101mich/sscanf"
 readme = "Readme.md"
 license = "MIT"

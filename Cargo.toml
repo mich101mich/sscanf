@@ -1,9 +1,9 @@
 [package]
 name = "sscanf"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["mich101mich <mich101mich@gmail.com>"]
 edition = "2018"
-description = "A sscanf-style Macro based on Regex"
+description = "A sscanf (inverse of format!()) Macro based on Regex"
 repository = "https://github.com/mich101mich/sscanf"
 readme = "Readme.md"
 license = "MIT"
@@ -14,7 +14,7 @@ exclude = ["/.vscode/*", "/sscanf_macro/", "/.gitignore", "/.github/*"]
 [dependencies]
 regex = "1.4"
 const_format = "0.2.13"
-sscanf_macro = "0.1.0"
+sscanf_macro = { path = "sscanf_macro", version = "=0.1.1"}
 
 [dev-dependencies]
 trybuild = "1.0"

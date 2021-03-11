@@ -9,7 +9,7 @@ A Rust crate with a sscanf (inverse of format!()) Macro based on Regex
 Variables (in the Rust version replaced with Types). It then parses the input String, writing
 the values behind the placeholders into the Variables (the Rust version returns a Tuple of
 the specified Types). This process can be thought of as reversing a call to `format!()`:
-```Rust
+```rust
 let s = format!("Hello {} #{}", "World", 5);
 assert_eq!(s, "Hello World #5");
 
@@ -21,7 +21,7 @@ As can be seen in the example, `scanf` takes a format String like `format!()`, b
 writing the values from the remaining parameters into the `{}` it instead extracts the contents
 of the input string. Those parts are then parsed according to the specified Types and returned
 as a Tuple, or `None` if the parsing failed or the strings don't match.
-```Rust
+```rust
 let s = "Random Text";
 let parsed = sscanf::scanf!(s, "Hello {} #{}", String, usize);
 assert_eq!(parsed, None); // "Random Text" and "Hello..." do not match
@@ -34,7 +34,7 @@ reading the input from stdin instead of taking a String parameter. The macro its
 the stdin version anyway.
 
 More examples of the capabilities of `scanf`:
-```Rust
+```rust
 use sscanf::scanf;
 
 let input = "4-5 t: ftttttrvts";
@@ -76,12 +76,12 @@ to the second `char`.
 
 ## Custom Types
 
-`scanf` works with the most primitive Types from `std` as well as `String` by default. The
+`scanf` works with most of the primitive Types from `std` as well as `String` by default. The
 full list can be seen here: [Implementations of `RegexRepresentation`](https://docs.rs/sscanf/^0/sscanf/trait.RegexRepresentation.html#foreign-impls).
 
 More Types can easily be added, as long as they implement [`FromStr`](https://doc.rust-lang.org/std/str/trait.FromStr.html) for the parsing
 and `RegexRepresentation` for `scanf` to obtain the Regex of the Type:
-```Rust
+```rust
 struct TimeStamp {
     year: usize, month: u8, day: u8,
     hour: u8, minute: u8,
