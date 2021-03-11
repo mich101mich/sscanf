@@ -104,7 +104,7 @@ fn scanf_internal(input: TokenStream, escape_input: bool, return_regex: bool) ->
         } else if c == '}' {
             if last_was_open {
                 let ty = if let Some(token) = tokens.pop() {
-                    parse_macro_input!(token as ExprPath)
+                    parse_macro_input!(token as TypePath)
                 } else {
                     proc_panic!("Missing Type for given '{}'", span_provider, i - 1, i, fmt);
                 };

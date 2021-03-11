@@ -62,6 +62,25 @@ fn unescaped() {
 }
 
 #[test]
+fn generic_types() {
+    #[derive(Debug, PartialEq, Default)]
+    pub struct Bob<T>(pub std::marker::PhantomData<T>);
+    impl<T> RegexRepresentation for Bob<T> {
+        const REGEX: &'static str = ".*";
+    }
+    impl<T: Default> std::str::FromStr for Bob<T> {
+        type Err = <f64 as std::str::FromStr>::Err;
+        fn from_str(_: &str) -> Result<Self, Self::Err> {
+            Ok(Default::default())
+        }
+    }
+
+    let input = "Test";
+    let output = scanf!(input, "{}", Bob<usize>);
+    assert_eq!(output, Some(Default::default()));
+}
+
+#[test]
 fn failing_tests() {
     trybuild::TestCases::new().compile_fail("tests/fail/*.rs");
 
