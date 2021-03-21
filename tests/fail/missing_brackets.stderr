@@ -1,5 +1,5 @@
 error: More Types than '{}' provided
  --> $DIR/missing_brackets.rs:2:34
   |
-2 |     sscanf::scanf!("hi", "asdf", usize, u32);
-  |                                  ^^^^^
+2 |     sscanf::scanf!("hi", "asdf", std::vec::Vec<std::string::String>, u32);
+  |                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

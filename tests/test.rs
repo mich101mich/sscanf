@@ -35,6 +35,14 @@ fn basic() {
 }
 
 #[test]
+fn no_types() {
+    let result = scanf!("hi", "hi");
+    assert_eq!(result, Some(()));
+    let result = scanf!("hi", "no");
+    assert_eq!(result, None);
+}
+
+#[test]
 fn get_regex() {
     let input = "Test 5 1.4 {} bob!";
     let regex = scanf_get_regex!("Test {} {} {{}} {}!", usize, f32, std::string::String);
@@ -82,12 +90,12 @@ fn generic_types() {
 
 #[test]
 fn failing_tests() {
-    trybuild::TestCases::new().compile_fail("tests/fail/*.rs");
-
+    let t = trybuild::TestCases::new();
+    t.compile_fail("tests/fail/*.rs");
     // Error Messages are better in nightly => Different .stderr files
     if rustc_version::version_meta().unwrap().channel == rustc_version::Channel::Nightly {
-        trybuild::TestCases::new().compile_fail("tests/fail_nightly/*.rs");
+        t.compile_fail("tests/fail_nightly/*.rs");
     } else {
-        trybuild::TestCases::new().compile_fail("tests/fail_stable/*.rs");
+        t.compile_fail("tests/fail_stable/*.rs");
     }
 }

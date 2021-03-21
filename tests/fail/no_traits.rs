@@ -1,5 +1,3 @@
-struct Test;
-
 fn main() {
-    sscanf::scanf!("hi", "{}", Test);
+    sscanf::scanf!("hi", "{}", std::vec::Vec<usize>);
 }

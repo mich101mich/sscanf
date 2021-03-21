@@ -1,7 +1,7 @@
 error[E0277]: the trait bound `Test: FromStr` is not satisfied
- --> $DIR/no_from_str.rs:7:5
+ --> $DIR/no_from_str.rs:8:32
   |
-7 |     sscanf::scanf!("hi", "{}", Test);
-  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `FromStr` is not implemented for `Test`
+8 |     sscanf::scanf!("hi", "{}", bob::Test);
+  |                                ^^^^^^^^^ the trait `FromStr` is not implemented for `Test`
   |
-  = note: this error originates in a macro (in Nightly builds, run with -Z macro-backtrace for more info)
+  = note: required by `from_str`

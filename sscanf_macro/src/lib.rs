@@ -1,91 +1,115 @@
 //! Crate with proc_macros for sscanf. Not usable as a standalone crate.
 
-#[macro_use]
-extern crate quote;
+use proc_macro::TokenStream as TokenStream1;
+use proc_macro2::{Literal, TokenStream};
+use quote::{quote, quote_spanned, ToTokens};
+use syn::{
+    parse::{Error, Parse, ParseStream, Result},
+    parse_macro_input, Expr, LitStr, Token, TypePath,
+};
 
-use proc_macro::{TokenStream, TokenTree};
-use syn::*;
-
-macro_rules! proc_panic {
-    ($message: expr) => {{
-        let m = $message;
-        return quote!(compile_error!(#m)).into()
-    }};
-    ($message: expr, $span: expr) => {{
-        let m = $message;
-        return quote_spanned!($span.into() => compile_error!(#m)).into()
-    }};
-    ($message: expr, $span_src: expr, $start: expr, $end: expr, $src: expr) => {{
-        if let Some(span) = $span_src.subspan($start..=$end) {
-            proc_panic!($message, span);
-        } else {
-            let m = format!("{}.  At \"{}\" <--", $message, &$src[0..$end]);
-            proc_panic!(m, $span_src.span());
-        }
-    }};
+struct SscanfInner {
+    fmt: String,
+    fmt_span: Literal,
+    span_offset: usize,
+    type_tokens: Vec<TypePath>,
+}
+struct Sscanf {
+    src_str: Expr,
+    inner: SscanfInner,
 }
 
-fn split_at_comma(stream: TokenStream) -> Vec<TokenStream> {
-    let mut ret = vec![];
-    let mut current = vec![];
-    for token in stream {
-        match token {
-            TokenTree::Punct(p)
-                if p.as_char() == ',' && p.spacing() == proc_macro::Spacing::Alone =>
-            {
-                ret.push(current.into_iter().collect());
-                current = vec![];
+impl Parse for SscanfInner {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let fmt: LitStr = input.parse()?;
+        let span_offset = {
+            // this is a dirty hack to see if the literal is a raw string, which is necessary for
+            // subspan to skip the 'r', 'r#', ...
+            // this should be a thing that I can check on LitStr or Literal or whatever, but nooo,
+            // I have to print it into a String via a TokenStream and check that one -.-
+            let lit = fmt.to_token_stream().to_string();
+            lit.char_indices().find(|(_, c)| *c == '"').unwrap().0
+        };
+        let mut fmt_span = Literal::string(&fmt.value());
+        fmt_span.set_span(fmt.span());
+
+        let mut type_tokens = vec![];
+
+        while !input.is_empty() {
+            input.parse::<Token![,]>()?;
+            if !input.is_empty() {
+                let token = input.parse()?;
+                type_tokens.push(token);
             }
-            tt => current.push(tt),
         }
+
+        type_tokens.reverse();
+
+        Ok(SscanfInner {
+            fmt: fmt.value(),
+            fmt_span,
+            span_offset,
+            type_tokens,
+        })
     }
-    if !current.is_empty() {
-        ret.push(current.into_iter().collect());
+}
+impl Parse for Sscanf {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let src_str = input.parse()?;
+        input.parse::<Token![,]>()?;
+        let inner = input.parse()?;
+
+        Ok(Sscanf { src_str, inner })
     }
-    ret
 }
 
 #[proc_macro]
-pub fn scanf(input: TokenStream) -> TokenStream {
-    scanf_internal(input, true, false)
+pub fn scanf(input: TokenStream1) -> TokenStream1 {
+    let input = parse_macro_input!(input as Sscanf);
+    scanf_internal(input, true)
 }
 
 #[proc_macro]
-pub fn scanf_get_regex(input: TokenStream) -> TokenStream {
-    scanf_internal(input, true, true)
+pub fn scanf_unescaped(input: TokenStream1) -> TokenStream1 {
+    let input = parse_macro_input!(input as Sscanf);
+    scanf_internal(input, false)
 }
 
 #[proc_macro]
-pub fn scanf_unescaped(input: TokenStream) -> TokenStream {
-    scanf_internal(input, false, false)
+pub fn scanf_get_regex(input: TokenStream1) -> TokenStream1 {
+    let input = parse_macro_input!(input as SscanfInner);
+    let (regex, _) = match generate_regex(input, true) {
+        Ok(v) => v,
+        Err(e) => return e.to_compile_error().into(),
+    };
+    quote!({
+        let regex = ::sscanf::const_format!(#(#regex),*);
+        ::sscanf::Regex::new(regex).unwrap()
+    })
+    .into()
 }
 
-fn scanf_internal(input: TokenStream, escape_input: bool, return_regex: bool) -> TokenStream {
-    let mut tokens = split_at_comma(input);
-    if tokens.len() < 2 {
-        proc_panic!("scanf needs at least an input and a format string");
-    }
-    tokens.reverse();
-
-    let src_string = if return_regex {
-        proc_macro2::TokenStream::new()
-    } else {
-        proc_macro2::TokenStream::from(tokens.pop().unwrap())
+fn scanf_internal(input: Sscanf, escape_input: bool) -> TokenStream1 {
+    let (regex, matcher) = match generate_regex(input.inner, escape_input) {
+        Ok(v) => v,
+        Err(e) => return e.to_compile_error().into(),
     };
+    let src_str = input.src_str;
+    quote!(
+        {
+            let regex = ::sscanf::const_format!( #(#regex),* );
+            let regex = ::sscanf::Regex::new(regex).unwrap();
+            regex.captures(&#src_str).and_then(|cap| Some(( #(#matcher),* )))
+        }
+    )
+    .into()
+}
 
-    let fmt = {
-        let stream = tokens.last().unwrap().clone();
-        parse_macro_input!(stream as LitStr).value()
-    };
-    let fmt_literal = match tokens.pop().unwrap().into_iter().next().unwrap() {
-        TokenTree::Literal(lit) => lit,
-        tt => proc_panic!("Expected string literal", tt.span()),
-    };
-    let mut span_provider = proc_macro2::Literal::string(&fmt);
-    span_provider.set_span(fmt_literal.span().into());
-
+fn generate_regex(
+    mut input: SscanfInner,
+    escape_input: bool,
+) -> Result<(Vec<TokenStream>, Vec<TokenStream>)> {
     let mut type_tokens = vec![];
-    let mut type_token_names = vec![];
     let mut regex = vec![];
 
     let mut name_index = 1;
@@ -93,7 +117,7 @@ fn scanf_internal(input: TokenStream, escape_input: bool, return_regex: bool) ->
     let mut current_regex = String::from("^");
     let mut last_was_open = false;
     let mut last_was_close = false;
-    for (i, c) in fmt.chars().enumerate().map(|(i, c)| (i + 1, c)) {
+    for (i, c) in input.fmt.chars().enumerate().map(|(i, c)| (i + 1, c)) {
         if c == '{' && !last_was_close {
             if last_was_open {
                 last_was_open = false;
@@ -103,20 +127,19 @@ fn scanf_internal(input: TokenStream, escape_input: bool, return_regex: bool) ->
             }
         } else if c == '}' {
             if last_was_open {
-                let ty = if let Some(token) = tokens.pop() {
-                    parse_macro_input!(token as TypePath)
-                } else {
-                    proc_panic!("Missing Type for given '{}'", span_provider, i - 1, i, fmt);
+                let ty = match input.type_tokens.pop() {
+                    Some(token) => token,
+                    None => return sub_error("Missing Type for given '{}'", &input, i - 1, i),
                 };
-                type_tokens.push(ty.clone());
 
                 let name = format!("type_{}", name_index);
                 name_index += 1;
-                current_regex += &format!("(?P<{}>", name);
-                type_token_names.push(name);
 
+                current_regex += &format!("(?P<{}>", name);
                 regex.push(current_regex);
                 current_regex = String::from(")");
+
+                type_tokens.push((ty, name));
 
                 last_was_open = false;
                 continue;
@@ -128,20 +151,18 @@ fn scanf_internal(input: TokenStream, escape_input: bool, return_regex: bool) ->
                 continue;
             }
         } else if last_was_open {
-            proc_panic!(
+            return sub_error(
                 "Expected '}' after '{'. Literal '{' need to be escaped as '{{'",
-                span_provider,
+                &input,
                 i - 1,
                 i - 1,
-                fmt
             );
         } else if last_was_close {
-            proc_panic!(
+            return sub_error(
                 "Unexpected standalone '}'. Literal '}' need to be escaped as '}}'",
-                span_provider,
+                &input,
                 i - 1,
                 i - 1,
-                fmt
             );
         }
 
@@ -154,61 +175,64 @@ fn scanf_internal(input: TokenStream, escape_input: bool, return_regex: bool) ->
 
     current_regex.push('$');
 
-    let len = fmt.len();
+    let end = input.fmt.len();
     if last_was_open {
-        proc_panic!(
+        return sub_error(
             "Expected '}' after '{'. Literal '{' need to be escaped as '{{'",
-            span_provider,
-            len,
-            len,
-            fmt
+            &input,
+            end,
+            end,
         );
     } else if last_was_close {
-        proc_panic!(
+        return sub_error(
             "Unexpected standalone '}'. Literal '}' need to be escaped as '}}'",
-            span_provider,
-            len,
-            len,
-            fmt
+            &input,
+            end,
+            end,
         );
     }
 
-    if let Some(token) = tokens.pop() {
-        proc_panic!(
-            "More Types than '{}' provided",
-            token.into_iter().next().unwrap().span()
-        );
-    }
-
-    if type_tokens.is_empty() {
-        if return_regex {
-            proc_panic!("Cannot generate Regex without Type Parameters");
-        }
-        return quote!( if #src_string.starts_with(#fmt) { Some(()) } else { None } ).into();
+    if let Some(token) = input.type_tokens.pop() {
+        return Err(Error::new_spanned(token, "More Types than '{}' provided"));
     }
 
     let mut regex_builder = vec![];
     let mut match_grabber = vec![];
-    for (prefix, (ty, name)) in regex.iter().zip(type_tokens.iter().zip(type_token_names)) {
+    for (prefix, (ty, name)) in regex.iter().zip(type_tokens) {
         regex_builder.push(quote!(#prefix));
-        regex_builder.push(quote!(<#ty as ::sscanf::RegexRepresentation>::REGEX));
-        match_grabber.push(quote!(cap.name(#name)?.as_str().parse::<#ty>().ok()?))
-    }
 
-    if return_regex {
-        return quote!({
-            let regex = ::sscanf::const_format!(#(#regex_builder),*, #current_regex);
-            ::sscanf::Regex::new(regex).unwrap()
-        })
-        .into();
-    }
+        // dirty hack stolen from syn::Error::new_spanned
+        // because _once again_, spans don't really work on stable, so instead we set part of the
+        // target to the beginning of the type, part to the end, and then the rust compiler joins
+        // them for us. Isn't that a nice?
+        let mut iter = ty.to_token_stream().into_iter();
+        let start = iter.next().unwrap().span();
+        let end = iter.last().map_or(start, |t| t.span());
 
-    quote!(
         {
-            let regex = ::sscanf::const_format!(#(#regex_builder),*, #current_regex);
-            let regex = ::sscanf::Regex::new(regex).unwrap();
-            regex.captures(&#src_string).and_then(|cap| Some(( #(#match_grabber),* )))
+            let a = quote_spanned!(start => <#ty as );
+            let b = quote_spanned!(end => ::sscanf::RegexRepresentation>::REGEX);
+            regex_builder.push(quote!(#a#b));
         }
-    )
-    .into()
+        {
+            let a = quote_spanned!(start => <#ty as );
+            let b = quote_spanned!(end => ::std::str::FromStr>::from_str(cap.name(#name)?.as_str()).ok()?);
+            match_grabber.push(quote!(#a#b));
+        }
+    }
+
+    regex_builder.push(quote!(#current_regex));
+
+    Ok((regex_builder, match_grabber))
+}
+
+fn sub_error<T>(message: &str, src: &SscanfInner, start: usize, end: usize) -> Result<T> {
+    let s = start + src.span_offset;
+    let e = end + src.span_offset;
+    if let Some(span) = src.fmt_span.subspan(s..=e) {
+        Err(Error::new(span, message))
+    } else {
+        let m = format!("{}.  At \"{}\" <--", message, &src.fmt[0..end]);
+        Err(Error::new_spanned(&src.fmt_span, m))
+    }
 }
