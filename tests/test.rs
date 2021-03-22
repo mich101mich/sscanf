@@ -1,5 +1,11 @@
 use sscanf::*;
 
+mod types {
+    mod full_f32;
+    mod full_f64;
+    mod hex_number;
+}
+
 #[test]
 fn basic() {
     let input = "Test 5 1.4 {} bob!";

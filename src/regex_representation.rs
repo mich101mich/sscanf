@@ -103,7 +103,7 @@ macro_rules! impl_num {
         $(impl RegexRepresentation for $ty {
             /// Matches any floating point number
             ///
-            /// Does **NOT** support stuff like `inf` `nan` or `3E10`
+            /// Does **NOT** support stuff like `inf` `nan` or `3e10`. See [`FullF32`](crate::FullF32) for those.
             const REGEX: &'static str = r"[-+]?\d+\.?\d*";
         })+
     };
@@ -161,79 +161,4 @@ impl RegexRepresentation for i32 {
     ///
     /// The Number matched by this might be too big for the type
     const REGEX: &'static str = r"[-+]?\d{1,10}";
-}
-
-/// A Wrapper around f32 whose RegexRepresentation also includes special floating point values
-/// like `nan`, `inf`, `2.0e5`, ...
-///
-/// This is not part of the regular f32 parser because having a Number match against Text like with
-/// `nan` is usually not desirable:
-/// ```
-/// # use sscanf::*;
-/// let input = "Match a Banana against a number";
-/// let output = scanf!(input, "{}{}{}", String, f32, String);
-/// // There are no Numbers in input, so expect None
-/// assert!(output.is_none());
-///
-/// let output = scanf!(input, "{}{}{}", String, FullF32, String);
-/// // The 'nan' part in "Banana" is parsed as f32::NaN
-/// assert!(output.is_some());
-/// assert!(output.unwrap().1.is_nan());
-/// ```
-#[derive(Clone, Copy, Debug)]
-pub struct FullF32(pub f32);
-
-impl std::str::FromStr for FullF32 {
-    type Err = <f32 as std::str::FromStr>::Err;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.to_lowercase() == "nan" {
-            return Ok(FullF32(std::f32::NAN));
-        }
-        Ok(FullF32(s.parse()?))
-    }
-}
-impl RegexRepresentation for FullF32 {
-    /// Matches any floating point number, including `nan`, `inf`, `2.0e5`, ...
-    const REGEX: &'static str =
-        r"[-+]?\d+\.?\d*|\.\d+|\.\d+[eE][-+]?\d+|[-+]?\d+\.\d+[eE][-+]?\d+|[nN]a[nN]|\-?inf";
-}
-impl std::ops::Deref for FullF32 {
-    type Target = f32;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-impl std::ops::DerefMut for FullF32 {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-/// A Wrapper around f64 whose RegexRepresentation also includes special floating point values
-/// like `nan`, `inf`, `2.0e5`, ...
-///
-/// See [`FullF32`] for Details
-#[derive(Clone, Copy, Debug)]
-pub struct FullF64(pub f64);
-
-impl std::str::FromStr for FullF64 {
-    type Err = <f64 as std::str::FromStr>::Err;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(FullF64(s.parse()?))
-    }
-}
-impl RegexRepresentation for FullF64 {
-    /// Matches any floating point number, including `nan`, `inf`, `2.0e5`, ...
-    const REGEX: &'static str = FullF32::REGEX;
-}
-impl std::ops::Deref for FullF64 {
-    type Target = f64;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-impl std::ops::DerefMut for FullF64 {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
 }

@@ -202,8 +202,9 @@ pub use sscanf_macro::scanf;
 ///
 /// The Name is always `type_i` where `i` is the index of the type in the `scanf` call, starting at `1`.
 ///
-/// Indices start at `1` as with any Regex, however it is possible that user-defined implementations
-/// of [`RegexRepresentation`] create their own Capture Groups and distort the order, so use with caution.
+/// Indices start at `1` as with any Regex, however it is possible that non-std implementations
+/// of [`RegexRepresentation`] create their own Capture Groups and distort the order, so use with
+/// caution. ([`FullF32`] does this for example)
 ///
 /// ```
 /// use sscanf::scanf_get_regex;
@@ -263,6 +264,9 @@ pub use sscanf_macro::scanf_unescaped;
 
 mod regex_representation;
 pub use regex_representation::*;
+
+mod types;
+pub use types::*;
 
 /// re-export of [`const_format::concatcp`](https://docs.rs/const_format/^0/const_format/macro.concatcp.html) to be used by the proc_macro expansion.
 ///
