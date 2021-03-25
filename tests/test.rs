@@ -49,6 +49,26 @@ fn no_types() {
 }
 
 #[test]
+fn alternate_inputs() {
+    assert_eq!(scanf!("5", "{}", usize), Some(5));
+
+    let input = "5";
+    assert_eq!(scanf!(input, "{}", usize), Some(5));
+
+    let input = String::from("5");
+    assert_eq!(scanf!(input, "{}", usize), Some(5));
+
+    let input = String::from("5");
+    assert_eq!(scanf!(input.as_str(), "{}", usize), Some(5));
+
+    let input = ['5'];
+    assert_eq!(
+        scanf!(input.iter().collect::<String>(), "{}", usize),
+        Some(5)
+    );
+}
+
+#[test]
 fn get_regex() {
     let input = "Test 5 1.4 {} bob!";
     let regex = scanf_get_regex!("Test {} {} {{}} {}!", usize, f32, std::string::String);
@@ -98,6 +118,7 @@ fn generic_types() {
 fn failing_tests() {
     let t = trybuild::TestCases::new();
     t.compile_fail("tests/fail/*.rs");
+    t.compile_fail("tests/fail_syntax/*.rs");
     // Error Messages are better in nightly => Different .stderr files
     if rustc_version::version_meta().unwrap().channel == rustc_version::Channel::Nightly {
         t.compile_fail("tests/fail_nightly/*.rs");

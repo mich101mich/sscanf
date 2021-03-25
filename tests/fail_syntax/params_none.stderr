@@ -1,0 +1,7 @@
+error: At least 2 Parameters required: Input and format string
+ --> $DIR/params_none.rs:2:5
+  |
+2 |     sscanf::scanf!();
+  |     ^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in a macro (in Nightly builds, run with -Z macro-backtrace for more info)

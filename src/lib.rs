@@ -267,10 +267,3 @@ pub use regex_representation::*;
 
 mod types;
 pub use types::*;
-
-/// re-export of [`const_format::concatcp`](https://docs.rs/const_format/^0/const_format/macro.concatcp.html) to be used by the proc_macro expansion.
-///
-pub use const_format::concatcp as const_format;
-/// re-export of [`regex::Regex`](https://docs.rs/regex/1.4/regex/struct.Regex.html) to be used by the proc_macro expansion.
-///
-pub use regex::Regex;

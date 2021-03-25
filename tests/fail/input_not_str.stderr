@@ -1,0 +1,13 @@
+error[E0277]: the trait bound `{integer}: AsRef<str>` is not satisfied
+ --> $DIR/input_not_str.rs:2:20
+  |
+2 |     sscanf::scanf!(5 + 4, "{}", usize);
+  |                    ^^^^^ the trait `AsRef<str>` is not implemented for `{integer}`
+  |
+  = help: the following implementations were found:
+            <&T as AsRef<U>>
+            <&mut T as AsRef<U>>
+            <Arc<T> as AsRef<T>>
+            <Box<T, A> as AsRef<T>>
+          and 36 others
+  = note: required by `as_ref`

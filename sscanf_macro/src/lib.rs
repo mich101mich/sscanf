@@ -1,11 +1,13 @@
 //! Crate with proc_macros for sscanf. Not usable as a standalone crate.
 
 use proc_macro::TokenStream as TokenStream1;
-use proc_macro2::{Literal, TokenStream};
+use proc_macro2::{Literal, Span, TokenStream};
 use quote::{quote, quote_spanned, ToTokens};
 use syn::{
     parse::{Error, Parse, ParseStream, Result},
-    parse_macro_input, Expr, LitStr, Token, TypePath,
+    parse_macro_input,
+    spanned::Spanned,
+    Expr, LitStr, Token, TypePath,
 };
 
 struct SscanfInner {
@@ -21,29 +23,38 @@ struct Sscanf {
 
 impl Parse for SscanfInner {
     fn parse(input: ParseStream) -> Result<Self> {
+        if input.is_empty() {
+            return Err(Error::new(Span::call_site(), "Missing format string"));
+        }
+
         let fmt: LitStr = input.parse()?;
         let span_offset = {
             // this is a dirty hack to see if the literal is a raw string, which is necessary for
             // subspan to skip the 'r', 'r#', ...
             // this should be a thing that I can check on LitStr or Literal or whatever, but nooo,
             // I have to print it into a String via a TokenStream and check that one -.-
+            //
+            // "fun" fact: This used to actually be a thing in syn 0.11 where `Lit::Str` gave _two_
+            // values: the literal and a `StrStyle`. This was apparently removed at some point for
+            // being TOO USEFUL.
             let lit = fmt.to_token_stream().to_string();
-            lit.char_indices().find(|(_, c)| *c == '"').unwrap().0
+            lit.char_indices().find(|c| c.1 == '"').unwrap().0
         };
         let mut fmt_span = Literal::string(&fmt.value());
         fmt_span.set_span(fmt.span());
 
-        let mut type_tokens = vec![];
-
-        while !input.is_empty() {
+        let type_tokens;
+        if input.is_empty() {
+            type_tokens = vec![];
+        } else {
             input.parse::<Token![,]>()?;
-            if !input.is_empty() {
-                let token = input.parse()?;
-                type_tokens.push(token);
-            }
-        }
 
-        type_tokens.reverse();
+            type_tokens = input
+                .parse_terminated::<_, Token![,]>(TypePath::parse)?
+                .into_iter()
+                .rev()
+                .collect();
+        }
 
         Ok(SscanfInner {
             fmt: fmt.value(),
@@ -55,8 +66,26 @@ impl Parse for SscanfInner {
 }
 impl Parse for Sscanf {
     fn parse(input: ParseStream) -> Result<Self> {
+        if input.is_empty() {
+            return Err(Error::new(
+                Span::call_site(),
+                "At least 2 Parameters required: Input and format string",
+            ));
+        }
         let src_str = input.parse()?;
-        input.parse::<Token![,]>()?;
+        if input.is_empty() {
+            return Err(Error::new(
+                Span::call_site(),
+                "At least 2 Parameters required: Missing format string",
+            ));
+        }
+        let comma = input.parse::<Token![,]>()?;
+        if input.is_empty() {
+            return Err(Error::new_spanned(
+                comma,
+                "At least 2 Parameters required: Missing format string",
+            ));
+        }
         let inner = input.parse()?;
 
         Ok(Sscanf { src_str, inner })
@@ -83,8 +112,8 @@ pub fn scanf_get_regex(input: TokenStream1) -> TokenStream1 {
         Err(e) => return e.to_compile_error().into(),
     };
     quote!({
-        let regex = ::sscanf::const_format!(#(#regex),*);
-        ::sscanf::Regex::new(regex).unwrap()
+        let regex = ::const_format::concatcp!(#(#regex),*);
+        ::regex::Regex::new(regex).unwrap()
     })
     .into()
 }
@@ -94,12 +123,18 @@ fn scanf_internal(input: Sscanf, escape_input: bool) -> TokenStream1 {
         Ok(v) => v,
         Err(e) => return e.to_compile_error().into(),
     };
-    let src_str = input.src_str;
+    let src_str = {
+        let src_str = input.src_str;
+        let (start, end) = full_span(&src_str);
+        let mut param = quote_spanned!(start => &);
+        param.extend(quote_spanned!(end => (#src_str)));
+        quote!(::std::convert::AsRef::<str>::as_ref(#param))
+    };
     quote!(
         {
-            let regex = ::sscanf::const_format!( #(#regex),* );
-            let regex = ::sscanf::Regex::new(regex).unwrap();
-            regex.captures(&#src_str).and_then(|cap| Some(( #(#matcher),* )))
+            let regex = ::const_format::concatcp!( #(#regex),* );
+            let regex = ::regex::Regex::new(regex).unwrap();
+            regex.captures(#src_str).and_then(|cap| Some(( #(#matcher),* )))
         }
     )
     .into()
@@ -201,23 +236,17 @@ fn generate_regex(
     for (prefix, (ty, name)) in regex.iter().zip(type_tokens) {
         regex_builder.push(quote!(#prefix));
 
-        // dirty hack stolen from syn::Error::new_spanned
-        // because _once again_, spans don't really work on stable, so instead we set part of the
-        // target to the beginning of the type, part to the end, and then the rust compiler joins
-        // them for us. Isn't that a nice?
-        let mut iter = ty.to_token_stream().into_iter();
-        let start = iter.next().unwrap().span();
-        let end = iter.last().map_or(start, |t| t.span());
+        let (start, end) = full_span(&ty);
 
         {
-            let a = quote_spanned!(start => <#ty as );
-            let b = quote_spanned!(end => ::sscanf::RegexRepresentation>::REGEX);
-            regex_builder.push(quote!(#a#b));
+            let mut s = quote_spanned!(start => <#ty as );
+            s.extend(quote_spanned!(end => ::sscanf::RegexRepresentation>::REGEX));
+            regex_builder.push(s);
         }
         {
-            let a = quote_spanned!(start => <#ty as );
-            let b = quote_spanned!(end => ::std::str::FromStr>::from_str(cap.name(#name)?.as_str()).ok()?);
-            match_grabber.push(quote!(#a#b));
+            let mut s = quote_spanned!(start => <#ty as );
+            s.extend(quote_spanned!(end => ::std::str::FromStr>::from_str(cap.name(#name)?.as_str()).ok()?));
+            match_grabber.push(s);
         }
     }
 
@@ -235,4 +264,20 @@ fn sub_error<T>(message: &str, src: &SscanfInner, start: usize, end: usize) -> R
         let m = format!("{}.  At \"{}\" <--", message, &src.fmt[0..end]);
         Err(Error::new_spanned(&src.fmt_span, m))
     }
+}
+
+fn full_span<T: ToTokens + Spanned>(span: &T) -> (Span, Span) {
+    // dirty hack stolen from syn::Error::new_spanned
+    // because _once again_, spans don't really work on stable, so instead we set part of the
+    // target to the beginning of the type, part to the end, and then the rust compiler joins
+    // them for us. Isn't that a nice?
+
+    let start = span.span();
+    let end = span
+        .to_token_stream()
+        .into_iter()
+        .last()
+        .map(|t| t.span())
+        .unwrap_or(start);
+    (start, end)
 }

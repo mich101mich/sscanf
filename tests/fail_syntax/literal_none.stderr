@@ -1,0 +1,7 @@
+error: At least 2 Parameters required: Missing format string
+ --> $DIR/literal_none.rs:2:5
+  |
+2 |     sscanf::scanf!("5");
+  |     ^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in a macro (in Nightly builds, run with -Z macro-backtrace for more info)
