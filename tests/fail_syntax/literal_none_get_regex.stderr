@@ -1,4 +1,4 @@
-error: At least 1 Parameters required: Missing format string
+error: Missing format string
  --> $DIR/literal_none_get_regex.rs:2:5
   |
 2 |     sscanf::scanf_get_regex!();
