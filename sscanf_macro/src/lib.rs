@@ -112,8 +112,8 @@ pub fn scanf_get_regex(input: TokenStream1) -> TokenStream1 {
         Err(e) => return e.to_compile_error().into(),
     };
     quote!({
-        let regex = ::const_format::concatcp!(#(#regex),*);
-        ::regex::Regex::new(regex).unwrap()
+        let regex = ::sscanf::const_format::concatcp!(#(#regex),*);
+        ::sscanf::regex::Regex::new(regex).unwrap()
     })
     .into()
 }
@@ -132,8 +132,8 @@ fn scanf_internal(input: Sscanf, escape_input: bool) -> TokenStream1 {
     };
     quote!(
         {
-            let regex = ::const_format::concatcp!( #(#regex),* );
-            let regex = ::regex::Regex::new(regex).unwrap();
+            let regex = ::sscanf::const_format::concatcp!( #(#regex),* );
+            let regex = ::sscanf::regex::Regex::new(regex).unwrap();
             regex.captures(#src_str).and_then(|cap| Some(( #(#matcher),* )))
         }
     )
