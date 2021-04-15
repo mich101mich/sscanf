@@ -19,7 +19,7 @@ fn basic() {
     assert!(output.is_some());
     let (a, b, c) = output.unwrap();
     assert_eq!(a, 5);
-    assert_eq!(b, 1.4);
+    assert!((b - 1.4).abs() < f32::EPSILON, "b is {}", b);
     assert_eq!(c, "bob");
 
     let n = scanf!(input, "hi");

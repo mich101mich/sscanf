@@ -20,8 +20,10 @@ fn full_f64() {
     assert!(output.0.is_nan());
     assert!(output.1.is_nan());
     assert!(output.2.is_nan());
-    assert_eq!(*output.3, std::f64::INFINITY);
-    assert_eq!(*output.4, std::f64::NEG_INFINITY);
+    assert!(output.3.is_infinite());
+    assert!(output.4.is_infinite());
+    assert!(*output.3 > 0.0);
+    assert!(*output.4 < 0.0);
 
     let output = scanf!("-2.0e4 2.0e4", "{} {}", FullF64, FullF64).unwrap();
     assert_eq!(output, (FullF64(-2.0e4), FullF64(2.0e4)));

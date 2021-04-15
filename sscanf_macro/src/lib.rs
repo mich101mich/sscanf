@@ -134,6 +134,7 @@ fn scanf_internal(input: Sscanf, escape_input: bool) -> TokenStream1 {
         {
             let regex = ::sscanf::const_format::concatcp!( #(#regex),* );
             let regex = ::sscanf::regex::Regex::new(regex).unwrap();
+            #[allow(clippy::needless_question_mark)]
             regex.captures(#src_str).and_then(|cap| Some(( #(#matcher),* )))
         }
     )
