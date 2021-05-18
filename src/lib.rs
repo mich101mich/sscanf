@@ -268,5 +268,9 @@ pub use regex_representation::*;
 mod types;
 pub use types::*;
 
+#[doc(hidden)]
 pub use const_format;
+#[doc(hidden)]
 pub use regex;
+#[doc(hidden)]
+pub use lazy_static;

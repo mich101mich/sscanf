@@ -112,8 +112,8 @@ pub fn scanf_get_regex(input: TokenStream1) -> TokenStream1 {
         Err(e) => return e.to_compile_error().into(),
     };
     quote!({
-        let regex = ::sscanf::const_format::concatcp!(#(#regex),*);
-        ::sscanf::regex::Regex::new(regex).unwrap()
+        #regex
+        REGEX.clone()
     })
     .into()
 }
@@ -132,10 +132,9 @@ fn scanf_internal(input: Sscanf, escape_input: bool) -> TokenStream1 {
     };
     quote!(
         {
-            let regex = ::sscanf::const_format::concatcp!( #(#regex),* );
-            let regex = ::sscanf::regex::Regex::new(regex).unwrap();
+            #regex
             #[allow(clippy::needless_question_mark)]
-            regex.captures(#src_str).and_then(|cap| Some(( #(#matcher),* )))
+            REGEX.captures(#src_str).and_then(|cap| Some(( #(#matcher),* )))
         }
     )
     .into()
@@ -144,7 +143,7 @@ fn scanf_internal(input: Sscanf, escape_input: bool) -> TokenStream1 {
 fn generate_regex(
     mut input: SscanfInner,
     escape_input: bool,
-) -> Result<(Vec<TokenStream>, Vec<TokenStream>)> {
+) -> Result<(TokenStream, Vec<TokenStream>)> {
     let mut type_tokens = vec![];
     let mut regex = vec![];
 
@@ -253,7 +252,13 @@ fn generate_regex(
 
     regex_builder.push(quote!(#current_regex));
 
-    Ok((regex_builder, match_grabber))
+    let regex = quote!(::sscanf::lazy_static::lazy_static! {
+        static ref REGEX: ::sscanf::regex::Regex = ::sscanf::regex::Regex::new(
+            ::sscanf::const_format::concatcp!( #(#regex_builder),* )
+        ).expect("sscanf Regex error");
+    });
+
+    Ok((regex, match_grabber))
 }
 
 fn sub_error<T>(message: &str, src: &SscanfInner, start: usize, end: usize) -> Result<T> {
