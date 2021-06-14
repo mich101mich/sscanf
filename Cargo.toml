@@ -1,6 +1,6 @@
 [package]
 name = "sscanf"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["mich101mich <mich101mich@gmail.com>"]
 edition = "2018"
 description = "A sscanf (inverse of format!()) Macro based on Regex"

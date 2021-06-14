@@ -13,45 +13,48 @@
 //! A sscanf (inverse of format!()) Macro based on Regex
 //!
 //! ## sscanf
-//! `sscanf` is a C-function that takes a String, a format String with placeholders and several
-//! Variables (in the Rust version replaced with Types). It then parses the input String, writing
-//! the values behind the placeholders into the Variables (the Rust version returns a Tuple of
-//! the specified Types). This process can be thought of as reversing a call to `format!()`:
+//! `sscanf` is originally a C-function that takes a String, a format String with placeholders and
+//! several Variables (in the Rust version replaced with Types). It then parses the input String,
+//! writing the values behind the placeholders into the Variables (Rust: returns a Tuple). `sscanf`
+//! can be thought of as reversing a call to `format!()`:
 //! ```
-//! let s = format!("Hello {} #{}", "World", 5);
-//! assert_eq!(s, "Hello World #5");
+//! // format: takes format string and values, returns String
+//! let s = format!("Hello {}_{}!", "World", 5);
+//! assert_eq!(s, "Hello World_5!");
 //!
-//! let parsed = sscanf::scanf!(s, "Hello {} #{}", String, usize);
+//! // scanf: takes String, format string and types, returns Tuple
+//! let parsed = sscanf::scanf!(s, "Hello {}_{}!", String, usize);
 //! // parsed is Option<(String, usize)>
 //! assert_eq!(parsed, Some((String::from("World"), 5)));
 //! ```
-//! As can be seen in the example, [`scanf`] takes a format String like `format!()`, but instead of
-//! writing the values from the remaining parameters into the `{}` it instead extracts the contents
-//! of the input string. Those parts are then parsed according to the specified Types and returned
-//! as a Tuple, or `None` if the parsing failed or the strings don't match.
+//! `scanf!()` takes a format String like `format!()`, but doesn't write
+//! the values into the placeholders (`{}`), but extracts the values at those `{}` into the return
+//! Tuple.
+//!
+//! If matching the format string failed, `None` is returned:
 //! ```
-//! let s = "Random Text";
-//! let parsed = sscanf::scanf!(s, "Hello {} #{}", String, usize);
-//! assert_eq!(parsed, None); // "Random Text" and "Hello..." do not match
+//! let s = "Text that doesn't match the format string";
+//! let parsed = sscanf::scanf!(s, "Hello {}_{}!", String, usize);
+//! assert_eq!(parsed, None); // No match possible
 //! ```
 //!
-//! Note that the original C-function (and this Crate) are called sscanf, which is the correct
-//! version in this context. `scanf` is itself a C-function with the same functionality, but
-//! reading the input from stdin instead of taking a String parameter. The macro itself is called
-//! [`scanf`] because that is shorter, can be pronounced without sounding too weird and nobody uses
-//! the stdin version anyway.
+//! Note that the original C-function and this Crate are called sscanf, which is the technically
+//! correct version in this context. `scanf` (with one `s`) is a similar C-function that reads a
+//! console input instead of taking a String parameter. The macro itself is called `scanf!()`
+//! because that is shorter, can be pronounced without sounding too weird and nobody uses the stdin
+//! version anyway.
 //!
 //! More examples of the capabilities of [`scanf`]:
 //! ```
 //! use sscanf::scanf;
 //!
-//! let input = "4-5 t: ftttttrvts";
-//! let parsed = scanf!(input, "{}-{} {}: {}", usize, usize, char, String);
-//! assert_eq!(parsed, Some((4, 5, 't', String::from("ftttttrvts"))));
-//!
 //! let input = "<x=3, y=-6, z=6>";
 //! let parsed = scanf!(input, "<x={}, y={}, z={}>", i32, i32, i32);
 //! assert_eq!(parsed, Some((3, -6, 6)));
+//!
+//! let input = "4-5 t: ftttttrvts";
+//! let parsed = scanf!(input, "{}-{} {}: {}", usize, usize, char, String);
+//! assert_eq!(parsed, Some((4, 5, 't', String::from("ftttttrvts"))));
 //!
 //! let input = "Goto N36E21";
 //! let parsed = scanf!(input, "Goto {}{}{}{}", char, usize, char, usize);
@@ -65,9 +68,11 @@
 //! assert_eq!(b, "Another Sentence");
 //! assert_eq!(c, "Yet more Words with Spaces");
 //! ```
+//! The input in this case is a `&'static stc`, but in can be `String`, `&str`, `&String`, ...
+//! Basically anything with `AsRef<str>` and without taking Ownership.
 //!
-//! The parsing part of this macro has very few limitations, since it replaces the `{}` with a Regular
-//! Expression ([`regex`](https://docs.rs/regex)) that corresponds to that type.
+//! The parsing part of this macro has very few limitations, since it replaces the `{}` with a
+//! Regular Expression ([`regex`](https://docs.rs/regex)) that corresponds to that type.
 //! For example:
 //! - `char` is just one Character (regex `"."`)
 //! - `String` is any sequence of Characters (regex `".+"`)
@@ -160,7 +165,8 @@
 /// A Macro to parse a String based on a format-String, similar to sscanf in C
 ///
 /// Takes at least two Parameters:
-/// - An input string (`String`, `str`, ... as long as it can be dereferenced into `&str`)
+/// - An input string (`String`, `str`, ... as long as it has `AsRef<str>`)
+///   - `scanf` does not take Ownership!
 /// - A format string literal (see below)
 ///
 /// As well as any number of Types.
@@ -182,13 +188,13 @@
 /// ```
 /// use sscanf::scanf;
 ///
-/// let input = "4-5 t: ftttttrvts";
-/// let parsed = scanf!(input, "{}-{} {}: {}", usize, usize, char, String);
-/// assert_eq!(parsed, Some((4, 5, 't', String::from("ftttttrvts"))));
-///
 /// let input = "<x=3, y=-6, z=6>";
 /// let parsed = scanf!(input, "<x={}, y={}, z={}>", i32, i32, i32);
 /// assert_eq!(parsed, Some((3, -6, 6)));
+///
+/// let input = "4-5 t: ftttttrvts";
+/// let parsed = scanf!(input, "{}-{} {}: {}", usize, usize, char, String);
+/// assert_eq!(parsed, Some((4, 5, 't', String::from("ftttttrvts"))));
 ///
 /// let input = "Goto N36E21";
 /// let parsed = scanf!(input, "Goto {}{}{}{}", char, usize, char, usize);
@@ -271,6 +277,6 @@ pub use types::*;
 #[doc(hidden)]
 pub use const_format;
 #[doc(hidden)]
-pub use regex;
-#[doc(hidden)]
 pub use lazy_static;
+#[doc(hidden)]
+pub use regex;
