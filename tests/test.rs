@@ -100,7 +100,9 @@ fn generic_types() {
     #[derive(Debug, PartialEq, Default)]
     pub struct Bob<T>(pub std::marker::PhantomData<T>);
     impl<T> RegexRepresentation for Bob<T> {
-        const REGEX: &'static str = ".*";
+        fn regex() -> &'static str {
+            ".*"
+        }
     }
     impl<T: Default> std::str::FromStr for Bob<T> {
         type Err = <f64 as std::str::FromStr>::Err;
@@ -112,6 +114,28 @@ fn generic_types() {
     let input = "Test";
     let output = scanf!(input, "{}", Bob<usize>);
     assert_eq!(output, Some(Default::default()));
+}
+
+#[test]
+fn vec_wrapper() {
+    let input = "[1, 2, 3, 4]";
+    let output = scanf!(input, "{}", VecWrapper<usize>).unwrap();
+    assert_eq!(output, vec![1, 2, 3, 4]);
+
+    let input = "[[1, 2], [3,4,5], []]";
+    let output = scanf!(input, "{}", VecWrapper<VecWrapper<usize>>).unwrap();
+    assert_eq!(output[0], vec![1, 2]);
+    assert_eq!(output[1], vec![3, 4, 5]);
+    assert_eq!(output[2], vec![]);
+    assert_eq!(output.len(), 3);
+
+    let input = "[[1, 2], 3, 4]";
+    let output = scanf!(input, "{}", VecWrapper<VecWrapper<usize>>);
+    assert!(output.is_none());
+
+    let input = "[[1, 2], 3, 4]";
+    let output = scanf!(input, "{}", VecWrapper<usize>);
+    assert!(output.is_none());
 }
 
 #[test]

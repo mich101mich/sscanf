@@ -1,7 +1,9 @@
 mod bob {
     pub struct Test;
     impl sscanf::RegexRepresentation for Test {
-        const REGEX: &'static str = "a";
+        fn regex() -> &'static str {
+            "a"
+        }
     }
 }
 fn main() {

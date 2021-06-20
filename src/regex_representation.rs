@@ -23,7 +23,9 @@
 /// impl sscanf::RegexRepresentation for Fraction {
 ///     /// matches an optional '-' or '+' followed by a number.
 ///     /// possibly with a '/' and another Number
-///     const REGEX: &'static str = r"[-+]?\d+(/\d+)?";
+///     fn regex() -> &'static str {
+///         r"[-+]?\d+(/\d+)?"
+///     }
 /// }
 /// impl std::str::FromStr for Fraction {
 ///     type Err = std::num::ParseIntError;
@@ -43,7 +45,9 @@
 /// # #[derive(Debug, PartialEq)]
 /// # struct Fraction(isize, usize);
 /// # impl sscanf::RegexRepresentation for Fraction {
-/// #     const REGEX: &'static str = r"[-+]?\d+(/\d+)?";
+/// #     fn regex() -> &'static str {
+/// #         r"[-+]?\d+(/\d+)?"
+/// #     }
 /// # }
 /// # impl std::str::FromStr for Fraction {
 /// #     type Err = std::num::ParseIntError;
@@ -79,7 +83,7 @@
 /// ```
 pub trait RegexRepresentation {
     /// A regular Expression that exactly matches any String representation of the implementing Type
-    const REGEX: &'static str;
+    fn regex() -> &'static str;
 }
 
 macro_rules! impl_num {
@@ -88,7 +92,9 @@ macro_rules! impl_num {
             /// Matches any positive number
             ///
             /// The length of this match might not fit into the size of the type
-            const REGEX: &'static str = r"\+?\d+";
+            fn regex() -> &'static str {
+                r"\+?\d+"
+            }
         })+
     };
     (i64: $($ty: ty),+) => {
@@ -96,7 +102,9 @@ macro_rules! impl_num {
             /// Matches any positive or negative number
             ///
             /// The length of this match might not fit into the size of the type
-            const REGEX: &'static str = r"[-+]?\d+";
+            fn regex() -> &'static str {
+                r"[-+]?\d+"
+            }
         })+
     };
     (f64: $($ty: ty),+) => {
@@ -104,7 +112,9 @@ macro_rules! impl_num {
             /// Matches any floating point number
             ///
             /// Does **NOT** support stuff like `inf` `nan` or `3e10`. See [`FullF32`](crate::FullF32) for those.
-            const REGEX: &'static str = r"[-+]?\d+\.?\d*";
+            fn regex() -> &'static str {
+                r"[-+]?\d+\.?\d*"
+            }
         })+
     };
 }
@@ -115,50 +125,68 @@ impl_num!(f64: f32, f64);
 
 impl RegexRepresentation for String {
     /// Matches any sequence of Characters
-    const REGEX: &'static str = r".+";
+    fn regex() -> &'static str {
+        r".+"
+    }
 }
 impl RegexRepresentation for char {
     /// Matches a single Character
-    const REGEX: &'static str = r".";
+    fn regex() -> &'static str {
+        r"."
+    }
 }
 impl RegexRepresentation for bool {
     /// Matches `true` or `false`
-    const REGEX: &'static str = r"true|false";
+    fn regex() -> &'static str {
+        r"true|false"
+    }
 }
 
 impl RegexRepresentation for u8 {
     /// Matches a number with up to 3 digits.
     ///
     /// The Number matched by this might be too big for the type
-    const REGEX: &'static str = r"\+?\d{1,3}";
+    fn regex() -> &'static str {
+        r"\+?\d{1,3}"
+    }
 }
 impl RegexRepresentation for u16 {
     /// Matches a number with up to 5 digits.
     ///
     /// The Number matched by this might be too big for the type
-    const REGEX: &'static str = r"\+?\d{1,5}";
+    fn regex() -> &'static str {
+        r"\+?\d{1,5}"
+    }
 }
 impl RegexRepresentation for u32 {
     /// Matches a number with up to 10 digits.
     ///
     /// The Number matched by this might be too big for the type
-    const REGEX: &'static str = r"\+?\d{1,10}";
+    fn regex() -> &'static str {
+        r"\+?\d{1,10}"
+    }
 }
 impl RegexRepresentation for i8 {
     /// Matches a number with possible sign and up to 3 digits.
     ///
     /// The Number matched by this might be too big for the type
-    const REGEX: &'static str = r"[-+]?\d{1,3}";
+    fn regex() -> &'static str {
+        r"[-+]?\d{1,3}"
+    }
 }
 impl RegexRepresentation for i16 {
     /// Matches a number with possible sign and up to 5 digits.
     ///
     /// The Number matched by this might be too big for the type
-    const REGEX: &'static str = r"[-+]?\d{1,5}";
+    fn regex() -> &'static str {
+        r"[-+]?\d{1,5}"
+    }
 }
 impl RegexRepresentation for i32 {
     /// Matches a number with possible sign and up to 10 digits.
     ///
     /// The Number matched by this might be too big for the type
-    const REGEX: &'static str = r"[-+]?\d{1,10}";
+    fn regex() -> &'static str {
+        r"[-+]?\d{1,10}"
+    }
 }

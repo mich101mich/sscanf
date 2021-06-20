@@ -5,7 +5,7 @@
     missing_copy_implementations,
     trivial_casts,
     trivial_numeric_casts,
-    unsafe_code,
+    // unsafe_code,
     unstable_features,
     unused_import_braces,
     unused_qualifications
@@ -103,7 +103,9 @@
 //! }
 //! impl sscanf::RegexRepresentation for TimeStamp {
 //!     /// Matches "[year-month-day hour:minute]"
-//!     const REGEX: &'static str = r"\[\d\d\d\d-\d\d-\d\d \d\d:\d\d\]";
+//!     fn regex() -> &'static str {
+//!         r"\[\d\d\d\d-\d\d-\d\d \d\d:\d\d\]"
+//!     }
 //! }
 //! impl std::str::FromStr for TimeStamp {
 //!     // ...

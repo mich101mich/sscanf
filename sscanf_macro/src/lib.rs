@@ -231,17 +231,16 @@ fn generate_regex(
         return Err(Error::new_spanned(token, "More Types than '{}' provided"));
     }
 
-    let mut regex_builder = vec![];
+    let mut regex_builder = quote!(::std::string::String::new());
     let mut match_grabber = vec![];
     for (prefix, (ty, name)) in regex.iter().zip(type_tokens) {
-        regex_builder.push(quote!(#prefix));
+        regex_builder.extend(quote!(+ #prefix));
 
         let (start, end) = full_span(&ty);
 
         {
-            let mut s = quote_spanned!(start => <#ty as );
-            s.extend(quote_spanned!(end => ::sscanf::RegexRepresentation>::REGEX));
-            regex_builder.push(s);
+            regex_builder.extend(quote_spanned!(start => + <#ty as ));
+            regex_builder.extend(quote_spanned!(end => ::sscanf::RegexRepresentation>::regex()));
         }
         {
             let mut s = quote_spanned!(start => <#ty as );
@@ -250,11 +249,11 @@ fn generate_regex(
         }
     }
 
-    regex_builder.push(quote!(#current_regex));
+    regex_builder.extend(quote!(+ #current_regex));
 
     let regex = quote!(::sscanf::lazy_static::lazy_static! {
         static ref REGEX: ::sscanf::regex::Regex = ::sscanf::regex::Regex::new(
-            ::sscanf::const_format::concatcp!( #(#regex_builder),* )
+            &( #regex_builder )
         ).expect("sscanf Regex error");
     });
 
