@@ -2,7 +2,6 @@
 
 A Rust crate with a sscanf (inverse of format!()) Macro based on Regex
 
-[![Build](https://github.com/mich101mich/sscanf/actions/workflows/build.yml/badge.svg)](https://github.com/mich101mich/sscanf/actions/workflows/build.yml)
 [![Tests](https://github.com/mich101mich/sscanf/actions/workflows/test.yml/badge.svg)](https://github.com/mich101mich/sscanf/actions/workflows/test.yml)
 
 `sscanf` is originally a C-function that takes a String, a format String with placeholders and several
