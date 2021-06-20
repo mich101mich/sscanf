@@ -82,83 +82,149 @@ pub trait RegexRepresentation {
     const REGEX: &'static str;
 }
 
+macro_rules! doc_concat {
+    ($target: item, $($doc: expr),+) => {
+        $(
+            #[doc = $doc]
+        )+
+        $target
+    };
+}
+
+doc_concat! {const _A: u8 = 5;, "hi", "you", stringify!(4), "bob"}
+
 macro_rules! impl_num {
-    (u64: $($ty: ty),+) => {
+    (u64; $(($ty: ty, $n: literal)),+) => {
         $(impl RegexRepresentation for $ty {
-            /// Matches any positive number
-            ///
-            /// The length of this match might not fit into the size of the type
-            const REGEX: &'static str = r"\+?\d+";
+            doc_concat!{
+                const REGEX: &'static str = concat!(r"\+?\d{1,", $n, "}");,
+                "Matches any positive number with up to", stringify!($n), "digits\n",
+                "```",
+                "# use sscanf::RegexRepresentation;",
+                concat!("assert_eq!(", stringify!($ty), "::REGEX, r\"\\+?\\d{1,", $n, "}\");"),
+                "```"
+            }
         })+
     };
-    (i64: $($ty: ty),+) => {
+    (i64; $(($ty: ty, $n: literal)),+) => {
         $(impl RegexRepresentation for $ty {
-            /// Matches any positive or negative number
-            ///
-            /// The length of this match might not fit into the size of the type
-            const REGEX: &'static str = r"[-+]?\d+";
+            doc_concat!{
+                const REGEX: &'static str = concat!(r"[-+]?\d{1,", $n, "}");,
+                "Matches any number with up to", stringify!($n), "digits\n",
+                "```",
+                "# use sscanf::RegexRepresentation;",
+                concat!("assert_eq!(", stringify!($ty), r#"::REGEX, r"[-+]?\d{1,"#, $n, r#"}");"#),
+                "```"
+            }
         })+
     };
-    (f64: $($ty: ty),+) => {
+    (NonZeroU64; $(($ty: ty, $n: literal, $doc: literal)),+) => {
         $(impl RegexRepresentation for $ty {
-            /// Matches any floating point number
-            ///
-            /// Does **NOT** support stuff like `inf` `nan` or `3e10`. See [`FullF32`](crate::FullF32) for those.
-            const REGEX: &'static str = r"[-+]?\d+\.?\d*";
+            doc_concat!{
+                const REGEX: &'static str = concat!(r"\+?[1-9]\d{0,", $n, "}");,
+                "Matches any positive non-zero number with up to", stringify!($doc), "digits\n",
+                "```",
+                "# use sscanf::RegexRepresentation; use std::num::*;",
+                concat!("assert_eq!(", stringify!($ty), r#"::REGEX, r"\+?[1-9]\d{0,"#, $n, r#"}");"#),
+                "```"
+            }
+        })+
+    };
+    (NonZeroI64; $(($ty: ty, $n: literal, $doc: literal)),+) => {
+        $(impl RegexRepresentation for $ty {
+            doc_concat!{
+                const REGEX: &'static str = concat!(r"[-+]?[1-9]\d{0,", $n, "}");,
+                "Matches any non-zero number with up to", stringify!($doc), "digits\n",
+                "```",
+                "# use sscanf::RegexRepresentation; use std::num::*;",
+                concat!("assert_eq!(", stringify!($ty), r#"::REGEX, r"[-+]?[1-9]\d{0,"#, $n, r#"}");"#),
+                "```"
+            }
+        })+
+    };
+    (f64; $($ty: ty),+) => {
+        $(impl RegexRepresentation for $ty {
+            doc_concat!{
+                const REGEX: &'static str = r"[-+]?\d+\.?\d*";,
+                "Matches any floating point number",
+                "```",
+                "# use sscanf::RegexRepresentation;",
+                concat!("assert_eq!(", stringify!($ty), r#"::REGEX, r"[-+]?\d+\.?\d*");"#),
+                "```"
+            }
         })+
     };
 }
 
-impl_num!(u64: usize, u64, u128);
-impl_num!(i64: isize, i64, i128);
-impl_num!(f64: f32, f64);
+use std::num::*;
+
+impl_num!(u64;
+    (u8, 3),
+    (u16, 5),
+    (u32, 10),
+    (u64, 20),
+    (u128, 39),
+    (usize, 20)
+);
+impl_num!(NonZeroU64;
+    (NonZeroU8, 2, 3),
+    (NonZeroU16, 4, 5),
+    (NonZeroU32, 9, 10),
+    (NonZeroU64, 19, 20),
+    (NonZeroU128, 38, 39),
+    (NonZeroUsize, 19, 20)
+);
+impl_num!(i64;
+    (i8, 3),
+    (i16, 5),
+    (i32, 10),
+    (i64, 20),
+    (i128, 39),
+    (isize, 20)
+);
+impl_num!(NonZeroI64;
+    (NonZeroI8, 2, 3),
+    (NonZeroI16, 4, 5),
+    (NonZeroI32, 9, 10),
+    (NonZeroI64, 19, 20),
+    (NonZeroI128, 38, 39),
+    (NonZeroIsize, 19, 20)
+);
+impl_num!(f64; f32, f64);
 
 impl RegexRepresentation for String {
-    /// Matches any sequence of Characters
+    /// Matches any sequence of Characters.
+    /// ```
+    /// # use sscanf::RegexRepresentation;
+    /// assert_eq!(String::REGEX, r".+")
+    /// ```
     const REGEX: &'static str = r".+";
 }
 impl RegexRepresentation for char {
-    /// Matches a single Character
+    /// Matches a single Character.
+    /// ```
+    /// # use sscanf::RegexRepresentation;
+    /// assert_eq!(char::REGEX, r".")
+    /// ```
     const REGEX: &'static str = r".";
 }
 impl RegexRepresentation for bool {
-    /// Matches `true` or `false`
+    /// Matches `true` or `false`.
+    /// ```
+    /// # use sscanf::RegexRepresentation;
+    /// assert_eq!(bool::REGEX, r"true|false")
+    /// ```
     const REGEX: &'static str = r"true|false";
 }
 
-impl RegexRepresentation for u8 {
-    /// Matches a number with up to 3 digits.
+impl RegexRepresentation for std::path::PathBuf {
+    /// Matches any sequence of Characters.
     ///
-    /// The Number matched by this might be too big for the type
-    const REGEX: &'static str = r"\+?\d{1,3}";
-}
-impl RegexRepresentation for u16 {
-    /// Matches a number with up to 5 digits.
-    ///
-    /// The Number matched by this might be too big for the type
-    const REGEX: &'static str = r"\+?\d{1,5}";
-}
-impl RegexRepresentation for u32 {
-    /// Matches a number with up to 10 digits.
-    ///
-    /// The Number matched by this might be too big for the type
-    const REGEX: &'static str = r"\+?\d{1,10}";
-}
-impl RegexRepresentation for i8 {
-    /// Matches a number with possible sign and up to 3 digits.
-    ///
-    /// The Number matched by this might be too big for the type
-    const REGEX: &'static str = r"[-+]?\d{1,3}";
-}
-impl RegexRepresentation for i16 {
-    /// Matches a number with possible sign and up to 5 digits.
-    ///
-    /// The Number matched by this might be too big for the type
-    const REGEX: &'static str = r"[-+]?\d{1,5}";
-}
-impl RegexRepresentation for i32 {
-    /// Matches a number with possible sign and up to 10 digits.
-    ///
-    /// The Number matched by this might be too big for the type
-    const REGEX: &'static str = r"[-+]?\d{1,10}";
+    /// Paths in `std` don't actually have any restrictions on what they can contain, so anything
+    /// is valid.
+    /// ```
+    /// # use sscanf::RegexRepresentation; use std::path::PathBuf;
+    /// assert_eq!(PathBuf::REGEX, r".+")
+    /// ```
+    const REGEX: &'static str = r".+";
 }

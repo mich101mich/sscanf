@@ -272,7 +272,7 @@ pub use sscanf_macro::scanf;
 /// use sscanf::scanf_get_regex;
 /// let input = "Test 5 -2";
 /// let regex = scanf_get_regex!("Test {} {}", usize, i32);
-/// assert_eq!(regex.as_str(), r"^Test (?P<type_1>\+?\d+) (?P<type_2>[-+]?\d{1,10})$");
+/// assert_eq!(regex.as_str(), r"^Test (?P<type_1>\+?\d{1,20}) (?P<type_2>[-+]?\d{1,10})$");
 ///
 /// let output = regex.captures(input);
 /// assert!(output.is_some());
