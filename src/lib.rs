@@ -90,7 +90,8 @@
 //! to the second `char`.
 //!
 //! # Format Options
-//! All Options are inside `{` `}`.
+//! All Options are inside `{` `}`. Literal `{` of `}` inside of a Format Option are escaped with
+//! `\` instead of '{{' to avoid ambiguity.
 //!
 //! Procedural macro don't have any reliable type information, so if one of these options is used
 //! it just blindly assumes that the type used has the corresponding option. Otherwise you may
@@ -124,16 +125,16 @@
 //! # {
 //! # use sscanf::*;
 //! use chrono::{DateTime, NaiveTime, Utc};
-//! 
+//!
 //! let input = "10:37:02";
 //! let parsed = scanf!(input, "{%H:%m:%s}", NaiveTime);
 //! assert_eq!(parsed, Some(NaiveTime::from_hms(10, 37, 2)));
-//! 
+//!
 //! let expected = Utc.ymd(2014, 11, 28).and_hms(12, 0, 9);
 //! let input = "2014-11-28T12:00:09Z";
 //! let parsed = scanf!(input, "{}", DateTime<Utc>);
 //! assert_eq!(parsed, Some(expected));
-//! 
+//!
 //! let expected = Utc.ymd(2014, 11, 28).and_hms(12, 0, 9);
 //! let input = "Current Date: May 23, 2020 at 09:05.";
 //! let parsed = scanf!(input, "Current Date: {%M %d, %Y at %H:%M}.", DateTime<Utc>);
@@ -198,14 +199,14 @@
 //! sscanf::scanf!("", "Some Text {}{}{} and stuff", usize);
 //! ```
 //! ```text
-//! error: Missing Type for given '{}'
+//! error: Missing Type for given '{}' Placeholder
 //!   |
 //! 4 | sscanf::scanf!("", "Some Text {}{}{} and stuff", usize);
 //!   |                                 ^^
 //! ```
 //! But on stable, you are limited to only pointing at the entire format string:
 //! ```text
-//! error: Missing Type for given '{}'.  At "Some Text {}{}" <--
+//! error: Missing Type for given '{}' Placeholder.  At "Some Text {}{}" <--
 //!   |
 //! 4 | sscanf::scanf!("", "Some Text {}{}{} and stuff", usize);
 //!   |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -1,4 +1,4 @@
-error: Missing Type for given '{}'
+error: Missing Type for given '{}' Placeholder
  --> $DIR/raw_string.rs:2:33
   |
 2 |     sscanf::scanf!("hi", r#"asdf{}asdf"#);
