@@ -207,13 +207,15 @@
 //! ```
 //! But on stable, you are limited to only pointing at the entire format string:
 //! ```text
-//! error: Missing Type for given '{}' Placeholder.  At "Some Text {}{}" <--
+//! error: Missing Type for given '{}' Placeholder:
+//! At "Some Text {}{}{} and stuff"
+//!                 ^^
 //!   |
 //! 4 | sscanf::scanf!("", "Some Text {}{}{} and stuff", usize);
 //!   |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 //! ```
-//! The current workaround is to point at the incorrect part of the string in the Error Message
-//! itself (the `<--`). The alternative is to use `cargo +nightly check` to see the better Errors
+//! The current workaround is to replicate that behavior in the Error Message
+//! itself. The alternative is to use `cargo +nightly check` to see the better Errors
 //! whenever something goes wrong, or setting your Editor plugin to check with nightly.
 //!
 //! This does _**not**_ influence the functionality in any way. This Crate works entirely on stable

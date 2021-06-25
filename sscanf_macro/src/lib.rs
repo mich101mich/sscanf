@@ -640,11 +640,20 @@ fn sub_error(message: &str, src: &SscanfInner, (start, end): (usize, usize)) -> 
     if let Some(span) = src.fmt_span.subspan(s..=e) {
         Error::new(span, message)
     } else {
-        let m = format!(
-            "{}.  At \"{}\" <--",
-            message,
-            &src.fmt[0..=end.min(src.fmt.len() - 1)]
-        );
+        let mut m = format!("{}:\nAt ", message);
+        let msg_len = 3; // "At "
+
+        if src.span_offset > 0 {
+            m.push('r');
+            (1..src.span_offset).for_each(|_| m.push('#'));
+        }
+        m.push('"');
+        m += &src.fmt;
+        m.push('"');
+        (1..src.span_offset).for_each(|_| m.push('#'));
+        m.push('\n');
+        (0..(s + msg_len)).for_each(|_| m.push(' '));
+        (s..=e).for_each(|_| m.push('^'));
         Error::new_spanned(&src.fmt_span, m)
     }
 }
