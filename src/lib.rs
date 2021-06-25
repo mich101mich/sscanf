@@ -68,7 +68,7 @@
 //! assert_eq!(a, "A Sentence with Spaces");
 //! assert_eq!(b, 0xab01);
 //! assert_eq!(c, 0o127);
-//! assert_eq!(c, 0b101010);
+//! assert_eq!(d, 0b101010);
 //! ```
 //! The input in this case is a `&'static stc`, but in can be `String`, `&str`, `&String`, ...
 //! Basically anything with `AsRef<str>` and without taking Ownership.
@@ -93,13 +93,12 @@
 //! All Options are inside `{` `}`. Literal `{` of `}` inside of a Format Option are escaped with
 //! `\` instead of '{{' to avoid ambiguity.
 //!
-//! Procedural macro don't have any reliable type information, so if one of these options is used
-//! it just blindly assumes that the type used has the corresponding option. Otherwise you may
-//! get some weird error messages.
+//! Procedural macro don't have any reliable type information, so the Type must be the exact required
+//! Type without any path or alias (`chrono` imports happen automatically)
 //!
 //! Radix Options:
 //!
-//! Require Type to have [`from_str_radix`](https://doc.rust-lang.org/std/primitive.isize.html#method.from_str_radix) function
+//! Only work on primitive number types (u8, i8, u16, ...).
 //! - `x`: hexadecimal Number (Digits 0-9 and A-F, optional Prefix `0x`)
 //! - `o`: octal Number (Digits 0-7, optional Prefix `0o`)
 //! - `b`: binary Number (Digits 0-1, optional Prefix `0b`)
@@ -108,10 +107,12 @@
 //! [`chrono`](https://docs.rs/chrono/^0.4/chrono/) integration:
 //!
 //! The types [`DateTime`](https://docs.rs/chrono/^0.4/chrono/struct.DateTime.html),
+//! [`NaiveDate`](https://docs.rs/chrono/^0.4/chrono/naive/struct.NaiveDate.html),
+//! [`NaiveTime`](https://docs.rs/chrono/^0.4/chrono/naive/struct.NaiveTime.html),
 //! [`NaiveDateTime`](https://docs.rs/chrono/^0.4/chrono/naive/struct.NaiveDateTime.html),
-//! [`NaiveTime`](https://docs.rs/chrono/^0.4/chrono/naive/struct.NaiveTime.html) and
-//! [`NaiveDate`](https://docs.rs/chrono/^0.4/chrono/naive/struct.NaiveDate.html) can used and accept
-//! an optional [Date/Time format string](https://docs.rs/chrono/0.4.19/chrono/format/strftime/index.html)
+//! [`Utc`](https://docs.rs/chrono/^0.4/chrono/offset/struct.Utc.html) and
+//! [`Local`](https://docs.rs/chrono/^0.4/chrono/offset/struct.Local.html) can be used and accept
+//! a [Date/Time format string](https://docs.rs/chrono/0.4.19/chrono/format/strftime/index.html)
 //! inside of the `{` `}`, that will then be used for both the Regex generation and parsing of the
 //! type.
 //!
@@ -119,25 +120,25 @@
 //! `DateTime<FixedOffset>` and requires the rules and limits that [`parse_from_str`](https://docs.rs/chrono/^0.4/chrono/struct.DateTime.html#method.parse_from_str)
 //! has.
 //!
-//! see [`chrono_integration`] for examples
 //! ```
 //! # #[cfg(feature = "chrono")]
 //! # {
 //! # use sscanf::*;
-//! use chrono::{DateTime, NaiveTime, Utc};
+//! use chrono::prelude::*;
 //!
 //! let input = "10:37:02";
-//! let parsed = scanf!(input, "{%H:%m:%s}", NaiveTime);
+//! let parsed = scanf!(input, "{%H:%M:%S}", NaiveTime);
 //! assert_eq!(parsed, Some(NaiveTime::from_hms(10, 37, 2)));
 //!
-//! let expected = Utc.ymd(2014, 11, 28).and_hms(12, 0, 9);
-//! let input = "2014-11-28T12:00:09Z";
+//! let expected = Utc.ymd(2020, 5, 23).and_hms(21, 5, 7);
+//!
+//! // DateTime<*> directly implements FromStr and doesn't need a config
+//! let input = "2020-05-23T21:05:07Z";
 //! let parsed = scanf!(input, "{}", DateTime<Utc>);
 //! assert_eq!(parsed, Some(expected));
 //!
-//! let expected = Utc.ymd(2014, 11, 28).and_hms(12, 0, 9);
-//! let input = "Current Date: May 23, 2020 at 09:05.";
-//! let parsed = scanf!(input, "Current Date: {%M %d, %Y at %H:%M}.", DateTime<Utc>);
+//! let input = "Today is the 23. of May, 2020 at 09:05 pm and 7 seconds.";
+//! let parsed = scanf!(input, "Today is the {%d. of %B, %Y at %I:%M %P and %-S} seconds.", Utc);
 //! assert_eq!(parsed, Some(expected));
 //! # }
 //! ```
@@ -337,3 +338,7 @@ pub use const_format;
 pub use lazy_static;
 #[doc(hidden)]
 pub use regex;
+
+#[cfg(feature = "chrono")]
+#[doc(hidden)]
+pub use chrono;

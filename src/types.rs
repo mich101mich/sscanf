@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 use crate::RegexRepresentation;
 use std::ops::*;
 
@@ -111,6 +112,10 @@ impl_wrapper_ops!(FullF64, f64);
 /// assert_eq!(output.1, 0x123456789abcdef);
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[deprecated(
+    since = "0.1.3",
+    note = "use actual number type with format options instead"
+)]
 pub struct HexNumber(pub usize);
 
 impl std::str::FromStr for HexNumber {

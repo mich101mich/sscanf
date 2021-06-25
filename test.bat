@@ -1,0 +1,1 @@
+cargo +stable test && cargo +stable test --all-features && cargo +nightly test && cargo +nightly test --all-features

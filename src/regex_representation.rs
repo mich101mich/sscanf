@@ -91,53 +91,18 @@ macro_rules! doc_concat {
     };
 }
 
-doc_concat! {const _A: u8 = 5;, "hi", "you", stringify!(4), "bob"}
-
 macro_rules! impl_num {
-    (u64; $(($ty: ty, $n: literal)),+) => {
-        $(impl RegexRepresentation for $ty {
-            doc_concat!{
-                const REGEX: &'static str = concat!(r"\+?\d{1,", $n, "}");,
-                "Matches any positive number with up to", stringify!($n), "digits\n",
-                "```",
-                "# use sscanf::RegexRepresentation;",
-                concat!("assert_eq!(", stringify!($ty), "::REGEX, r\"\\+?\\d{1,", $n, "}\");"),
-                "```"
-            }
-        })+
+    ($spec: literal, $prefix: literal; $(($ty: ty, $n: literal)),+) => {
+        impl_num!($spec, $prefix; $(($ty, $n, $n)),+);
     };
-    (i64; $(($ty: ty, $n: literal)),+) => {
+    ($spec: literal, $prefix: literal; $(($ty: ty, $n: literal, $doc: literal)),+) => {
         $(impl RegexRepresentation for $ty {
             doc_concat!{
-                const REGEX: &'static str = concat!(r"[-+]?\d{1,", $n, "}");,
-                "Matches any number with up to", stringify!($n), "digits\n",
-                "```",
-                "# use sscanf::RegexRepresentation;",
-                concat!("assert_eq!(", stringify!($ty), r#"::REGEX, r"[-+]?\d{1,"#, $n, r#"}");"#),
-                "```"
-            }
-        })+
-    };
-    (NonZeroU64; $(($ty: ty, $n: literal, $doc: literal)),+) => {
-        $(impl RegexRepresentation for $ty {
-            doc_concat!{
-                const REGEX: &'static str = concat!(r"\+?[1-9]\d{0,", $n, "}");,
-                "Matches any positive non-zero number with up to", stringify!($doc), "digits\n",
+                const REGEX: &'static str = concat!($prefix, $n, "}");,
+                "Matches ", $spec, " number with up to", stringify!($doc), "digits\n",
                 "```",
                 "# use sscanf::RegexRepresentation; use std::num::*;",
-                concat!("assert_eq!(", stringify!($ty), r#"::REGEX, r"\+?[1-9]\d{0,"#, $n, r#"}");"#),
-                "```"
-            }
-        })+
-    };
-    (NonZeroI64; $(($ty: ty, $n: literal, $doc: literal)),+) => {
-        $(impl RegexRepresentation for $ty {
-            doc_concat!{
-                const REGEX: &'static str = concat!(r"[-+]?[1-9]\d{0,", $n, "}");,
-                "Matches any non-zero number with up to", stringify!($doc), "digits\n",
-                "```",
-                "# use sscanf::RegexRepresentation; use std::num::*;",
-                concat!("assert_eq!(", stringify!($ty), r#"::REGEX, r"[-+]?[1-9]\d{0,"#, $n, r#"}");"#),
+                concat!("assert_eq!(", stringify!($ty), "::REGEX, r\"", $prefix, $n, "}\");"),
                 "```"
             }
         })+
@@ -158,7 +123,7 @@ macro_rules! impl_num {
 
 use std::num::*;
 
-impl_num!(u64;
+impl_num!("any positive", r"\+?\d{1,";
     (u8, 3),
     (u16, 5),
     (u32, 10),
@@ -166,7 +131,7 @@ impl_num!(u64;
     (u128, 39),
     (usize, 20)
 );
-impl_num!(NonZeroU64;
+impl_num!("any positive non-zero", r"\+?[1-9]\d{0,";
     (NonZeroU8, 2, 3),
     (NonZeroU16, 4, 5),
     (NonZeroU32, 9, 10),
@@ -174,7 +139,7 @@ impl_num!(NonZeroU64;
     (NonZeroU128, 38, 39),
     (NonZeroUsize, 19, 20)
 );
-impl_num!(i64;
+impl_num!("any", r"[-+]?\d{1,";
     (i8, 3),
     (i16, 5),
     (i32, 10),
@@ -182,7 +147,7 @@ impl_num!(i64;
     (i128, 39),
     (isize, 20)
 );
-impl_num!(NonZeroI64;
+impl_num!("any non-zero", r"[-+]?[1-9]\d{0,";
     (NonZeroI8, 2, 3),
     (NonZeroI16, 4, 5),
     (NonZeroI32, 9, 10),
@@ -227,4 +192,48 @@ impl RegexRepresentation for std::path::PathBuf {
     /// assert_eq!(PathBuf::REGEX, r".+")
     /// ```
     const REGEX: &'static str = r".+";
+}
+
+#[cfg(feature = "chrono")]
+#[cfg_attr(doc_cfg, doc(cfg(feature = "chrono")))]
+mod chrono_integration {
+    use super::RegexRepresentation;
+    use chrono::prelude::*;
+
+    impl RegexRepresentation for DateTime<Utc> {
+        /// Matches a DateTime
+        ///
+        /// Format according to [chrono](https://docs.rs/chrono/^0.4/chrono/index.html#formatting-and-parsing):
+        /// `year-month-dayThour:minute:secondZ`
+        /// ```
+        /// # use sscanf::RegexRepresentation; use chrono::*;
+        /// assert_eq!(DateTime::<Utc>::REGEX, r"\d\d\d\d-(0\d|1[0-2])-([0-2]\d|3[01])T([01]\d|2[0-3]):[0-5]\d:([0-5]\d|60)Z")
+        /// ```
+        const REGEX: &'static str =
+            r"\d\d\d\d-(0\d|1[0-2])-([0-2]\d|3[01])T([01]\d|2[0-3]):[0-5]\d:([0-5]\d|60)Z";
+    }
+    impl RegexRepresentation for DateTime<Local> {
+        /// Matches a DateTime
+        ///
+        /// Format according to [chrono](https://docs.rs/chrono/^0.4/chrono/index.html#formatting-and-parsing):
+        /// `year-month-dayThour:minute:second+timezone`
+        /// ```
+        /// # use sscanf::RegexRepresentation; use chrono::*;
+        /// assert_eq!(DateTime::<Local>::REGEX, r"\d\d\d\d-(0\d|1[0-2])-([0-2]\d|3[01])T([01]\d|2[0-3]):[0-5]\d:([0-5]\d|60)+\d\d:\d\d")
+        /// ```
+        const REGEX: &'static str =
+            r"\d\d\d\d-(0\d|1[0-2])-([0-2]\d|3[01])T([01]\d|2[0-3]):[0-5]\d:([0-5]\d|60)+\d\d:\d\d";
+    }
+    impl RegexRepresentation for DateTime<FixedOffset> {
+        /// Matches a DateTime
+        ///
+        /// Format according to [chrono](https://docs.rs/chrono/^0.4/chrono/index.html#formatting-and-parsing):
+        /// `year-month-dayThour:minute:second+timezone`
+        /// ```
+        /// # use sscanf::RegexRepresentation; use chrono::*;
+        /// assert_eq!(DateTime::<FixedOffset>::REGEX, r"\d\d\d\d-(0\d|1[0-2])-([0-2]\d|3[01])T([01]\d|2[0-3]):[0-5]\d:([0-5]\d|60)+\d\d:\d\d")
+        /// ```
+        const REGEX: &'static str =
+            r"\d\d\d\d-(0\d|1[0-2])-([0-2]\d|3[01])T([01]\d|2[0-3]):[0-5]\d:([0-5]\d|60)+\d\d:\d\d";
+    }
 }

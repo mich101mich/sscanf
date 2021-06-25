@@ -15,6 +15,7 @@ assert_eq!(s, "Hello World_5!");
 
 // scanf: takes String, format string and types, returns Tuple
 let parsed = sscanf::scanf!(s, "Hello {}_{}!", String, usize);
+
 // parsed is Option<(String, usize)>
 assert_eq!(parsed, Some((String::from("World"), 5)));
 ```

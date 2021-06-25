@@ -115,6 +115,24 @@ fn generic_types() {
 }
 
 #[test]
+fn config() {
+    let input = "A Sentence with Spaces. Number formats: 0xab01 0o127 0b101010.";
+    let parsed = scanf!(
+        input,
+        "{}. Number formats: {x} {o} {b}.",
+        String,
+        usize,
+        i32,
+        u8
+    );
+    let (a, b, c, d) = parsed.unwrap();
+    assert_eq!(a, "A Sentence with Spaces");
+    assert_eq!(b, 0xab01);
+    assert_eq!(c, 0o127);
+    assert_eq!(d, 0b101010);
+}
+
+#[test]
 fn failing_tests() {
     let t = trybuild::TestCases::new();
     t.compile_fail("tests/fail/*.rs");
