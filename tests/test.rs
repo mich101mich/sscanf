@@ -6,6 +6,9 @@ mod types {
     mod hex_number;
 }
 
+#[cfg(feature = "chrono")]
+mod chrono;
+
 #[test]
 fn basic() {
     let input = "Test 5 1.4 {} bob!";
@@ -134,13 +137,26 @@ fn config() {
 
 #[test]
 fn failing_tests() {
+    use rustc_version::*;
+    let nightly = version_meta().unwrap().channel == Channel::Nightly;
+
     let t = trybuild::TestCases::new();
     t.compile_fail("tests/fail/*.rs");
     t.compile_fail("tests/fail_syntax/*.rs");
     // Error Messages are better in nightly => Different .stderr files
-    if rustc_version::version_meta().unwrap().channel == rustc_version::Channel::Nightly {
+    if nightly {
         t.compile_fail("tests/fail_nightly/*.rs");
     } else {
         t.compile_fail("tests/fail_stable/*.rs");
+    }
+
+    #[cfg(feature = "chrono")]
+    {
+        t.compile_fail("tests/chrono/fail/*.rs");
+        if nightly {
+            t.compile_fail("tests/chrono/fail_nightly/*.rs");
+        } else {
+            t.compile_fail("tests/chrono/fail_stable/*.rs");
+        }
     }
 }

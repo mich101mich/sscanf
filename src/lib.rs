@@ -1,6 +1,6 @@
 #![deny(
     missing_docs,
-    // missing_doc_code_examples,
+    missing_doc_code_examples,
     missing_debug_implementations,
     missing_copy_implementations,
     trivial_casts,

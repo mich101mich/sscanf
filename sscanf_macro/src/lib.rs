@@ -450,7 +450,7 @@ fn map_chrono_format(f: &str, src: &SscanfInner, offset: usize) -> Result<(Strin
     let mut iter = f
         .chars()
         .enumerate()
-        .map(|(i, c)| (i + offset, c))
+        .map(|(i, c)| (i + offset + 1, c))
         .peekable();
 
     while let Some((i, c)) = iter.next() {
@@ -509,7 +509,7 @@ fn get_date_fmt(
         'C' | 'y' | 'g' => pad_to("0", 2),
         'm' => format!(r"({}\d|1[0-2])", pad("0")),
         'b' | 'h' => r"[a-zA-Z]{3}".to_string(),
-        'B' => r"[a-zA-Z]+".to_string(),
+        'B' => r"[a-zA-Z]{3,9}".to_string(),
         'd' => format!(r"({}\d|[12]\d|3[01])", pad("0")),
         'e' => format!(r"({}\d|[12]\d|3[01])", pad(" ")),
         'a' => r"[a-zA-Z]{3}".to_string(),
@@ -532,13 +532,13 @@ fn get_date_fmt(
             get_date_fmt((i, 'y'), padding, src, iter)?
         ),
         'F' => format!(
-            "{}-{}-{}",
+            r"{}\-{}\-{}",
             get_date_fmt((i, 'Y'), padding, src, iter)?,
             get_date_fmt((i, 'm'), padding, src, iter)?,
             get_date_fmt((i, 'd'), padding, src, iter)?
         ),
         'v' => format!(
-            "{}-{}-{}",
+            r"{}\-{}\-{}",
             get_date_fmt((i, 'e'), padding, src, iter)?,
             get_date_fmt((i, 'b'), padding, src, iter)?,
             get_date_fmt((i, 'Y'), padding, src, iter)?
