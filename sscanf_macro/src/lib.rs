@@ -10,6 +10,9 @@ use syn::{
     Expr, LitStr, Token, TypePath,
 };
 
+mod chrono;
+mod format_config;
+
 struct PlaceHolder {
     name: String,
     config: Option<String>,
@@ -183,7 +186,7 @@ fn generate_regex(
     {
         regex_builder.push(quote!(#regex_prefix));
         if let Some(config) = ph.config.as_ref() {
-            let (regex, matcher) = regex_from_config(config, ty, &ph, &input)?;
+            let (regex, matcher) = format_config::regex_from_config(config, ty, ph, &input)?;
             regex_builder.push(regex);
             match_grabber.push(matcher);
         } else {
@@ -228,7 +231,7 @@ fn parse_format_string(
 
     while let Some((i, c)) = iter.next() {
         if c == '{' {
-            if let Some(mut ph) = parse_bracket_content(&mut iter, &input, i)? {
+            if let Some(mut ph) = format_config::parse_bracket_content(&mut iter, input, i)? {
                 ph.name = format!("type_{}", name_index);
                 name_index += 1;
 
@@ -245,7 +248,7 @@ fn parse_format_string(
             iter.next_if_eq(&(i + 1, '}')).ok_or_else(|| {
                 sub_error(
                     "Unexpected standalone '}'. Literal '}' need to be escaped as '}}'",
-                    &input,
+                    input,
                     (i, i),
                 )
             })?;
@@ -262,368 +265,6 @@ fn parse_format_string(
     regex.push(current_regex);
 
     Ok((placeholders, regex))
-}
-
-fn parse_bracket_content<I: Iterator<Item = (usize, char)>>(
-    input: &mut std::iter::Peekable<I>,
-    src: &SscanfInner,
-    start: usize,
-) -> Result<Option<PlaceHolder>> {
-    let mut config = String::new();
-    while let Some((i, c)) = input.next() {
-        if c == '\\' {
-            // escape any curly brackets
-            if let Some((_, c)) = input.next_if(|x| x.1 == '{' || x.1 == '}') {
-                config.push(c);
-                continue;
-            }
-        } else if c == '{' {
-            if i == start + 1 {
-                // '{' followed by '{' => escaped '{{'
-                return Ok(None);
-            }
-            return sub_error_result(
-                "Expected '}' after given '{', got '{' instead. Curly Brackets inside format options must be escaped with '\\'",
-                src,
-                (start, i),
-            );
-        } else if c == '}' {
-            return Ok(Some(PlaceHolder {
-                name: String::new(),
-                config: if i == start + 1 { None } else { Some(config) },
-                span: (start, i),
-            }));
-        } else {
-            // anything else is part of the config
-            config.push(c);
-        }
-    }
-    // end of input string
-    sub_error_result(
-        "Missing '}' after given '{'. Literal '{' need to be escaped as '{{'",
-        src,
-        (start, src.fmt.len()),
-    )
-}
-
-fn regex_from_config(
-    config: &str,
-    ty: &TypePath,
-    ph: &PlaceHolder,
-    src: &SscanfInner,
-) -> Result<(TokenStream, TokenStream)> {
-    let ty_string = ty.to_token_stream().to_string();
-    if let Some(radix) = get_radix(config) {
-        let binary_digits = binary_length(&ty_string).ok_or_else(|| {
-            Error::new_spanned(
-                ty,
-                "radix options only work on primitive numbers from std with no path or type alias",
-            )
-        })?;
-        // digit conversion: digits_base / log_x(base) * log_x(target) with any log-base x,
-        // so we choose log_2 where log_2(target) = 1;
-        let binaries_per_digit = (radix as f32).log2();
-        let digits = (binary_digits as f32 / binaries_per_digit).ceil() as u8;
-
-        // possible characters for digits
-        use std::cmp::Ordering::*;
-        let mut regex = match radix.cmp(&10) {
-            Less => format!(r"[0-{}]", radix - 1),
-            Equal => r"[0-9aA]".to_string(),
-            Greater => {
-                let last_letter = (b'a' + radix - 10) as char;
-                let last_letter_upper = (b'A' + radix - 10) as char;
-                format!(r"[0-9a-{}A-{}]", last_letter, last_letter_upper)
-            }
-        };
-        // repetition factor
-        regex += &format!(r"{{1, {}}}", digits);
-
-        // optional prefix
-        let prefix = if radix == 16 {
-            Some("0x")
-        } else if radix == 8 {
-            Some("0o")
-        } else if radix == 2 {
-            Some("0b")
-        } else {
-            None
-        };
-        if let Some(pref) = prefix.as_ref() {
-            regex = format!(r"{}{1}|{1}", pref, regex);
-        }
-
-        let span = ty.span();
-        let name = &ph.name;
-        let radix = radix as u32;
-        let matcher = if let Some(prefix) = prefix {
-            quote_spanned!(span => #ty::from_str_radix({
-                let s = cap.name(#name)?.as_str();
-                s.strip_prefix(#prefix).unwrap_or(s)
-            }, #radix).ok()?)
-        } else {
-            quote_spanned!(span => #ty::from_str_radix(cap.name(#name)?.as_str(), #radix).ok()?)
-        };
-
-        Ok((quote!(#regex), matcher))
-    } else {
-        match ty_string.as_str() {
-            "DateTime" | "NaiveDate" | "NaiveTime" | "NaiveDateTime" => {
-                let (regex, chrono_fmt) = map_chrono_format(config, src, ph.span.0)?;
-
-                let span = ty.span();
-                let name = &ph.name;
-                let matcher = quote_spanned!(span =>
-                    ::sscanf::chrono::#ty::parse_from_str(cap.name(#name)?.as_str(), #chrono_fmt)
-                        .expect("chrono parsing should be exact")
-                );
-
-                Ok((quote!(#regex), matcher))
-            }
-            "Utc" | "Local" => {
-                let (regex, chrono_fmt) = map_chrono_format(config, src, ph.span.0)?;
-
-                let span = ty.span();
-                let name = &ph.name;
-                let matcher = quote_spanned!(span =>
-                    #ty.datetime_from_str(cap.name(#name)?.as_str(), #chrono_fmt).ok()?
-                );
-
-                Ok((quote!(#regex), matcher))
-            }
-            _ => sub_error_result(
-                &format!("Unknown format option: '{}'", config),
-                src,
-                ph.span,
-            ),
-        }
-    }
-}
-
-fn get_radix(config: &str) -> Option<u8> {
-    if let Some(n) = config
-        .strip_prefix('r')
-        .and_then(|s| s.parse::<u8>().ok())
-        .filter(|n| *n >= 2 && *n <= 36)
-    {
-        return Some(n);
-    }
-    match config {
-        "x" => Some(16),
-        "o" => Some(8),
-        "b" => Some(2),
-        _ => None,
-    }
-}
-
-fn binary_length(ty: &str) -> Option<usize> {
-    match ty {
-        "u8" | "i8" => Some(8),
-        "u16" | "i16" => Some(16),
-        "u32" | "i32" => Some(32),
-        "u64" | "i64" => Some(64),
-        "u128" | "i128" => Some(128),
-        "usize" | "isize" if usize::MAX as u64 == u32::MAX as u64 => Some(32),
-        "usize" | "isize" if usize::MAX as u64 == u64::MAX as u64 => Some(64),
-        _ => None,
-    }
-}
-
-macro_rules! get_next {
-    ($iter: ident, $start: expr, $end: expr, $src: ident) => {
-        if let Some(next) = $iter.next() {
-            next
-        } else {
-            return sub_error_result(
-                "Incomplete chrono format '%'. Literal '%' need to be escaped as '%%'",
-                $src,
-                ($start, $end),
-            );
-        }
-    };
-}
-
-fn map_chrono_format(f: &str, src: &SscanfInner, offset: usize) -> Result<(String, String)> {
-    let mut regex = String::new();
-    let chrono_fmt = f.replace("\\{", "{").replace("\\}", "}");
-
-    let mut iter = f
-        .chars()
-        .enumerate()
-        .map(|(i, c)| (i + offset + 1, c))
-        .peekable();
-
-    while let Some((i, c)) = iter.next() {
-        if c != '%' {
-            if regex_syntax::is_meta_character(c) {
-                regex.push('\\');
-            }
-            regex.push(c);
-            continue;
-        }
-        let mut next = get_next!(iter, i, i, src);
-
-        let padding = match next.1 {
-            '-' => Some(""),
-            '0' => Some("0"),
-            '_' => Some(" "),
-            _ => None,
-        };
-        if padding.is_some() {
-            next = get_next!(iter, i, next.0, src);
-        }
-
-        regex += &get_date_fmt(next, padding, src, &mut iter)?;
-    }
-
-    Ok((regex, chrono_fmt))
-}
-
-fn get_date_fmt(
-    letter: (usize, char),
-    padding: Option<&'static str>,
-    src: &SscanfInner,
-    iter: &mut impl Iterator<Item = (usize, char)>,
-) -> Result<String> {
-    let i = letter.0;
-    let pad = |def| padding.unwrap_or(def);
-    let pad_to = |def, n| {
-        let padding = pad(def);
-        let mut fmt = String::from("(");
-        for i in 0..n {
-            if i != 0 {
-                fmt += "|";
-            }
-            for _ in 0..i {
-                fmt += padding;
-            }
-            fmt += "[1-9]";
-            for _ in (i + 1)..n {
-                fmt += r"\d";
-            }
-        }
-        fmt + ")"
-    };
-    Ok(match letter.1 {
-        'Y' | 'G' => pad_to("0", 4),
-        'C' | 'y' | 'g' => pad_to("0", 2),
-        'm' => format!(r"({}\d|1[0-2])", pad("0")),
-        'b' | 'h' => r"[a-zA-Z]{3}".to_string(),
-        'B' => r"[a-zA-Z]{3,9}".to_string(),
-        'd' => format!(r"({}\d|[12]\d|3[01])", pad("0")),
-        'e' => format!(r"({}\d|[12]\d|3[01])", pad(" ")),
-        'a' => r"[a-zA-Z]{3}".to_string(),
-        'A' => r"[a-zA-Z]+".to_string(),
-        'w' => "[0-6]".to_string(),
-        'u' => "[1-7]".to_string(),
-        'U' | 'W' => format!(r"({}\d|[1-4]\d|5[0-3])", pad("0")),
-        'V' => format!(r"({}[1-9]|[1-4]\d|5[0-3])", pad("0")),
-        'j' => format!(r"({0}{0}[1-9]|{0}\d\d|[1-3][0-5]\d|[1-3]6[0-6])", pad("0")),
-        'D' => format!(
-            "{}/{}/{}",
-            get_date_fmt((i, 'm'), padding, src, iter)?,
-            get_date_fmt((i, 'd'), padding, src, iter)?,
-            get_date_fmt((i, 'y'), padding, src, iter)?
-        ),
-        'x' => format!(
-            "{}/{}/{}",
-            get_date_fmt((i, 'd'), padding, src, iter)?,
-            get_date_fmt((i, 'd'), padding, src, iter)?,
-            get_date_fmt((i, 'y'), padding, src, iter)?
-        ),
-        'F' => format!(
-            r"{}\-{}\-{}",
-            get_date_fmt((i, 'Y'), padding, src, iter)?,
-            get_date_fmt((i, 'm'), padding, src, iter)?,
-            get_date_fmt((i, 'd'), padding, src, iter)?
-        ),
-        'v' => format!(
-            r"{}\-{}\-{}",
-            get_date_fmt((i, 'e'), padding, src, iter)?,
-            get_date_fmt((i, 'b'), padding, src, iter)?,
-            get_date_fmt((i, 'Y'), padding, src, iter)?
-        ),
-        'H' => format!(r"({}\d|1\d|2[0-3])", pad("0")),
-        'k' => format!(r"({}\d|1\d|2[0-3])", pad(" ")),
-        'I' => format!(r"({}[1-9]|1[0-2])", pad("0")),
-        'l' => format!(r"({}[1-9]|1[0-2])", pad(" ")),
-        'P' => "(am|pm)".to_string(),
-        'p' => "(AM|PM)".to_string(),
-        'M' => format!(r"({}\d|[1-5]\d)", pad("0")),
-        'S' => format!(r"({}\d|[1-5]\d|60)", pad("0")),
-        'f' => r"\d{9}".to_string(),
-        '.' => {
-            let start = i - 1;
-            match get_next!(iter, start, i, src) {
-                (_, 'f') => r"\.\d{0,9}".to_string(),
-                (ni, c @ '1'..='9') => {
-                    if get_next!(iter, start, ni, src).1 == 'f' {
-                        format!(r"\.\d{{{}}}", c)
-                    } else {
-                        return sub_error_result("Incomplete %f specifier", src, (start, ni));
-                    }
-                }
-                _ => return sub_error_result("Incomplete %f specifier", src, (start, i)),
-            }
-        }
-        c @ '1'..='9' => {
-            let start = i - 1;
-            if get_next!(iter, start, i, src).1 == 'f' {
-                format!(r"\d{{{}}}", c)
-            } else {
-                return sub_error_result("Incomplete %f specifier", src, (start, i));
-            }
-        }
-        'R' => format!(
-            "{}:{}",
-            get_date_fmt((i, 'H'), padding, src, iter)?,
-            get_date_fmt((i, 'M'), padding, src, iter)?,
-        ),
-        'T' | 'X' => format!(
-            "{}:{}:{}",
-            get_date_fmt((i, 'H'), padding, src, iter)?,
-            get_date_fmt((i, 'M'), padding, src, iter)?,
-            get_date_fmt((i, 'S'), padding, src, iter)?,
-        ),
-        'r' => format!(
-            "{}:{}:{} {}",
-            get_date_fmt((i, 'I'), padding, src, iter)?,
-            get_date_fmt((i, 'M'), padding, src, iter)?,
-            get_date_fmt((i, 'S'), padding, src, iter)?,
-            get_date_fmt((i, 'p'), padding, src, iter)?,
-        ),
-        'Z' => r"\w+".to_string(),
-        'z' => r"\+\d\d\d\d".to_string(),
-        c @ ':' | c @ '#' => {
-            if get_next!(iter, i - 1, i, src).1 == 'z' {
-                if c == ':' {
-                    r"\+\d\d:\d\d".to_string()
-                } else {
-                    r"\+\d\d(\d\d)?".to_string()
-                }
-            } else {
-                return sub_error_result("Incomplete %z specifier", src, (i - 1, i));
-            }
-        }
-        'c' => format!(
-            "{} {} {} {} {}",
-            get_date_fmt((i, 'a'), padding, src, iter)?,
-            get_date_fmt((i, 'h'), padding, src, iter)?,
-            get_date_fmt((i, 'e'), padding, src, iter)?,
-            get_date_fmt((i, 'X'), padding, src, iter)?,
-            get_date_fmt((i, 'Y'), padding, src, iter)?,
-        ),
-        '+' => format!(
-            r"{}T{}\.\d{{0,9}}\+\d\d:\d\d",
-            get_date_fmt((i, 'F'), padding, src, iter)?,
-            get_date_fmt((i, 'T'), padding, src, iter)?,
-        ),
-        's' => r"\d+".to_string(),
-        't' => '\t'.to_string(),
-        'n' => '\n'.to_string(),
-        '%' => '%'.to_string(),
-        x => return sub_error_result(&format!("Unknown chrono format {}", x), src, (i, i)),
-    })
 }
 
 fn sub_error_result<T>(
