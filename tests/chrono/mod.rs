@@ -3,11 +3,11 @@ use sscanf::*;
 
 #[test]
 fn date_time() {
-    let expected = FixedOffset::east(4 * 3600)
+    let expected = FixedOffset::east(4 * 3600 + 3600 / 2)
         .ymd(2021, 6, 21)
         .and_hms(13, 37, 42);
 
-    let input = "2021-06-21T13:37:42+04:00";
+    let input = "2021-06-21T13:37:42+04:30";
     let parsed = scanf!(input, "{}", DateTime<FixedOffset>);
     assert_eq!(parsed, Some(expected));
 
@@ -77,10 +77,10 @@ fn escaping() {
 
 #[test]
 fn formats() {
-    let expected = Utc.ymd(2021, 6, 1).and_hms(13, 37, 42);
+    let expected = Utc.ymd(2021, 6, 1).and_hms(1, 2, 3);
 
-    let input = "2021 June  1 13:37:42";
-    let parsed = scanf!(input, "{%C%y %B %e %H:%M:%S}", Utc);
+    let input = "2021 June  1 01: 2:3";
+    let parsed = scanf!(input, "{%C%y %B %e %0H:%_M:%-S}", Utc);
     assert_eq!(parsed, Some(expected));
 
     macro_rules! cmp {
@@ -93,6 +93,7 @@ fn formats() {
     }
 
     cmp!("{%e}", "{%_d}");
+    cmp!("{%0e}", "{%d}");
     cmp!("{%b}", "{%h}");
     cmp!("{%U}", "{%W}");
     cmp!("{%G}", "{%Y}");
@@ -104,7 +105,9 @@ fn formats() {
     cmp!("{%v}", "{%e-%b-%Y}");
 
     cmp!("{%k}", "{%_H}");
+    cmp!("{%0k}", "{%H}");
     cmp!("{%l}", "{%_I}");
+    cmp!("{%0l}", "{%I}");
 
     cmp!("{%R}", "{%H:%M}");
     cmp!("{%T}", "{%H:%M:%S}");
