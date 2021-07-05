@@ -344,3 +344,17 @@ pub use regex;
 #[cfg(feature = "chrono")]
 #[doc(hidden)]
 pub use chrono;
+
+#[cfg(feature = "chrono")]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! chrono_check {
+    ($code: block, $error: block) => { $code };
+}
+
+#[cfg(not(feature = "chrono"))]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! chrono_check {
+    ($code: block, $error: block) => { $error };
+}

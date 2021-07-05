@@ -1,0 +1,5 @@
+error: Unknown chrono format O
+ --> $DIR/unknown.rs:2:29
+  |
+2 |     sscanf::scanf!("hi", "{%O}", DateTime);
+  |                             ^

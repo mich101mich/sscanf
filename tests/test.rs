@@ -136,6 +136,26 @@ fn config() {
 }
 
 #[test]
+fn custom_chrono_type() {
+    #[derive(Debug, PartialEq)]
+    struct DateTime(usize);
+
+    impl sscanf::RegexRepresentation for DateTime {
+        const REGEX: &'static str = r"\d+";
+    }
+    impl std::str::FromStr for DateTime {
+        type Err = <usize as std::str::FromStr>::Err;
+        fn from_str(s: &str) -> Result<Self, Self::Err> {
+            Ok(DateTime(s.parse()?))
+        }
+    }
+
+    let input = "42";
+    let parsed = sscanf::scanf!(input, "{}", DateTime);
+    assert_eq!(parsed, Some(DateTime(42)));
+}
+
+#[test]
 fn failing_tests() {
     use rustc_version::*;
     let nightly = version_meta().unwrap().channel == Channel::Nightly;
@@ -158,5 +178,9 @@ fn failing_tests() {
         } else {
             t.compile_fail("tests/chrono/fail_stable/*.rs");
         }
+    }
+    #[cfg(not(feature = "chrono"))]
+    {
+        t.compile_fail("tests/no_chrono/*.rs");
     }
 }

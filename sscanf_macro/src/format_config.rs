@@ -109,9 +109,12 @@ pub(crate) fn regex_from_config(
 
                 let span = ty.span();
                 let name = &ph.name;
-                let matcher = quote_spanned!(span =>
+                let matcher = wrap_in_feature_gate(
+                    quote_spanned!(span =>
                     ::sscanf::chrono::#ty::parse_from_str(cap.name(#name)?.as_str(), #chrono_fmt)
-                        .expect("chrono parsing should be exact")
+                            .expect("chrono parsing should be exact")
+                        ),
+                    ty,
                 );
 
                 Ok((quote!(#regex), matcher))
@@ -121,8 +124,11 @@ pub(crate) fn regex_from_config(
 
                 let span = ty.span();
                 let name = &ph.name;
-                let matcher = quote_spanned!(span =>
-                    #ty.datetime_from_str(cap.name(#name)?.as_str(), #chrono_fmt).ok()?
+                let matcher = wrap_in_feature_gate(
+                    quote_spanned!(span =>
+                        ::sscanf::chrono::#ty.datetime_from_str(cap.name(#name)?.as_str(), #chrono_fmt).ok()?
+                    ),
+                    ty,
                 );
 
                 Ok((quote!(#regex), matcher))
@@ -163,4 +169,13 @@ fn binary_length(ty: &str) -> Option<usize> {
         "usize" | "isize" if usize::MAX as u64 == u64::MAX as u64 => Some(64),
         _ => None,
     }
+}
+
+fn wrap_in_feature_gate(tokens: TokenStream, span: impl quote::ToTokens) -> TokenStream {
+    let error = Error::new_spanned(
+        span,
+        "sscanf is missing 'chrono' feature to use chrono types",
+    )
+    .to_compile_error();
+    quote!(::sscanf::chrono_check!({#tokens}, {#error}))
 }
