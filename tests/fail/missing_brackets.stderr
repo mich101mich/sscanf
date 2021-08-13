@@ -1,5 +1,11 @@
-error: More Types than '{}' provided
- --> $DIR/missing_brackets.rs:2:34
+error: More Types than '{}' Placeholders provided
+ --> $DIR/missing_brackets.rs:2:43
   |
-2 |     sscanf::scanf!("hi", "asdf", std::vec::Vec<std::string::String>, u32);
-  |                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2 |     sscanf::scanf!("hi", "asdf{}", usize, std::vec::Vec<std::string::String>, u32);
+  |                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: More Types than '{}' Placeholders provided
+ --> $DIR/missing_brackets.rs:2:79
+  |
+2 |     sscanf::scanf!("hi", "asdf{}", usize, std::vec::Vec<std::string::String>, u32);
+  |                                                                               ^^^

@@ -2,7 +2,6 @@
 
 A Rust crate with a sscanf (inverse of format!()) Macro based on Regex
 
-[![Build](https://github.com/mich101mich/sscanf/actions/workflows/build.yml/badge.svg)](https://github.com/mich101mich/sscanf/actions/workflows/build.yml)
 [![Tests](https://github.com/mich101mich/sscanf/actions/workflows/test.yml/badge.svg)](https://github.com/mich101mich/sscanf/actions/workflows/test.yml)
 
 `sscanf` is originally a C-function that takes a String, a format String with placeholders and several
@@ -16,6 +15,7 @@ assert_eq!(s, "Hello World_5!");
 
 // scanf: takes String, format string and types, returns Tuple
 let parsed = sscanf::scanf!(s, "Hello {}_{}!", String, usize);
+
 // parsed is Option<(String, usize)>
 assert_eq!(parsed, Some((String::from("World"), 5)));
 ```
@@ -51,13 +51,13 @@ let input = "Move to N36E21";
 let parsed = scanf!(input, "Move to {}{}{}{}", char, usize, char, usize);
 assert_eq!(parsed, Some(('N', 36, 'E', 21)));
 
-let input = "A Sentence. Another Sentence. Yet more Words with Spaces.";
-let parsed = scanf!(input, "{}. {}. {}.", String, String, String);
-assert!(parsed.is_some());
-let (a, b, c) = parsed.unwrap();
-assert_eq!(a, "A Sentence");
-assert_eq!(b, "Another Sentence");
-assert_eq!(c, "Yet more Words with Spaces");
+let input = "A Sentence with Spaces. Number formats: 0xab01 0o127 0b101010.";
+let parsed = scanf!(input, "{}. Number formats: {x} {o} {b}.", String, usize, i32, u8);
+let (a, b, c, d) = parsed.unwrap();
+assert_eq!(a, "A Sentence with Spaces");
+assert_eq!(b, 0xab01);
+assert_eq!(c, 0o127);
+assert_eq!(d, 0b101010);
 ```
 The input in this case is a `&'static stc`, but in can be `String`, `&str`, `&String`, ... Basically
 anything with `AsRef<str>` and without taking Ownership.
@@ -77,6 +77,51 @@ combination that works. In the `char, usize, char, usize` example above it manag
 the `N` and `E` to the `char`s because they cannot be matched by the `usize`s. If the input
 were slightly different then it might have matched the `6` of the `36` or the `2` of the `21`
 to the second `char`.
+
+## Format Options
+All Options are inside '`{`' '`}`'. Literal '`{`' or '`}`' inside of a Format Option are escaped as
+'`\{`' instead of '`{{`' to avoid ambiguity.
+
+Procedural macro don't have any reliable type information, so the Type must be the exact required
+Type without any path or alias (`chrono` imports happen automatically)
+
+**Radix Options:**
+
+Only work on primitive number types (u8, i8, u16, ...).
+- `x`: hexadecimal Number (Digits 0-9 and A-F, optional Prefix `0x`)
+- `o`: octal Number (Digits 0-7, optional Prefix `0o`)
+- `b`: binary Number (Digits 0-1, optional Prefix `0b`)
+- `r2` - `r36`: any radix Number
+
+**[`chrono`](https://docs.rs/chrono/^0.4/chrono/) integration (Requires `chrono` feature):**
+
+The types [`DateTime`](https://docs.rs/chrono/^0.4/chrono/struct.DateTime.html),
+[`NaiveDate`](https://docs.rs/chrono/^0.4/chrono/naive/struct.NaiveDate.html),
+[`NaiveTime`](https://docs.rs/chrono/^0.4/chrono/naive/struct.NaiveTime.html),
+[`NaiveDateTime`](https://docs.rs/chrono/^0.4/chrono/naive/struct.NaiveDateTime.html),
+[`Utc`](https://docs.rs/chrono/^0.4/chrono/offset/struct.Utc.html) and
+[`Local`](https://docs.rs/chrono/^0.4/chrono/offset/struct.Local.html) can be used and accept
+a [Date/Time format string](https://docs.rs/chrono/0.4.19/chrono/format/strftime/index.html)
+inside of the `{` `}`, that will then be used for both the Regex generation and parsing of the
+type.
+
+Using [`DateTime`](https://docs.rs/chrono/^0.4/chrono/struct.DateTime.html) returns a
+`DateTime<FixedOffset>` and requires the rules and limits that [`DateTime::parse_from_str`](https://docs.rs/chrono/^0.4/chrono/struct.DateTime.html#method.parse_from_str)
+has.
+
+```rust
+use chrono::prelude::*;
+
+let input = "10:37:02";
+let parsed = scanf!(input, "{%H:%M:%S}", NaiveTime);
+assert_eq!(parsed, Some(NaiveTime::from_hms(10, 37, 2)));
+
+let input = "Today is the 23. of May, 2020 at 09:05 pm and 7 seconds.";
+let parsed = scanf!(input, "Today is the {%d. of %B, %Y at %I:%M %P and %-S} seconds.", Utc);
+assert_eq!(parsed, Some(Utc.ymd(2020, 5, 23).and_hms(21, 5, 7)));
+```
+
+Note: The `chrono` feature needs to be active for this to work, because `chrono` is an optional dependency
 
 ## Custom Types
 

@@ -1,0 +1,7 @@
+error: Missing Type for given '{}' Placeholder:
+At r#"asdf{}asdf"#
+          ^^
+ --> $DIR/raw_string.rs:2:26
+  |
+2 |     sscanf::scanf!("hi", r#"asdf{}asdf"#);
+  |                          ^^^^^^^^^^^^^^^

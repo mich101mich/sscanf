@@ -1,5 +1,11 @@
-error: Missing Type for given '{}'
- --> $DIR/missing_type.rs:2:31
+error: Missing Type for given '{}' Placeholder
+ --> $DIR/missing_type.rs:2:33
   |
-2 |     sscanf::scanf!("hi", "asdf{}asdf");
-  |                               ^^
+2 |     sscanf::scanf!("hi", "asdf{}{}asdf{bob}", usize);
+  |                                 ^^
+
+error: Missing Type for given '{bob}' Placeholder
+ --> $DIR/missing_type.rs:2:39
+  |
+2 |     sscanf::scanf!("hi", "asdf{}{}asdf{bob}", usize);
+  |                                       ^^^^^
