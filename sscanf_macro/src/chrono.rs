@@ -131,10 +131,10 @@ fn get_date_fmt(
                     if get_next!(iter, start, ni, src).1 == 'f' {
                         format!(r"\.\d{{{}}}", c)
                     } else {
-                        return sub_error_result("Incomplete %f specifier", src, (start, ni));
+                        return sub_error_result("Incomplete %f specifier ('.' can only appear in combination with %f)", src, (start, ni));
                     }
                 }
-                _ => return sub_error_result("Incomplete %f specifier", src, (start, i)),
+                _ => return sub_error_result("Incomplete %f specifier ('.' can only appear in combination with %f)", src, (start, i)),
             }
         }
         c @ '1'..='9' => {
@@ -142,7 +142,7 @@ fn get_date_fmt(
             if get_next!(iter, start, i, src).1 == 'f' {
                 format!(r"\d{{{}}}", c)
             } else {
-                return sub_error_result("Incomplete %f specifier", src, (start, i));
+                return sub_error_result("Incomplete %f specifier (numbers can only appear in combination with %f)", src, (start, i));
             }
         }
         'R' => format!(
@@ -173,7 +173,7 @@ fn get_date_fmt(
                     r"\+\d\d(\d\d)?".to_string()
                 }
             } else {
-                return sub_error_result("Incomplete %z specifier", src, (i - 1, i));
+                return sub_error_result("Incomplete %z specifier (':' can only appear in combination with %z)", src, (i - 1, i));
             }
         }
         'c' => format!(
@@ -193,6 +193,6 @@ fn get_date_fmt(
         't' => '\t'.to_string(),
         'n' => '\n'.to_string(),
         '%' => '%'.to_string(),
-        x => return sub_error_result(&format!("Unknown chrono format {}", x), src, (i, i)),
+        x => return sub_error_result(&format!("Unknown chrono format {}. See https://docs.rs/chrono/^0/chrono/format/strftime/ for a full list", x), src, (i, i)),
     })
 }

@@ -20,6 +20,7 @@ macro_rules! impl_wrapper_ops {
                 self.0.eq(rhs)
             }
         }
+        #[allow(rustdoc::missing_doc_code_examples)]
         impl PartialEq<$name> for $target {
             fn eq(&self, rhs: &$name) -> bool {
                 self.eq(&rhs.0)
@@ -102,7 +103,7 @@ impl RegexRepresentation for FullF64 {
 }
 impl_wrapper_ops!(FullF64, f64);
 
-/// Matches a Hexadecimal Number with optional `0x` prefix
+/// Matches a Hexadecimal Number with optional `0x` prefix. Deprecated in favor of format options
 ///
 /// ```
 /// # use sscanf::*;
@@ -114,7 +115,7 @@ impl_wrapper_ops!(FullF64, f64);
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[deprecated(
     since = "0.1.3",
-    note = "use actual number type with format options instead"
+    note = "use \"{x}\" with the desired number type instead"
 )]
 pub struct HexNumber(pub usize);
 

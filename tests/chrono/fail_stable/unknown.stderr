@@ -1,4 +1,4 @@
-error: Unknown chrono format O:
+error: Unknown chrono format O. See https://docs.rs/chrono/^0/chrono/format/strftime/ for a full list:
 At "{%O}"
       ^
  --> $DIR/unknown.rs:2:26

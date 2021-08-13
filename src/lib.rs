@@ -1,6 +1,5 @@
 #![deny(
     missing_docs,
-    missing_doc_code_examples,
     missing_debug_implementations,
     missing_copy_implementations,
     trivial_casts,
@@ -8,7 +7,13 @@
     unsafe_code,
     unstable_features,
     unused_import_braces,
-    unused_qualifications
+    unused_qualifications,
+    rustdoc::missing_doc_code_examples,
+    rustdoc::broken_intra_doc_links,
+    rustdoc::private_intra_doc_links,
+    rustdoc::missing_crate_level_docs,
+    rustdoc::invalid_codeblock_attributes,
+    rustdoc::bare_urls
 )]
 #![cfg_attr(doc_cfg, feature(doc_cfg))]
 
@@ -90,13 +95,13 @@
 //! to the second `char`.
 //!
 //! # Format Options
-//! All Options are inside `{` `}`. Literal `{` of `}` inside of a Format Option are escaped with
-//! `\` instead of '{{' to avoid ambiguity.
+//! All Options are inside `'{'` `'}'`. Literal `'{'` or `'}'` inside of a Format Option are escaped
+//! as `'\{'` instead of `'{{'` to avoid ambiguity.
 //!
-//! Procedural macro don't have any reliable type information, so the Type must be the exact required
-//! Type without any path or alias (`chrono` imports happen automatically)
+//! Procedural macro don't have any reliable type information, so **no type alias or path**. (`chrono`
+//! imports happen automatically).
 //!
-//! Radix Options:
+//! **Radix Options:**
 //!
 //! Only work on primitive number types (u8, i8, u16, ...).
 //! - `x`: hexadecimal Number (Digits 0-9 and A-F, optional Prefix `0x`)
@@ -104,7 +109,7 @@
 //! - `b`: binary Number (Digits 0-1, optional Prefix `0b`)
 //! - `r2` - `r36`: any radix Number
 //!
-//! [`chrono`](https://docs.rs/chrono/^0.4/chrono/) integration:
+//! **[`chrono`](https://docs.rs/chrono/^0.4/chrono/) integration (Requires `chrono` feature):**
 //!
 //! The types [`DateTime`](https://docs.rs/chrono/^0.4/chrono/struct.DateTime.html),
 //! [`NaiveDate`](https://docs.rs/chrono/^0.4/chrono/naive/struct.NaiveDate.html),
@@ -117,7 +122,7 @@
 //! type.
 //!
 //! Using [`DateTime`](https://docs.rs/chrono/^0.4/chrono/struct.DateTime.html) returns a
-//! `DateTime<FixedOffset>` and requires the rules and limits that [`parse_from_str`](https://docs.rs/chrono/^0.4/chrono/struct.DateTime.html#method.parse_from_str)
+//! `DateTime<FixedOffset>` and requires the rules and limits that [`DateTime::parse_from_str`](https://docs.rs/chrono/^0.4/chrono/struct.DateTime.html#method.parse_from_str)
 //! has.
 //!
 //! ```
@@ -349,12 +354,16 @@ pub use chrono;
 #[doc(hidden)]
 #[macro_export]
 macro_rules! chrono_check {
-    ($code: block, $error: block) => { $code };
+    ($code: block, $error: block) => {
+        $code
+    };
 }
 
 #[cfg(not(feature = "chrono"))]
 #[doc(hidden)]
 #[macro_export]
 macro_rules! chrono_check {
-    ($code: block, $error: block) => { $error };
+    ($code: block, $error: block) => {
+        $error
+    };
 }

@@ -1,4 +1,4 @@
-error: Incomplete %f specifier:
+error: Incomplete %f specifier ('.' can only appear in combination with %f):
 At "{%.s}"
      ^^
  --> $DIR/incomplete.rs:2:26
@@ -6,7 +6,7 @@ At "{%.s}"
 2 |     sscanf::scanf!("hi", "{%.s}", DateTime);
   |                          ^^^^^^^
 
-error: Incomplete %z specifier:
+error: Incomplete %z specifier (':' can only appear in combination with %z):
 At "{%:b}"
      ^^
  --> $DIR/incomplete.rs:3:26
@@ -22,7 +22,7 @@ At "{%:}"
 4 |     sscanf::scanf!("hi", "{%:}", DateTime);
   |                          ^^^^^^
 
-error: Incomplete %f specifier:
+error: Incomplete %f specifier ('.' can only appear in combination with %f):
 At "{%.3a}"
      ^^^
  --> $DIR/incomplete.rs:5:26
@@ -30,7 +30,7 @@ At "{%.3a}"
 5 |     sscanf::scanf!("hi", "{%.3a}", DateTime);
   |                          ^^^^^^^^
 
-error: Incomplete %f specifier:
+error: Incomplete %f specifier (numbers can only appear in combination with %f):
 At "{%38}"
      ^^
  --> $DIR/incomplete.rs:6:26
