@@ -1,0 +1,11 @@
+error[E0277]: the trait bound `Test: RegexRepresentation` is not satisfied
+  --> $DIR/no_regex.rs:10:32
+   |
+10 |     sscanf::scanf!("hi", "{}", Test);
+   |                                ^^^^ the trait `RegexRepresentation` is not implemented for `Test`
+   |
+note: required by `sscanf::RegexRepresentation::REGEX`
+  --> $DIR/regex_representation.rs:82:5
+   |
+82 |     const REGEX: &'static str;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
