@@ -157,27 +157,21 @@ fn custom_chrono_type() {
 
 #[test]
 fn failing_tests() {
-    use rustc_version::*;
-    let nightly = version_meta().unwrap().channel == Channel::Nightly;
+    // Error Messages are different in nightly => Different .stderr files
+    let nightly = rustc_version::version_meta().unwrap().channel == rustc_version::Channel::Nightly;
+    let channel = if nightly { "nightly" } else { "stable" };
+    let os = if cfg!(windows) { "windows" } else { "linux" };
 
     let t = trybuild::TestCases::new();
     t.compile_fail("tests/fail/*.rs");
     t.compile_fail("tests/fail_syntax/*.rs");
-    // Error Messages are better in nightly => Different .stderr files
-    if nightly {
-        t.compile_fail("tests/fail_nightly/*.rs");
-    } else {
-        t.compile_fail("tests/fail_stable/*.rs");
-    }
+    t.compile_fail(&format!("tests/fail_{}/*.rs", channel));
+    t.compile_fail(&format!("tests/fail_{}/*.rs", os));
 
     #[cfg(feature = "chrono")]
     {
         t.compile_fail("tests/chrono/fail/*.rs");
-        if nightly {
-            t.compile_fail("tests/chrono/fail_nightly/*.rs");
-        } else {
-            t.compile_fail("tests/chrono/fail_stable/*.rs");
-        }
+        t.compile_fail(&format!("tests/chrono/fail_{}/*.rs", channel));
     }
     #[cfg(not(feature = "chrono"))]
     {
