@@ -59,23 +59,24 @@
 //! let parsed = scanf!(input, "<x={}, y={}, z={}>", i32, i32, i32);
 //! assert_eq!(parsed, Some((3, -6, 6)));
 //!
-//! let input = "4-5 t: ftttttrvts";
-//! let parsed = scanf!(input, "{}-{} {}: {}", usize, usize, char, String);
-//! assert_eq!(parsed, Some((4, 5, 't', String::from("ftttttrvts"))));
-//!
 //! let input = "Goto N36E21";
 //! let parsed = scanf!(input, "Goto {}{}{}{}", char, usize, char, usize);
 //! assert_eq!(parsed, Some(('N', 36, 'E', 21)));
 //!
-//! let input = "A Sentence with Spaces. Number formats: 0xab01 0o127 0b101010.";
-//! let parsed = scanf!(input, "{}. Number formats: {x} {o} {b}.", String, usize, i32, u8);
-//! let (a, b, c, d) = parsed.unwrap();
+//! let input = "Escape literal { } as {{ and }}";
+//! let parsed = scanf!(input, "Escape literal {{ }} as {{{{ and {}", String);
+//! assert_eq!(parsed, Some(String::from("}}")));
+//!
+//! let input = "A Sentence with Spaces. Formats: 0xab01 0o127 0b101010 1Z.";
+//! let parsed = scanf!(input, "{}. Formats: {x} {o} {b} {r36}.", String, usize, i32, u8, u32);
+//! let (a, b, c, d, e) = parsed.unwrap();
 //! assert_eq!(a, "A Sentence with Spaces");
 //! assert_eq!(b, 0xab01);
 //! assert_eq!(c, 0o127);
 //! assert_eq!(d, 0b101010);
+//! assert_eq!(e, 71);         assert_eq!(e, u32::from_str_radix("1Z", 36).unwrap());
 //! ```
-//! The input in this case is a `&'static stc`, but in can be `String`, `&str`, `&String`, ...
+//! The input in this case is a `&'static str`, but in can be `String`, `&str`, `&String`, ...
 //! Basically anything with `AsRef<str>` and without taking Ownership.
 //!
 //! The parsing part of this macro has very few limitations, since it replaces the `{}` with a
@@ -152,7 +153,7 @@
 //!
 //! # Custom Types
 //!
-//! [`scanf`] works with the most primitive Types from `std` as well as `String` by default. The
+//! [`scanf`] works with most primitive Types from `std` as well as `String` by default. The
 //! full list can be seen here: [Implementations of `RegexRepresentation`](./trait.RegexRepresentation.html#foreign-impls).
 //!
 //! More Types can easily be added, as long as they implement [`FromStr`](https://doc.rust-lang.org/std/str/trait.FromStr.html) for the parsing

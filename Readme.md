@@ -43,13 +43,13 @@ let input = "<x=3, y=-6, z=6>";
 let parsed = scanf!(input, "<x={}, y={}, z={}>", i32, i32, i32);
 assert_eq!(parsed, Some((3, -6, 6)));
 
-let input = "4-5 t: ftttttrvts";
-let parsed = scanf!(input, "{}-{} {}: {}", usize, usize, char, String);
-assert_eq!(parsed, Some((4, 5, 't', String::from("ftttttrvts"))));
-
 let input = "Move to N36E21";
 let parsed = scanf!(input, "Move to {}{}{}{}", char, usize, char, usize);
 assert_eq!(parsed, Some(('N', 36, 'E', 21)));
+
+let input = "Escape literal { } as {{ and }}";
+let parsed = scanf!(input, "Escape literal {{ }} as {{{{ and {}", String);
+assert_eq!(parsed, Some(String::from("}}")));
 
 let input = "A Sentence with Spaces. Number formats: 0xab01 0o127 0b101010.";
 let parsed = scanf!(input, "{}. Number formats: {x} {o} {b}.", String, usize, i32, u8);
@@ -79,8 +79,8 @@ were slightly different then it might have matched the `6` of the `36` or the `2
 to the second `char`.
 
 ## Format Options
-All Options are inside '`{`' '`}`'. Literal '`{`' or '`}`' inside of a Format Option are escaped as
-'`\{`' instead of '`{{`' to avoid ambiguity.
+All Options are inside `'{'` `'}'`. Literal `'{'` or `'}'` inside of a Format Option are escaped
+as `'\{'` instead of `'{{'` to avoid ambiguity.
 
 Procedural macro don't have any reliable type information, so the Type must be the exact required
 Type without any path or alias (`chrono` imports happen automatically)
