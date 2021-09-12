@@ -7,16 +7,21 @@ description = "A sscanf (inverse of format!()) Macro based on Regex"
 repository = "https://github.com/mich101mich/sscanf"
 readme = "Readme.md"
 license = "MIT"
-keywords = ["macro", "parsing", "regex", "text", "scanf"]
+keywords = ["parsing", "regex", "text", "string", "scanf"]
 categories = ["parsing"]
-exclude = ["/.vscode/*", "/sscanf_macro/", "/.gitignore", "/.github/*"]
+exclude = ["/.vscode/*", "/sscanf_macro/", "/.gitignore", "/.github/*", "/*.bat"]
 
 [dependencies]
-regex = "1.4"
-const_format = "0.2.13"
+sscanf_macro = { path = "sscanf_macro", version = "=0.1.3"}
+regex = "1.5"
+const_format = "0.2"
 lazy_static = "1.4"
-sscanf_macro = { path = "sscanf_macro", version = "=0.1.2"}
+chrono = { version = "0.4", optional = true }
 
 [dev-dependencies]
 trybuild = "1.0"
-rustc_version = "0.3.3"
+rustc_version = "0.4"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "doc_cfg"]

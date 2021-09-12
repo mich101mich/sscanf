@@ -1,6 +1,5 @@
 #![deny(
     missing_docs,
-    // missing_doc_code_examples,
     missing_debug_implementations,
     missing_copy_implementations,
     trivial_casts,
@@ -8,11 +7,19 @@
     unsafe_code,
     unstable_features,
     unused_import_braces,
-    unused_qualifications
+    unused_qualifications,
+    rustdoc::missing_doc_code_examples,
+    rustdoc::broken_intra_doc_links,
+    rustdoc::private_intra_doc_links,
+    rustdoc::missing_crate_level_docs,
+    rustdoc::invalid_codeblock_attributes,
+    rustdoc::bare_urls
 )]
+#![cfg_attr(doc_cfg, feature(doc_cfg))]
+
 //! A sscanf (inverse of format!()) Macro based on Regex
 //!
-//! ## sscanf
+//! # sscanf
 //! `sscanf` is originally a C-function that takes a String, a format String with placeholders and
 //! several Variables (in the Rust version replaced with Types). It then parses the input String,
 //! writing the values behind the placeholders into the Variables (Rust: returns a Tuple). `sscanf`
@@ -60,13 +67,13 @@
 //! let parsed = scanf!(input, "Goto {}{}{}{}", char, usize, char, usize);
 //! assert_eq!(parsed, Some(('N', 36, 'E', 21)));
 //!
-//! let input = "A Sentence. Another Sentence. Yet more Words with Spaces.";
-//! let parsed = scanf!(input, "{}. {}. {}.", String, String, String);
-//! assert!(parsed.is_some());
-//! let (a, b, c) = parsed.unwrap();
-//! assert_eq!(a, "A Sentence");
-//! assert_eq!(b, "Another Sentence");
-//! assert_eq!(c, "Yet more Words with Spaces");
+//! let input = "A Sentence with Spaces. Number formats: 0xab01 0o127 0b101010.";
+//! let parsed = scanf!(input, "{}. Number formats: {x} {o} {b}.", String, usize, i32, u8);
+//! let (a, b, c, d) = parsed.unwrap();
+//! assert_eq!(a, "A Sentence with Spaces");
+//! assert_eq!(b, 0xab01);
+//! assert_eq!(c, 0o127);
+//! assert_eq!(d, 0b101010);
 //! ```
 //! The input in this case is a `&'static stc`, but in can be `String`, `&str`, `&String`, ...
 //! Basically anything with `AsRef<str>` and without taking Ownership.
@@ -87,7 +94,63 @@
 //! were slightly different then it might have matched the `6` of the `36` or the `2` of the `21`
 //! to the second `char`.
 //!
-//! ## Custom Types
+//! # Format Options
+//! All Options are inside `'{'` `'}'`. Literal `'{'` or `'}'` inside of a Format Option are escaped
+//! as `'\{'` instead of `'{{'` to avoid ambiguity.
+//!
+//! Procedural macro don't have any reliable type information, so **no type alias or path**. (`chrono`
+//! imports happen automatically).
+//!
+//! **Radix Options:**
+//!
+//! Only work on primitive number types (u8, i8, u16, ...).
+//! - `x`: hexadecimal Number (Digits 0-9 and A-F, optional Prefix `0x`)
+//! - `o`: octal Number (Digits 0-7, optional Prefix `0o`)
+//! - `b`: binary Number (Digits 0-1, optional Prefix `0b`)
+//! - `r2` - `r36`: any radix Number
+//!
+//! **[`chrono`](https://docs.rs/chrono/^0.4/chrono/) integration (Requires `chrono` feature):**
+//!
+//! The types [`DateTime`](https://docs.rs/chrono/^0.4/chrono/struct.DateTime.html),
+//! [`NaiveDate`](https://docs.rs/chrono/^0.4/chrono/naive/struct.NaiveDate.html),
+//! [`NaiveTime`](https://docs.rs/chrono/^0.4/chrono/naive/struct.NaiveTime.html),
+//! [`NaiveDateTime`](https://docs.rs/chrono/^0.4/chrono/naive/struct.NaiveDateTime.html),
+//! [`Utc`](https://docs.rs/chrono/^0.4/chrono/offset/struct.Utc.html) and
+//! [`Local`](https://docs.rs/chrono/^0.4/chrono/offset/struct.Local.html) can be used and accept
+//! a [Date/Time format string](https://docs.rs/chrono/0.4.19/chrono/format/strftime/index.html)
+//! inside of the `{` `}`, that will then be used for both the Regex generation and parsing of the
+//! type.
+//!
+//! Using [`DateTime`](https://docs.rs/chrono/^0.4/chrono/struct.DateTime.html) returns a
+//! `DateTime<FixedOffset>` and requires the rules and limits that [`DateTime::parse_from_str`](https://docs.rs/chrono/^0.4/chrono/struct.DateTime.html#method.parse_from_str)
+//! has.
+//!
+//! ```
+//! # #[cfg(feature = "chrono")]
+//! # {
+//! # use sscanf::*;
+//! use chrono::prelude::*;
+//!
+//! let input = "10:37:02";
+//! let parsed = scanf!(input, "{%H:%M:%S}", NaiveTime);
+//! assert_eq!(parsed, Some(NaiveTime::from_hms(10, 37, 2)));
+//!
+//! let expected = Utc.ymd(2020, 5, 23).and_hms(21, 5, 7);
+//!
+//! // DateTime<*> directly implements FromStr and doesn't need a config
+//! let input = "2020-05-23T21:05:07Z";
+//! let parsed = scanf!(input, "{}", DateTime<Utc>);
+//! assert_eq!(parsed, Some(expected));
+//!
+//! let input = "Today is the 23. of May, 2020 at 09:05 pm and 7 seconds.";
+//! let parsed = scanf!(input, "Today is the {%d. of %B, %Y at %I:%M %P and %-S} seconds.", Utc);
+//! assert_eq!(parsed, Some(expected));
+//! # }
+//! ```
+//!
+//! Note: The `chrono` feature needs to be active for this to work, because `chrono` is an optional dependency
+//!
+//! # Custom Types
 //!
 //! [`scanf`] works with the most primitive Types from `std` as well as `String` by default. The
 //! full list can be seen here: [Implementations of `RegexRepresentation`](./trait.RegexRepresentation.html#foreign-impls).
@@ -129,7 +192,7 @@
 //! }, 751)));
 //! ```
 //!
-//! ## A Note on Error Messages
+//! # A Note on Error Messages
 //!
 //! Errors in the format string would ideally point to the exact position in the string that
 //! caused the error. This is already the case if you compile/check with nightly, but not on
@@ -142,20 +205,22 @@
 //! sscanf::scanf!("", "Some Text {}{}{} and stuff", usize);
 //! ```
 //! ```text
-//! error: Missing Type for given '{}'
+//! error: Missing Type for given '{}' Placeholder
 //!   |
 //! 4 | sscanf::scanf!("", "Some Text {}{}{} and stuff", usize);
 //!   |                                 ^^
 //! ```
 //! But on stable, you are limited to only pointing at the entire format string:
 //! ```text
-//! error: Missing Type for given '{}'.  At "Some Text {}{}" <--
+//! error: Missing Type for given '{}' Placeholder:
+//! At "Some Text {}{}{} and stuff"
+//!                 ^^
 //!   |
 //! 4 | sscanf::scanf!("", "Some Text {}{}{} and stuff", usize);
 //!   |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 //! ```
-//! The current workaround is to point at the incorrect part of the string in the Error Message
-//! itself (the `<--`). The alternative is to use `cargo +nightly check` to see the better Errors
+//! The current workaround is to replicate that behavior in the Error Message
+//! itself. The alternative is to use `cargo +nightly check` to see the better Errors
 //! whenever something goes wrong, or setting your Editor plugin to check with nightly.
 //!
 //! This does _**not**_ influence the functionality in any way. This Crate works entirely on stable
@@ -216,7 +281,7 @@ pub use sscanf_macro::scanf;
 /// use sscanf::scanf_get_regex;
 /// let input = "Test 5 -2";
 /// let regex = scanf_get_regex!("Test {} {}", usize, i32);
-/// assert_eq!(regex.as_str(), r"^Test (?P<type_1>\+?\d+) (?P<type_2>[-+]?\d{1,10})$");
+/// assert_eq!(regex.as_str(), r"^Test (?P<type_1>\+?\d{1,20}) (?P<type_2>[-+]?\d{1,10})$");
 ///
 /// let output = regex.captures(input);
 /// assert!(output.is_some());
@@ -280,3 +345,25 @@ pub use const_format;
 pub use lazy_static;
 #[doc(hidden)]
 pub use regex;
+
+#[cfg(feature = "chrono")]
+#[doc(hidden)]
+pub use chrono;
+
+#[cfg(feature = "chrono")]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! chrono_check {
+    ($code: block, $error: block) => {
+        $code
+    };
+}
+
+#[cfg(not(feature = "chrono"))]
+#[doc(hidden)]
+#[macro_export]
+macro_rules! chrono_check {
+    ($code: block, $error: block) => {
+        $error
+    };
+}

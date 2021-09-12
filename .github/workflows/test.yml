@@ -21,8 +21,18 @@ jobs:
     - name: rust-toolchain
       uses: actions-rs/toolchain@v1.0.6
       with:
+        toolchain: stable
+    - name: rust-toolchain
+      uses: actions-rs/toolchain@v1.0.6
+      with:
         toolchain: nightly
     - name: Run tests
-      run: cargo test
+      run: cargo +stable test
+    - name: Run feature tests
+      run: cargo +stable test --all-features
     - name: Run nightly tests
       run: cargo +nightly test
+    - name: Run nightly feature tests
+      run: cargo +nightly test --all-features
+    - name: Run docs
+      run: export RUSTDOCFLAGS="--cfg doc_cfg" && cargo +nightly doc --all-features

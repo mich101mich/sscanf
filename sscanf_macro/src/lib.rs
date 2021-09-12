@@ -10,6 +10,15 @@ use syn::{
     Expr, LitStr, Token, TypePath,
 };
 
+mod chrono;
+mod format_config;
+
+struct PlaceHolder {
+    name: String,
+    config: Option<String>,
+    span: (usize, usize),
+}
+
 struct SscanfInner {
     fmt: String,
     fmt_span: Literal,
@@ -38,10 +47,13 @@ impl Parse for SscanfInner {
             // values: the literal and a `StrStyle`. This was apparently removed at some point for
             // being TOO USEFUL.
             let lit = fmt.to_token_stream().to_string();
-            lit.char_indices().find(|c| c.1 == '"').unwrap().0
+            lit.chars().enumerate().find(|c| c.1 == '"').unwrap().0
         };
+
+        // subspan only exists on Literal, but in order to get the content of the literal we need
+        // LitStr, because once again convenience is a luxury
         let mut fmt_span = Literal::string(&fmt.value());
-        fmt_span.set_span(fmt.span());
+        fmt_span.set_span(fmt.span()); // fmt is a single Token so span() works even on stable
 
         let type_tokens;
         if input.is_empty() {
@@ -52,7 +64,6 @@ impl Parse for SscanfInner {
             type_tokens = input
                 .parse_terminated::<_, Token![,]>(TypePath::parse)?
                 .into_iter()
-                .rev()
                 .collect();
         }
 
@@ -141,64 +152,106 @@ fn scanf_internal(input: Sscanf, escape_input: bool) -> TokenStream1 {
 }
 
 fn generate_regex(
-    mut input: SscanfInner,
+    input: SscanfInner,
     escape_input: bool,
 ) -> Result<(TokenStream, Vec<TokenStream>)> {
-    let mut type_tokens = vec![];
+    let (placeholders, regex_parts) = parse_format_string(&input, escape_input)?;
+
+    // generate error with excess parts if lengths do not match
+    let mut error = TokenStream::new();
+    for ph in placeholders.iter().skip(input.type_tokens.len()) {
+        let message = format!(
+            "Missing Type for given '{{{}}}' Placeholder",
+            ph.config.as_deref().unwrap_or("")
+        );
+        error.extend(sub_error(&message, &input, ph.span).to_compile_error());
+    }
+    for ty in input.type_tokens.iter().skip(placeholders.len()) {
+        error.extend(
+            Error::new_spanned(ty, "More Types than '{}' Placeholders provided").to_compile_error(),
+        );
+    }
+    if !error.is_empty() {
+        error.extend(quote!(let REGEX = ::sscanf::regex::Regex::new("").unwrap();));
+        return Ok((error, vec![]));
+    }
+
+    // these need to be Vec instead of direct streams to allow comma separators
+    let mut regex_builder = vec![];
+    let mut match_grabber = vec![];
+    for ((ph, ty), regex_prefix) in placeholders
+        .iter()
+        .zip(input.type_tokens.iter())
+        .zip(regex_parts.iter())
+    {
+        regex_builder.push(quote!(#regex_prefix));
+        if let Some(config) = ph.config.as_ref() {
+            let (regex, matcher) = format_config::regex_from_config(config, ty, ph, &input)?;
+            regex_builder.push(regex);
+            match_grabber.push(matcher);
+        } else {
+            let (start, end) = full_span(&ty);
+            let name = &ph.name;
+
+            let mut s = quote_spanned!(start => <#ty as );
+            s.extend(quote_spanned!(end => ::sscanf::RegexRepresentation>::REGEX));
+            regex_builder.push(s);
+
+            s = quote_spanned!(start => <#ty as );
+            s.extend(quote_spanned!(end => ::std::str::FromStr>::from_str(cap.name(#name)?.as_str()).ok()?));
+            match_grabber.push(s);
+        }
+    }
+
+    let last_regex = &regex_parts[placeholders.len()];
+    regex_builder.push(quote!(#last_regex));
+
+    let regex = quote!(::sscanf::lazy_static::lazy_static! {
+        static ref REGEX: ::sscanf::regex::Regex = ::sscanf::regex::Regex::new(
+            ::sscanf::const_format::concatcp!( #(#regex_builder),* )
+        ).expect("sscanf cannot generate Regex");
+    });
+
+    Ok((regex, match_grabber))
+}
+
+fn parse_format_string(
+    input: &SscanfInner,
+    escape_input: bool,
+) -> Result<(Vec<PlaceHolder>, Vec<String>)> {
+    let mut placeholders = vec![];
+
     let mut regex = vec![];
+    let mut current_regex = String::from("^");
 
     let mut name_index = 1;
 
-    let mut current_regex = String::from("^");
-    let mut last_was_open = false;
-    let mut last_was_close = false;
-    for (i, c) in input.fmt.chars().enumerate().map(|(i, c)| (i + 1, c)) {
-        if c == '{' && !last_was_close {
-            if last_was_open {
-                last_was_open = false;
-            } else {
-                last_was_open = true;
-                continue;
-            }
-        } else if c == '}' {
-            if last_was_open {
-                let ty = match input.type_tokens.pop() {
-                    Some(token) => token,
-                    None => return sub_error("Missing Type for given '{}'", &input, i - 1, i),
-                };
+    // iter as var to allow peeking and advancing in sub-function
+    let mut iter = input.fmt.chars().enumerate().peekable();
 
-                let name = format!("type_{}", name_index);
+    while let Some((i, c)) = iter.next() {
+        if c == '{' {
+            if let Some(mut ph) = format_config::parse_bracket_content(&mut iter, input, i)? {
+                ph.name = format!("type_{}", name_index);
                 name_index += 1;
 
-                current_regex += &format!("(?P<{}>", name);
+                current_regex += &format!("(?P<{}>", ph.name);
                 regex.push(current_regex);
                 current_regex = String::from(")");
 
-                type_tokens.push((ty, name));
-
-                last_was_open = false;
+                placeholders.push(ph);
                 continue;
             }
-            if last_was_close {
-                last_was_close = false;
-            } else {
-                last_was_close = true;
-                continue;
-            }
-        } else if last_was_open {
-            return sub_error(
-                "Expected '}' after '{'. Literal '{' need to be escaped as '{{'",
-                &input,
-                i - 1,
-                i - 1,
-            );
-        } else if last_was_close {
-            return sub_error(
-                "Unexpected standalone '}'. Literal '}' need to be escaped as '}}'",
-                &input,
-                i - 1,
-                i - 1,
-            );
+            // else => escaped '{{', handle like regular char
+        } else if c == '}' {
+            // next_if_eq success => escaped '}}', iterator advanced, handle like regular char
+            iter.next_if_eq(&(i + 1, '}')).ok_or_else(|| {
+                sub_error(
+                    "Unexpected standalone '}'. Literal '}' need to be escaped as '}}'",
+                    input,
+                    (i, i),
+                )
+            })?;
         }
 
         if escape_input && regex_syntax::is_meta_character(c) {
@@ -209,66 +262,40 @@ fn generate_regex(
     }
 
     current_regex.push('$');
+    regex.push(current_regex);
 
-    let end = input.fmt.len();
-    if last_was_open {
-        return sub_error(
-            "Expected '}' after '{'. Literal '{' need to be escaped as '{{'",
-            &input,
-            end,
-            end,
-        );
-    } else if last_was_close {
-        return sub_error(
-            "Unexpected standalone '}'. Literal '}' need to be escaped as '}}'",
-            &input,
-            end,
-            end,
-        );
-    }
-
-    if let Some(token) = input.type_tokens.pop() {
-        return Err(Error::new_spanned(token, "More Types than '{}' provided"));
-    }
-
-    let mut regex_builder = vec![];
-    let mut match_grabber = vec![];
-    for (prefix, (ty, name)) in regex.iter().zip(type_tokens) {
-        regex_builder.push(quote!(#prefix));
-
-        let (start, end) = full_span(&ty);
-
-        {
-            let mut s = quote_spanned!(start => <#ty as );
-            s.extend(quote_spanned!(end => ::sscanf::RegexRepresentation>::REGEX));
-            regex_builder.push(s);
-        }
-        {
-            let mut s = quote_spanned!(start => <#ty as );
-            s.extend(quote_spanned!(end => ::std::str::FromStr>::from_str(cap.name(#name)?.as_str()).ok()?));
-            match_grabber.push(s);
-        }
-    }
-
-    regex_builder.push(quote!(#current_regex));
-
-    let regex = quote!(::sscanf::lazy_static::lazy_static! {
-        static ref REGEX: ::sscanf::regex::Regex = ::sscanf::regex::Regex::new(
-            ::sscanf::const_format::concatcp!( #(#regex_builder),* )
-        ).expect("sscanf Regex error");
-    });
-
-    Ok((regex, match_grabber))
+    Ok((placeholders, regex))
 }
 
-fn sub_error<T>(message: &str, src: &SscanfInner, start: usize, end: usize) -> Result<T> {
-    let s = start + src.span_offset;
-    let e = end + src.span_offset;
+fn sub_error_result<T>(
+    message: &str,
+    src: &SscanfInner,
+    (start, end): (usize, usize),
+) -> Result<T> {
+    Err(sub_error(message, src, (start, end)))
+}
+
+fn sub_error(message: &str, src: &SscanfInner, (start, end): (usize, usize)) -> Error {
+    let s = start + src.span_offset + 1; // + 1 for "
+    let e = end + src.span_offset + 1;
     if let Some(span) = src.fmt_span.subspan(s..=e) {
-        Err(Error::new(span, message))
+        Error::new(span, message)
     } else {
-        let m = format!("{}.  At \"{}\" <--", message, &src.fmt[0..end]);
-        Err(Error::new_spanned(&src.fmt_span, m))
+        let mut m = format!("{}:\nAt ", message);
+        let msg_len = 3; // "At "
+
+        if src.span_offset > 0 {
+            m.push('r');
+            (1..src.span_offset).for_each(|_| m.push('#'));
+        }
+        m.push('"');
+        m += &src.fmt;
+        m.push('"');
+        (1..src.span_offset).for_each(|_| m.push('#'));
+        m.push('\n');
+        (0..(s + msg_len)).for_each(|_| m.push(' '));
+        (s..=e).for_each(|_| m.push('^'));
+        Error::new_spanned(&src.fmt_span, m)
     }
 }
 

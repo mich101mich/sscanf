@@ -1,0 +1,7 @@
+error[E0277]: the trait bound `usize: AsRef<str>` is not satisfied
+   --> $DIR/input_not_str.rs:2:20
+    |
+2   |     sscanf::scanf!(5usize, "{}", usize);
+    |                    ^^^^^^ the trait `AsRef<str>` is not implemented for `usize`
+    |
+note: required by `as_ref`

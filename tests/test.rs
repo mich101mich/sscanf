@@ -6,6 +6,9 @@ mod types {
     mod hex_number;
 }
 
+#[cfg(feature = "chrono")]
+mod chrono;
+
 #[test]
 fn basic() {
     let input = "Test 5 1.4 {} bob!";
@@ -74,7 +77,7 @@ fn get_regex() {
     let regex = scanf_get_regex!("Test {} {} {{}} {}!", usize, f32, std::string::String);
     assert_eq!(
         regex.as_str(),
-        r"^Test (?P<type_1>\+?\d+) (?P<type_2>[-+]?\d+\.?\d*) \{\} (?P<type_3>.+)!$"
+        r"^Test (?P<type_1>\+?\d{1,20}) (?P<type_2>[-+]?\d+\.?\d*) \{\} (?P<type_3>.+)!$"
     );
 
     let output = regex.captures(input);
@@ -115,14 +118,63 @@ fn generic_types() {
 }
 
 #[test]
+fn config() {
+    let input = "A Sentence with Spaces. Number formats: 0xab01 0o127 0b101010.";
+    let parsed = scanf!(
+        input,
+        "{}. Number formats: {x} {o} {b}.",
+        String,
+        usize,
+        i32,
+        u8
+    );
+    let (a, b, c, d) = parsed.unwrap();
+    assert_eq!(a, "A Sentence with Spaces");
+    assert_eq!(b, 0xab01);
+    assert_eq!(c, 0o127);
+    assert_eq!(d, 0b101010);
+}
+
+#[test]
+fn custom_chrono_type() {
+    #[derive(Debug, PartialEq)]
+    struct DateTime(usize);
+
+    impl sscanf::RegexRepresentation for DateTime {
+        const REGEX: &'static str = r"\d+";
+    }
+    impl std::str::FromStr for DateTime {
+        type Err = <usize as std::str::FromStr>::Err;
+        fn from_str(s: &str) -> Result<Self, Self::Err> {
+            Ok(DateTime(s.parse()?))
+        }
+    }
+
+    let input = "42";
+    let parsed = sscanf::scanf!(input, "{}", DateTime);
+    assert_eq!(parsed, Some(DateTime(42)));
+}
+
+#[test]
 fn failing_tests() {
+    // Error Messages are different in nightly => Different .stderr files
+    let nightly = rustc_version::version_meta().unwrap().channel == rustc_version::Channel::Nightly;
+    let channel = if nightly { "nightly" } else { "stable" };
+    let os = if cfg!(windows) { "windows" } else { "linux" };
+
     let t = trybuild::TestCases::new();
     t.compile_fail("tests/fail/*.rs");
     t.compile_fail("tests/fail_syntax/*.rs");
-    // Error Messages are better in nightly => Different .stderr files
-    if rustc_version::version_meta().unwrap().channel == rustc_version::Channel::Nightly {
-        t.compile_fail("tests/fail_nightly/*.rs");
-    } else {
-        t.compile_fail("tests/fail_stable/*.rs");
+    t.compile_fail(&format!("tests/fail_{}/*.rs", channel));
+    t.compile_fail(&format!("tests/fail_{}/*.rs", os));
+
+    #[cfg(feature = "chrono")]
+    {
+        t.compile_fail("tests/chrono/fail/*.rs");
+        t.compile_fail(&format!("tests/chrono/fail_{}/*.rs", channel));
+    }
+    #[cfg(not(feature = "chrono"))]
+    {
+        t.compile_fail("tests/no_chrono/*.rs");
     }
 }
