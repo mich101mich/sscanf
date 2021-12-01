@@ -1,0 +1,11 @@
+error[E0277]: the trait bound `Test: RegexRepresentation` is not satisfied
+  --> $DIR/missing_traits.rs:11:32
+   |
+11 |     sscanf::scanf!("hi", "{}", Test);
+   |                                ^^^^ the trait `RegexRepresentation` is not implemented for `Test`
+
+error[E0277]: the trait bound `Vec<usize>: RegexRepresentation` is not satisfied
+  --> $DIR/missing_traits.rs:10:32
+   |
+10 |     sscanf::scanf!("hi", "{}", std::vec::Vec<usize>);
+   |                                ^^^^^^^^^^^^^^^^^^^^ the trait `RegexRepresentation` is not implemented for `Vec<usize>`

@@ -1,0 +1,37 @@
+error: At least 2 Parameters required: Input and format string
+ --> $DIR/missing_params.rs:2:5
+  |
+2 |     sscanf::scanf!();
+  |     ^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the macro `sscanf::scanf` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: At least 2 Parameters required: Missing format string
+ --> $DIR/missing_params.rs:3:5
+  |
+3 |     sscanf::scanf!("5");
+  |     ^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the macro `sscanf::scanf` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: At least 2 Parameters required: Missing format string
+ --> $DIR/missing_params.rs:4:23
+  |
+4 |     sscanf::scanf!("5",);
+  |                       ^
+
+error: Missing format string
+ --> $DIR/missing_params.rs:5:5
+  |
+5 |     sscanf::scanf_get_regex!();
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the macro `sscanf::scanf_get_regex` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: At least 2 Parameters required: Input and format string
+ --> $DIR/missing_params.rs:6:5
+  |
+6 |     sscanf::scanf_unescaped!();
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the macro `sscanf::scanf_unescaped` (in Nightly builds, run with -Z macro-backtrace for more info)

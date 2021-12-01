@@ -159,22 +159,35 @@ fn custom_chrono_type() {
 fn failing_tests() {
     // Error Messages are different in nightly => Different .stderr files
     let nightly = rustc_version::version_meta().unwrap().channel == rustc_version::Channel::Nightly;
-    let channel = if nightly { "nightly" } else { "stable" };
-    let os = if cfg!(windows) { "windows" } else { "linux" };
+    let channel = if nightly { "ch_nightly" } else { "ch_stable" };
+    let os = if cfg!(windows) {
+        "os_windows"
+    } else {
+        "os_linux"
+    };
+    let chrono = if cfg!(feature = "chrono") {
+        "feat_chrono"
+    } else {
+        "feat_no_chrono"
+    };
 
     let t = trybuild::TestCases::new();
-    t.compile_fail("tests/fail/*.rs");
-    t.compile_fail("tests/fail_syntax/*.rs");
-    t.compile_fail(&format!("tests/fail_{}/*.rs", channel));
-    t.compile_fail(&format!("tests/fail_{}/*.rs", os));
 
-    #[cfg(feature = "chrono")]
-    {
-        t.compile_fail("tests/chrono/fail/*.rs");
-        t.compile_fail(&format!("tests/chrono/fail_{}/*.rs", channel));
-    }
-    #[cfg(not(feature = "chrono"))]
-    {
-        t.compile_fail("tests/no_chrono/*.rs");
+    let path = std::path::PathBuf::from("tests/fail");
+    run_fail_test(&t, &path);
+    run_fail_test(&t, &path.join(channel));
+
+    let os_path = path.join(os);
+    run_fail_test(&t, &os_path);
+    run_fail_test(&t, &os_path.join(channel));
+
+    let chrono_path = path.join(chrono);
+    run_fail_test(&t, &chrono_path);
+    run_fail_test(&t, &chrono_path.join(channel));
+}
+
+fn run_fail_test(t: &trybuild::TestCases, path: &std::path::Path) {
+    if path.exists() {
+        t.compile_fail(path.join("*.rs").display().to_string());
     }
 }

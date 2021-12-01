@@ -1,0 +1,5 @@
+error[E0277]: the trait bound `Test: FromStr` is not satisfied
+ --> $DIR/no_from_str.rs:8:32
+  |
+8 |     sscanf::scanf!("hi", "{}", bob::Test);
+  |                                ^^^^^^^^^ the trait `FromStr` is not implemented for `Test`

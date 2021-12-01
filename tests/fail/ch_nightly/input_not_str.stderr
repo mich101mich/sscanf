@@ -1,0 +1,22 @@
+error[E0277]: the trait bound `usize: AsRef<str>` is not satisfied
+ --> $DIR/input_not_str.rs:2:20
+  |
+2 |     sscanf::scanf!(5usize, "{}", usize);
+  |     ---------------^^^^^^--------------
+  |     |              |
+  |     |              the trait `AsRef<str>` is not implemented for `usize`
+  |     required by a bound introduced by this call
+
+error[E0277]: the trait bound `[u8; 1]: AsRef<str>` is not satisfied
+ --> $DIR/input_not_str.rs:3:20
+  |
+3 |     sscanf::scanf!(b"5", "{}", usize);
+  |     ---------------^^^^--------------
+  |     |              |
+  |     |              the trait `AsRef<str>` is not implemented for `[u8; 1]`
+  |     required by a bound introduced by this call
+  |
+  = help: the following implementations were found:
+            <[T; N] as AsRef<[T]>>
+            <[T] as AsRef<[T]>>
+  = note: required because of the requirements on the impl of `AsRef<str>` for `&[u8; 1]`

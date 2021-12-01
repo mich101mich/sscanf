@@ -1,0 +1,25 @@
+error: At least 2 Parameters required: Missing format string
+ --> $DIR/missing_literal.rs:2:5
+  |
+2 |     sscanf::scanf!("5");
+  |     ^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the macro `sscanf::scanf` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: At least 2 Parameters required: Missing format string
+ --> $DIR/missing_literal.rs:3:23
+  |
+3 |     sscanf::scanf!("5",);
+  |                       ^
+
+error: expected string literal
+ --> $DIR/missing_literal.rs:6:27
+  |
+6 |     sscanf::scanf!(input, '{', std::vec::Vec<usize>);
+  |                           ^^^
+
+error: expected string literal
+ --> $DIR/missing_literal.rs:9:27
+  |
+9 |     sscanf::scanf!(input, fmt, std::vec::Vec<usize>);
+  |                           ^^^
