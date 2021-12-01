@@ -270,7 +270,7 @@
 //! error: Missing Type for given '{}' Placeholder
 //!   |
 //! 4 | scanf!("", "Some Text {}{}{} and stuff", usize);
-//!   |                                 ^^
+//!   |                         ^^
 //! ```
 //! But on stable, you are limited to only pointing at the entire format string:
 //! ```text
@@ -279,7 +279,7 @@
 //!                 ^^
 //!   |
 //! 4 | scanf!("", "Some Text {}{}{} and stuff", usize);
-//!   |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+//!   |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 //! ```
 //! The current workaround is to replicate that behavior in the Error Message
 //! itself. The alternative is to use `cargo +nightly check` to see the better Errors
