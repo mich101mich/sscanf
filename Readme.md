@@ -14,7 +14,7 @@ let s = format!("Hello {}_{}!", "World", 5);
 assert_eq!(s, "Hello World_5!");
 
 // scanf: takes String, format string and types, returns Tuple
-let parsed = sscanf::scanf!(s, "Hello {}_{}!", String, usize);
+let parsed = scanf!(s, "Hello {}_{}!", String, usize);
 
 // parsed is Option<(String, usize)>
 assert_eq!(parsed, Some((String::from("World"), 5)));
@@ -25,7 +25,7 @@ the values into the placeholders (`{}`), but extracts the values at those `{}` i
 If matching the format string failed, `None` is returned:
 ```rust
 let s = "Text that doesn't match the format string";
-let parsed = sscanf::scanf!(s, "Hello {}_{}!", String, usize);
+let parsed = scanf!(s, "Hello {}_{}!", String, usize);
 assert_eq!(parsed, None); // No match possible
 ```
 
@@ -37,8 +37,6 @@ anyway.
 
 More examples of the capabilities of `scanf`:
 ```rust
-use sscanf::scanf;
-
 let input = "<x=3, y=-6, z=6>";
 let parsed = scanf!(input, "<x={}, y={}, z={}>", i32, i32, i32);
 assert_eq!(parsed, Some((3, -6, 6)));
@@ -48,8 +46,8 @@ let parsed = scanf!(input, "Move to {}{}{}{}", char, usize, char, usize);
 assert_eq!(parsed, Some(('N', 36, 'E', 21)));
 
 let input = "Escape literal { } as {{ and }}";
-let parsed = scanf!(input, "Escape literal {{ }} as {{{{{}}}}}", String);
-assert_eq!(parsed, Some(String::from(" and ")));
+let parsed = scanf!(input, "Escape literal {{ }} as {{{{ and }}}}");
+assert_eq!(parsed, Some(()));
 
 let input = "A Sentence with Spaces. Another Sentence.";
 let parsed = scanf!(input, "{}. {}.", String, String);
@@ -94,13 +92,59 @@ that Format Options only work with a literal type like "`i32`", **NO** Paths (~~
 Wrappers (~~`struct Wrapper(i32);`~~) or Aliases (~~`type Alias = i32;`~~). **ONLY** `i32`,
 `usize`, `u16`, ...
 
-**Radix Options:**
+| config                     | description                | possible types |
+| -------------------------- | -------------------------- | -------------- |
+| `{/` _\<regex>_ `/}`       | custom regex               | any            |
+| `{x}`                      | hexadecimal numbers        | numbers        |
+| `{o}`                      | octal numbers              | numbers        |
+| `{b}`                      | binary numbers             | numbers        |
+| `{r2}`..=`{r36}`           | radix 2 - radix 32 numbers | numbers        |
+| `{` _\<chrono format>_ `}` | chrono format              | chrono types   |
+
+**Custom Regex:**
+
+- `{/.../}`: Match according to the [`Regex`](https://docs.rs/regex) between the `/` `/`
+
+For example:
+```rust
+let input = "random Text";
+let parsed = scanf!(input, "{/[^m]+/}{}", String, String);
+
+// regex  [^m]+  matches anything that isn't an 'm'
+// => stops at the 'm' in 'random'
+assert_eq!(parsed, Some((String::from("rando"), String::from("m Text"))));
+```
+
+As mentioned above, `'{'` `'}'` have to be escaped with a `'\'`. This means that:
+- `"{"` or `"}"` would give a compiler error
+- `"\{"` or `"\}"` lead to a `"{"` or `"}"` inside of the regex
+  - curly brackets have a special meaning in regex as counted repetition etc.
+- `"\\{"` or `"\\}"` would give a compiler error
+  - first `'\'` just escapes the second one, leaving just the brackets
+- `"\\\{"` or `"\\\}"` lead to a `"\{"` or `"\}"` inside of the regex
+  - the first `'\'` escapes the second one, leading to a literal `'\'` in the regex. the third
+    escapes the curly bracket as in the second case
+  - needed in order to have the regex match an actual curly bracket
+
+Works with non-`String` types too:
+```rust
+let input = "Match 4 digits: 123456";
+let parsed = scanf!(input, r"Match 4 digits: {/\d\{4\}/}{}", usize, usize);
+                           // raw string (r"") to write \d instead of \\d
+
+// regex  \d{4}  matches 4 digits
+assert_eq!(parsed, Some((1234, 56)));
+```
+Note that changing the regex of a non-`String` type might cause that type's [`FromStr`](https://doc.rust-lang.org/std/str/trait.FromStr.html)
+to fail
+
+**Number Options:**
 
 Only work on primitive number types (`u8`, ..., `u128`, `i8`, ..., `i128`, `usize`, `isize`):
 - `x`: hexadecimal Number (Digits 0-9 and A-F or a-f, optional Prefix `0x`)
 - `o`: octal Number (Digits 0-7, optional Prefix `0o`)
 - `b`: binary Number (Digits 0-1, optional Prefix `0b`)
-- `r2` - `r36`: any radix Number
+- `r2` ..= `r36`: any radix Number (no prefix)
 
 **[`chrono`](https://docs.rs/chrono/^0.4/chrono/) integration (Requires `chrono` feature):**
 
@@ -166,3 +210,7 @@ assert_eq!(parsed, Some((TimeStamp{
     hour: 23, minute: 51
 }, 751)));
 ```
+
+Implementing `RegexRepresentation` isn't _strictly_ necessary if you **always** supply a custom
+Regex when using the type by using the `{/.../}` format option, but this tends to make your code
+less readable.

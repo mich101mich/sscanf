@@ -2,16 +2,17 @@ use super::*;
 
 pub(crate) fn parse_bracket_content<I: Iterator<Item = (usize, char)>>(
     input: &mut std::iter::Peekable<I>,
-    src: &SscanfInner,
+    src: &ScanfInner,
     start: usize,
 ) -> Result<Option<PlaceHolder>> {
     let mut config = String::new();
     while let Some((i, c)) = input.next() {
         if c == '\\' {
-            // escape any curly brackets
-            if let Some((_, c)) = input.next_if(|x| x.1 == '{' || x.1 == '}') {
-                config.push(c);
-                continue;
+            // escape any curly brackets (double \\ are halved to enable the use of \{ and \})
+            if let Some((_, next_c)) = input.next_if(|x| x.1 == '{' || x.1 == '}' || x.1 == '\\') {
+                config.push(next_c);
+            } else {
+                config.push('\\');
             }
         } else if c == '{' {
             if i == start + 1 {
@@ -46,8 +47,8 @@ pub(crate) fn regex_from_config(
     config: &str,
     ty: &TypePath,
     ph: &PlaceHolder,
-    src: &SscanfInner,
-) -> Result<(TokenStream, TokenStream)> {
+    src: &ScanfInner,
+) -> Result<(TokenStream, Option<TokenStream>)> {
     let ty_string = ty.to_token_stream().to_string();
     if let Some(radix) = get_radix(config) {
         let binary_digits = binary_length(&ty_string).ok_or_else(|| {
@@ -100,7 +101,16 @@ pub(crate) fn regex_from_config(
             quote_spanned!(span => #ty::from_str_radix(cap.name(#name)?.as_str(), #radix).ok()?)
         };
 
-        Ok((quote!(#regex), matcher))
+        Ok((quote!(#regex), Some(matcher)))
+    } else if let Some(regex) = config.strip_prefix('/').and_then(|s| s.strip_suffix('/')) {
+        if let Err(err) = regex_syntax::Parser::new().parse(regex) {
+            return sub_error_result(
+                &format!("{}\n\nIn custom Regex format option", err),
+                src,
+                ph.span,
+            );
+        }
+        Ok((quote!(#regex), None))
     } else {
         match ty_string.as_str() {
             "DateTime" | "NaiveDate" | "NaiveTime" | "NaiveDateTime" => {
@@ -116,7 +126,7 @@ pub(crate) fn regex_from_config(
                     ty,
                 );
 
-                Ok((quote!(#regex), matcher))
+                Ok((quote!(#regex), Some(matcher)))
             }
             "Utc" | "Local" => {
                 let (regex, chrono_fmt) = chrono::map_chrono_format(config, src, ph.span.0)?;
@@ -130,10 +140,10 @@ pub(crate) fn regex_from_config(
                     ty,
                 );
 
-                Ok((quote!(#regex), matcher))
+                Ok((quote!(#regex), Some(matcher)))
             }
             _ => sub_error_result(
-                &format!("Unknown format option: '{}'", config),
+                &format!("Unknown format option: '{}'.\nHint: regex format options must start and end with '/'", config),
                 src,
                 ph.span,
             ),

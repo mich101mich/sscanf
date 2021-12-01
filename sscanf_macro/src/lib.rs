@@ -19,18 +19,26 @@ struct PlaceHolder {
     span: (usize, usize),
 }
 
-struct SscanfInner {
+/// Format string and types for scanf_get_regex. Shared by scanf and scanf_unescaped
+struct ScanfInner {
+    /// content of the format string
     fmt: String,
+    /// subspan-provider for the format string
     fmt_span: Literal,
+    /// number of chars in fmt_span before content starts (e.g. 2 for "r#")
     span_offset: usize,
+    /// Types after the format string
     type_tokens: Vec<TypePath>,
 }
-struct Sscanf {
+/// Input string, format string and types for scanf and scanf_unescaped
+struct Scanf {
+    /// input to run the scanf on
     src_str: Expr,
-    inner: SscanfInner,
+    /// format string and types
+    inner: ScanfInner,
 }
 
-impl Parse for SscanfInner {
+impl Parse for ScanfInner {
     fn parse(input: ParseStream) -> Result<Self> {
         if input.is_empty() {
             return Err(Error::new(Span::call_site(), "Missing format string"));
@@ -43,15 +51,26 @@ impl Parse for SscanfInner {
             // this should be a thing that I can check on LitStr or Literal or whatever, but nooo,
             // I have to print it into a String via a TokenStream and check that one -.-
             //
-            // "fun" fact: This used to actually be a thing in syn 0.11 where `Lit::Str` gave _two_
-            // values: the literal and a `StrStyle`. This was apparently removed at some point for
-            // being TOO USEFUL.
+            // "fun" fact: This used to be easier in syn 0.11 where `Lit::Str` gave _two_ values:
+            // the literal and a `StrStyle` which looked like this:
+            // enum StrStyle {
+            //     Cooked,      // a non-raw string
+            //     Raw(usize),
+            // }       ^^^^^ See this usize here? That's the number of '#' in the prefix
+            //               which is _exactly_ what I'm trying to calculate here! How convenient!
+            // This was apparently removed at some point for being TOO USEFUL.
             let lit = fmt.to_token_stream().to_string();
+            // Yes, this is the easiest way to solve this. Have syn read the Rust Code (which used
+            // to be a string) as a TokenStream to parse the LitStr, turn that back into a
+            // TokenStream and then into a String (LitStr cannot be directly converted to a String)
+            // and then iterate over that string for the first ", because anything before that
+            // **should** (this will totally break at some point) be the prefix.
             lit.chars().enumerate().find(|c| c.1 == '"').unwrap().0
         };
 
-        // subspan only exists on Literal, but in order to get the content of the literal we need
-        // LitStr, because once again convenience is a luxury
+        // fmt has to be parsed as `syn::LitStr` to access the content as a string. But in order to
+        // call subspan, we need it as a `proc_macro2::Literal`. So: parse it as `LitStr` first and
+        // convert that to a `Literal` with the same content and span.
         let mut fmt_span = Literal::string(&fmt.value());
         fmt_span.set_span(fmt.span()); // fmt is a single Token so span() works even on stable
 
@@ -59,7 +78,7 @@ impl Parse for SscanfInner {
         if input.is_empty() {
             type_tokens = vec![];
         } else {
-            input.parse::<Token![,]>()?;
+            input.parse::<Token![,]>()?; // the comma after the format string
 
             type_tokens = input
                 .parse_terminated::<_, Token![,]>(TypePath::parse)?
@@ -67,7 +86,7 @@ impl Parse for SscanfInner {
                 .collect();
         }
 
-        Ok(SscanfInner {
+        Ok(ScanfInner {
             fmt: fmt.value(),
             fmt_span,
             span_offset,
@@ -75,9 +94,21 @@ impl Parse for SscanfInner {
         })
     }
 }
-impl Parse for Sscanf {
+impl Parse for Scanf {
     fn parse(input: ParseStream) -> Result<Self> {
         if input.is_empty() {
+            // All of these special cases have to be handled separately, because syn's default
+            // behavior when something is missing is to point at the entire macro invocation with
+            // an error message that says "expected <missing thing>". But if a user sees the entire
+            // thing underlined with the message "expected a comma", they will assume that they
+            // should replace that macro call with a comma or something similar. They would not
+            // guess that the actual meaning is:
+            // "this macro requires more parameters than I have given it, and the next
+            // parameter should be separated with a comma from the current ones which is why the
+            // macro expected a comma, and it would point to the end of the input where the comma
+            // was expected, but since there is nothing there it has no span to point to so it
+            // just points at the entire thing."
+            // I love writing error messages in proc macros :D (not)
             return Err(Error::new(
                 Span::call_site(),
                 "At least 2 Parameters required: Input and format string",
@@ -92,6 +123,9 @@ impl Parse for Sscanf {
         }
         let comma = input.parse::<Token![,]>()?;
         if input.is_empty() {
+            // Addition to the comment above: here we actually have a comma to point to to say:
+            // "Hey, you put a comma here, put something after it". syn doesn't do this
+            // because it can't rewind the input stream to check this.
             return Err(Error::new_spanned(
                 comma,
                 "At least 2 Parameters required: Missing format string",
@@ -99,25 +133,25 @@ impl Parse for Sscanf {
         }
         let inner = input.parse()?;
 
-        Ok(Sscanf { src_str, inner })
+        Ok(Scanf { src_str, inner })
     }
 }
 
 #[proc_macro]
 pub fn scanf(input: TokenStream1) -> TokenStream1 {
-    let input = parse_macro_input!(input as Sscanf);
+    let input = parse_macro_input!(input as Scanf);
     scanf_internal(input, true)
 }
 
 #[proc_macro]
 pub fn scanf_unescaped(input: TokenStream1) -> TokenStream1 {
-    let input = parse_macro_input!(input as Sscanf);
+    let input = parse_macro_input!(input as Scanf);
     scanf_internal(input, false)
 }
 
 #[proc_macro]
 pub fn scanf_get_regex(input: TokenStream1) -> TokenStream1 {
-    let input = parse_macro_input!(input as SscanfInner);
+    let input = parse_macro_input!(input as ScanfInner);
     let (regex, _) = match generate_regex(input, true) {
         Ok(v) => v,
         Err(e) => return e.to_compile_error().into(),
@@ -129,7 +163,7 @@ pub fn scanf_get_regex(input: TokenStream1) -> TokenStream1 {
     .into()
 }
 
-fn scanf_internal(input: Sscanf, escape_input: bool) -> TokenStream1 {
+fn scanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
     let (regex, matcher) = match generate_regex(input.inner, escape_input) {
         Ok(v) => v,
         Err(e) => return e.to_compile_error().into(),
@@ -139,6 +173,8 @@ fn scanf_internal(input: Sscanf, escape_input: bool) -> TokenStream1 {
         let (start, end) = full_span(&src_str);
         let mut param = quote_spanned!(start => &);
         param.extend(quote_spanned!(end => (#src_str)));
+        // wrapping the input in a manual call to AsRef::as_ref ensures that the user
+        // gets an appropriate error message if they try to use a non-string input
         quote!(::std::convert::AsRef::<str>::as_ref(#param))
     };
     quote!(
@@ -152,13 +188,13 @@ fn scanf_internal(input: Sscanf, escape_input: bool) -> TokenStream1 {
 }
 
 fn generate_regex(
-    input: SscanfInner,
+    input: ScanfInner,
     escape_input: bool,
 ) -> Result<(TokenStream, Vec<TokenStream>)> {
     let (placeholders, regex_parts) = parse_format_string(&input, escape_input)?;
 
-    // generate error with excess parts if lengths do not match
     let mut error = TokenStream::new();
+    // generate an error for all placeholders that don't have a corresponding type
     for ph in placeholders.iter().skip(input.type_tokens.len()) {
         let message = format!(
             "Missing Type for given '{{{}}}' Placeholder",
@@ -166,6 +202,7 @@ fn generate_regex(
         );
         error.extend(sub_error(&message, &input, ph.span).to_compile_error());
     }
+    // generate an error for all types that don't have a corresponding placeholder
     for ty in input.type_tokens.iter().skip(placeholders.len()) {
         error.extend(
             Error::new_spanned(ty, "More Types than '{}' Placeholders provided").to_compile_error(),
@@ -176,57 +213,87 @@ fn generate_regex(
         return Ok((error, vec![]));
     }
 
-    // these need to be Vec instead of direct streams to allow comma separators
+    // these need to be Vec instead of TokenStream to allow adding the comma separators later
     let mut regex_builder = vec![];
     let mut match_grabber = vec![];
+    // if there are n types, there are n+1 regex_parts, so add the first n during this loop and
+    // add the last one afterwards
     for ((ph, ty), regex_prefix) in placeholders
         .iter()
         .zip(input.type_tokens.iter())
         .zip(regex_parts.iter())
     {
         regex_builder.push(quote!(#regex_prefix));
-        if let Some(config) = ph.config.as_ref() {
-            let (regex, matcher) = format_config::regex_from_config(config, ty, ph, &input)?;
-            regex_builder.push(regex);
-            match_grabber.push(matcher);
-        } else {
-            let (start, end) = full_span(&ty);
-            let name = &ph.name;
+        let mut regex = None;
+        let mut matcher = None;
 
+        if let Some(config) = ph.config.as_ref() {
+            let res = format_config::regex_from_config(config, ty, ph, &input)?;
+            regex = Some(res.0);
+            matcher = res.1;
+        }
+
+        let (start, end) = full_span(&ty);
+        let name = &ph.name;
+
+        let regex = regex.unwrap_or_else(|| {
+            // proc_macros don't have any type information, so we can't check if the type
+            // implements the trait, so we wrap it in this verbose <#ty as Trait> code,
+            // so that the compiler can check if the trait is implemented, and, most importantly,
+            // tell the user if they forgot to implement the trait.
+            // The code is split into two quote_spanned calls in case the type consists of more
+            // than one token (like std::vec::Vec). Again, no span manipulation on stable and we
+            // obviously want the entire type underlined, so we have to map the start and end of
+            // the type's span to the start and end of the part that generates the error message.
+            // Yes, this works. No, this is not a good way to do this. ¯\_(ツ)_/¯
             let mut s = quote_spanned!(start => <#ty as );
             s.extend(quote_spanned!(end => ::sscanf::RegexRepresentation>::REGEX));
-            regex_builder.push(s);
+            s
+        });
+        regex_builder.push(regex);
 
-            s = quote_spanned!(start => <#ty as );
-            s.extend(quote_spanned!(end => ::std::str::FromStr>::from_str(cap.name(#name)?.as_str()).ok()?));
-            match_grabber.push(s);
-        }
+        let matcher = matcher.unwrap_or_else(|| {
+            let mut s = quote_spanned!(start => <#ty as );
+            s.extend(
+                quote_spanned!(end => ::std::str::FromStr>::from_str(cap.name(#name)?.as_str()).ok()?),
+            );
+            s
+        });
+        match_grabber.push(matcher);
     }
 
+    // add the last regex_part
     let last_regex = &regex_parts[placeholders.len()];
     regex_builder.push(quote!(#last_regex));
 
-    let regex = quote!(::sscanf::lazy_static::lazy_static! {
-        static ref REGEX: ::sscanf::regex::Regex = ::sscanf::regex::Regex::new(
-            ::sscanf::const_format::concatcp!( #(#regex_builder),* )
-        ).expect("sscanf cannot generate Regex");
-    });
+    #[rustfmt::skip]
+    let regex = quote!(
+        ::sscanf::lazy_static::lazy_static!{
+            static ref REGEX: ::sscanf::regex::Regex =
+                ::sscanf::regex::Regex::new(
+                    ::sscanf::const_format::concatcp!( #(#regex_builder),* )
+                )
+                .expect("sscanf cannot generate Regex");
+        }
+    );
 
     Ok((regex, match_grabber))
 }
 
 fn parse_format_string(
-    input: &SscanfInner,
+    input: &ScanfInner,
     escape_input: bool,
 ) -> Result<(Vec<PlaceHolder>, Vec<String>)> {
     let mut placeholders = vec![];
 
+    // all completed parts of the regex
     let mut regex = vec![];
     let mut current_regex = String::from("^");
 
+    // name of the next placeholder
     let mut name_index = 1;
 
-    // iter as var to allow peeking and advancing in sub-function
+    // keep the iterator as a variable to allow peeking and advancing in a sub-function
     let mut iter = input.fmt.chars().enumerate().peekable();
 
     while let Some((i, c)) = iter.next() {
@@ -241,17 +308,21 @@ fn parse_format_string(
 
                 placeholders.push(ph);
                 continue;
+            } else {
+                // escaped '{{', will be handled like a regular char by the following code
             }
-            // else => escaped '{{', handle like regular char
         } else if c == '}' {
-            // next_if_eq success => escaped '}}', iterator advanced, handle like regular char
-            iter.next_if_eq(&(i + 1, '}')).ok_or_else(|| {
-                sub_error(
+            if iter.next() == Some((i + 1, '}')) {
+                // escaped '}}', will be handled like a regular char by the following code
+                // next automatically advanced the iterator to skip the second '}'
+            } else {
+                // we have a '}' that is not escaped and not in a placeholder
+                return sub_error_result(
                     "Unexpected standalone '}'. Literal '}' need to be escaped as '}}'",
                     input,
                     (i, i),
-                )
-            })?;
+                );
+            }
         }
 
         if escape_input && regex_syntax::is_meta_character(c) {
@@ -267,34 +338,42 @@ fn parse_format_string(
     Ok((placeholders, regex))
 }
 
-fn sub_error_result<T>(
-    message: &str,
-    src: &SscanfInner,
-    (start, end): (usize, usize),
-) -> Result<T> {
+fn sub_error_result<T>(message: &str, src: &ScanfInner, (start, end): (usize, usize)) -> Result<T> {
     Err(sub_error(message, src, (start, end)))
 }
 
-fn sub_error(message: &str, src: &SscanfInner, (start, end): (usize, usize)) -> Error {
+/// Generates an error for a subsection of the format string
+fn sub_error(message: &str, src: &ScanfInner, (start, end): (usize, usize)) -> Error {
     let s = start + src.span_offset + 1; // + 1 for "
     let e = end + src.span_offset + 1;
+
+    // subspan allows pointing at a span that is not the whole string, but it only works in nightly
     if let Some(span) = src.fmt_span.subspan(s..=e) {
         Error::new(span, message)
     } else {
-        let mut m = format!("{}:\nAt ", message);
-        let msg_len = 3; // "At "
-
-        if src.span_offset > 0 {
-            m.push('r');
-            (1..src.span_offset).for_each(|_| m.push('#'));
-        }
-        m.push('"');
-        m += &src.fmt;
-        m.push('"');
-        (1..src.span_offset).for_each(|_| m.push('#'));
+        // Workaround for stable: print a copy of the entire format string into the error message
+        // and manually underline the desired section.
+        let mut m = format!("{}:", message);
         m.push('\n');
-        (0..(s + msg_len)).for_each(|_| m.push(' '));
-        (s..=e).for_each(|_| m.push('^'));
+
+        // Add the line with the format string
+        if src.span_offset > 0 {
+            let hashtags = (1..src.span_offset).map(|_| '#').collect::<String>();
+
+            m += &format!("At r{0}\"{1}\"{0}", hashtags, src.fmt);
+        } else {
+            m += &format!("At \"{}\"", src.fmt);
+        }
+        m.push('\n');
+
+        // Add the line with the error squiggles
+        // s already includes the span_offset and +1 for the ", so only the "At " prefix is missing
+        for _ in 0..("At ".len() + s) {
+            m.push(' ');
+        }
+        for _ in s..=e {
+            m.push('^');
+        }
         Error::new_spanned(&src.fmt_span, m)
     }
 }
@@ -303,7 +382,7 @@ fn full_span<T: ToTokens + Spanned>(span: &T) -> (Span, Span) {
     // dirty hack stolen from syn::Error::new_spanned
     // because _once again_, spans don't really work on stable, so instead we set part of the
     // target to the beginning of the type, part to the end, and then the rust compiler joins
-    // them for us. Isn't that a nice?
+    // them for us.
 
     let start = span.span();
     let end = span
