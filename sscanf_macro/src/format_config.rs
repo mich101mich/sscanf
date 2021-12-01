@@ -68,8 +68,7 @@ pub(crate) fn regex_from_config(
             Equal => r"[0-9aA]".to_string(),
             Greater => {
                 let last_letter = (b'a' + radix - 10) as char;
-                let last_letter_upper = (b'A' + radix - 10) as char;
-                format!(r"[0-9a-{}A-{}]", last_letter, last_letter_upper)
+                format!(r"[0-9a-{}A-{}]", last_letter, last_letter.to_uppercase())
             }
         };
         // repetition factor
@@ -112,7 +111,7 @@ pub(crate) fn regex_from_config(
                 let matcher = wrap_in_feature_gate(
                     quote_spanned!(span =>
                     ::sscanf::chrono::#ty::parse_from_str(cap.name(#name)?.as_str(), #chrono_fmt)
-                            .expect("chrono parsing should be exact")
+                            .expect("sscanf error: chrono failed to parse its own format")
                         ),
                     ty,
                 );
@@ -143,18 +142,20 @@ pub(crate) fn regex_from_config(
 }
 
 fn get_radix(config: &str) -> Option<u8> {
-    if let Some(n) = config
-        .strip_prefix('r')
-        .and_then(|s| s.parse::<u8>().ok())
-        .filter(|n| *n >= 2 && *n <= 36)
-    {
-        return Some(n);
-    }
     match config {
         "x" => Some(16),
         "o" => Some(8),
         "b" => Some(2),
-        _ => None,
+        _ => {
+            let radix = config.strip_prefix('r')?.parse::<u8>().ok()?;
+
+            // Range taken from: https://doc.rust-lang.org/std/primitive.usize.html#panics
+            if (2..=36).contains(&radix) {
+                Some(radix)
+            } else {
+                None
+            }
+        }
     }
 }
 
