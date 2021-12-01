@@ -1,5 +1,0 @@
-error: At least 2 Parameters required: Missing format string
- --> $DIR/literal_none_comma.rs:2:23
-  |
-2 |     sscanf::scanf!("5",);
-  |                       ^

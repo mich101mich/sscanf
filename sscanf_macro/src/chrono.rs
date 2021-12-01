@@ -14,7 +14,7 @@ macro_rules! get_next {
     };
 }
 
-pub(crate) fn map_chrono_format(f: &str, src: &SscanfInner, offset: usize) -> Result<(String, String)> {
+pub(crate) fn map_chrono_format(f: &str, src: &ScanfInner, offset: usize) -> Result<(String, String)> {
     let mut regex = String::new();
     let chrono_fmt = f.replace("\\{", "{").replace("\\}", "}");
 
@@ -53,7 +53,7 @@ pub(crate) fn map_chrono_format(f: &str, src: &SscanfInner, offset: usize) -> Re
 fn get_date_fmt(
     letter: (usize, char),
     padding: Option<&'static str>,
-    src: &SscanfInner,
+    src: &ScanfInner,
     iter: &mut impl Iterator<Item = (usize, char)>,
 ) -> Result<String> {
     let i = letter.0;

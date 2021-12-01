@@ -40,8 +40,9 @@
 //!
 //! If matching the format string failed, `None` is returned:
 //! ```
+//! # use sscanf::scanf;
 //! let s = "Text that doesn't match the format string";
-//! let parsed = sscanf::scanf!(s, "Hello {}_{}!", String, usize);
+//! let parsed = scanf!(s, "Hello {}_{}!", String, usize);
 //! assert_eq!(parsed, None); // No match possible
 //! ```
 //!
@@ -53,31 +54,38 @@
 //!
 //! More examples of the capabilities of [`scanf`]:
 //! ```
-//! use sscanf::scanf;
-//!
+//! # use sscanf::scanf;
 //! let input = "<x=3, y=-6, z=6>";
 //! let parsed = scanf!(input, "<x={}, y={}, z={}>", i32, i32, i32);
 //! assert_eq!(parsed, Some((3, -6, 6)));
 //!
-//! let input = "Goto N36E21";
-//! let parsed = scanf!(input, "Goto {}{}{}{}", char, usize, char, usize);
+//! let input = "Move to N36E21";
+//! let parsed = scanf!(input, "Move to {}{}{}{}", char, usize, char, usize);
 //! assert_eq!(parsed, Some(('N', 36, 'E', 21)));
 //!
 //! let input = "Escape literal { } as {{ and }}";
-//! let parsed = scanf!(input, "Escape literal {{ }} as {{{{ and {}", String);
-//! assert_eq!(parsed, Some(String::from("}}")));
+//! let parsed = scanf!(input, "Escape literal {{ }} as {{{{ and }}}}");
+//! assert_eq!(parsed, Some(()));
 //!
-//! let input = "A Sentence with Spaces. Formats: 0xab01 0o127 0b101010 1Z.";
-//! let parsed = scanf!(input, "{}. Formats: {x} {o} {b} {r36}.", String, usize, i32, u8, u32);
-//! let (a, b, c, d, e) = parsed.unwrap();
+//! let input = "A Sentence with Spaces. Another Sentence.";
+//! let parsed = scanf!(input, "{}. {}.", String, String);
+//! let (a, b) = parsed.unwrap();
 //! assert_eq!(a, "A Sentence with Spaces");
-//! assert_eq!(b, 0xab01);
-//! assert_eq!(c, 0o127);
-//! assert_eq!(d, 0b101010);
-//! assert_eq!(e, 71);         assert_eq!(e, u32::from_str_radix("1Z", 36).unwrap());
+//! assert_eq!(b, "Another Sentence");
+//!
+//! let input = "Formats:  0xab01  0o127  0b101010  1Z";
+//! let parsed = scanf!(input, "Formats:  {x}  {o}  {b}  {r36}", usize, i32, u8, u32);
+//! let (a, b, c, d) = parsed.unwrap();
+//! assert_eq!(a, 0xab01);     // Hex
+//! assert_eq!(b, 0o127);      // Octal
+//! assert_eq!(c, 0b101010);   // Binary
+//!
+//! assert_eq!(d, 71);         // any radix (r36 = Radix 36)
+//! assert_eq!(d, u32::from_str_radix("1Z", 36).unwrap());
 //! ```
 //! The input in this case is a `&'static str`, but in can be `String`, `&str`, `&String`, ...
-//! Basically anything with `AsRef<str>` and without taking Ownership.
+//! Basically anything with [`AsRef<str>`](https://doc.rust-lang.org/std/convert/trait.AsRef.html)
+//! and without taking Ownership.
 //!
 //! The parsing part of this macro has very few limitations, since it replaces the `{}` with a
 //! Regular Expression ([`regex`](https://docs.rs/regex)) that corresponds to that type.
@@ -91,24 +99,72 @@
 //!
 //! This means that any sequence of replacements is possible as long as the Regex finds a
 //! combination that works. In the `char, usize, char, usize` example above it manages to assign
-//! the `N` and `E` to the `char`s because they cannot be matched by the `usize`s. If the input
-//! were slightly different then it might have matched the `6` of the `36` or the `2` of the `21`
-//! to the second `char`.
+//! the `N` and `E` to the `char`s because they cannot be matched by the `usize`s.
 //!
 //! # Format Options
 //! All Options are inside `'{'` `'}'`. Literal `'{'` or `'}'` inside of a Format Option are escaped
 //! as `'\{'` instead of `'{{'` to avoid ambiguity.
 //!
-//! Procedural macro don't have any reliable type information, so **no type alias or path**. (`chrono`
-//! imports happen automatically).
+//! Procedural macro don't have any reliable type info and can only compare types by name. This means
+//! that Format Options only work with a literal type like "`i32`", **NO** Paths (~~`std::i32`~~) or
+//! Wrappers (~~`struct Wrapper(i32);`~~) or Aliases (~~`type Alias = i32;`~~). **ONLY** `i32`,
+//! `usize`, `u16`, ...
 //!
-//! **Radix Options:**
+//! | config                     | description                | possible types |
+//! | -------------------------- | -------------------------- | -------------- |
+//! | `{/` _\<regex>_ `/}`       | custom regex               | any            |
+//! | `{x}`                      | hexadecimal numbers        | numbers        |
+//! | `{o}`                      | octal numbers              | numbers        |
+//! | `{b}`                      | binary numbers             | numbers        |
+//! | `{r2}`..=`{r36}`           | radix 2 - radix 32 numbers | numbers        |
+//! | `{` _\<chrono format>_ `}` | chrono format              | chrono types   |
 //!
-//! Only work on primitive number types (u8, i8, u16, ...).
+//! **Custom Regex:**
+//!
+//! - `{/.../}`: Match according to the [`Regex`](https://docs.rs/regex) between the `/` `/`
+//!
+//! For example:
+//! ```
+//! # use sscanf::scanf;
+//! let input = "random Text";
+//! let parsed = scanf!(input, "{/[^m]+/}{}", String, String);
+//!
+//! // regex  [^m]+  matches anything that isn't an 'm'
+//! // => stops at the 'm' in 'random'
+//! assert_eq!(parsed, Some((String::from("rando"), String::from("m Text"))));
+//! ```
+//!
+//! As mentioned above, `'{'` `'}'` have to be escaped with a `'\'`. This means that:
+//! - `"{"` or `"}"` would give a compiler error
+//! - `"\{"` or `"\}"` lead to a `"{"` or `"}"` inside of the regex
+//!   - curly brackets have a special meaning in regex as counted repetition etc.
+//! - `"\\{"` or `"\\}"` would give a compiler error
+//!   - first `'\'` just escapes the second one, leaving just the brackets
+//! - `"\\\{"` or `"\\\}"` lead to a `"\{"` or `"\}"` inside of the regex
+//!   - the first `'\'` escapes the second one, leading to a literal `'\'` in the regex. the third
+//!     escapes the curly bracket as in the second case
+//!   - needed in order to have the regex match an actual curly bracket
+//!
+//! Works with non-`String` types too:
+//! ```
+//! # use sscanf::scanf;
+//! let input = "Match 4 digits: 123456";
+//! let parsed = scanf!(input, r"Match 4 digits: {/\d\{4\}/}{}", usize, usize);
+//!                            // raw string (r"") to write \d instead of \\d
+//!
+//! // regex  \d{4}  matches 4 digits
+//! assert_eq!(parsed, Some((1234, 56)));
+//! ```
+//! Note that changing the regex of a non-`String` type might cause that type's [`FromStr`](https://doc.rust-lang.org/std/str/trait.FromStr.html)
+//! to fail
+//!
+//! **Number Options:**
+//!
+//! Only work on primitive number types (`u8`, ..., `u128`, `i8`, ..., `i128`, `usize`, `isize`).
 //! - `x`: hexadecimal Number (Digits 0-9 and A-F, optional Prefix `0x`)
 //! - `o`: octal Number (Digits 0-7, optional Prefix `0o`)
 //! - `b`: binary Number (Digits 0-1, optional Prefix `0b`)
-//! - `r2` - `r36`: any radix Number
+//! - `r2` ..= `r36`: any radix Number (no prefix)
 //!
 //! **[`chrono`](https://docs.rs/chrono/^0.4/chrono/) integration (Requires `chrono` feature):**
 //!
@@ -193,6 +249,10 @@
 //! }, 751)));
 //! ```
 //!
+//! Implementing `RegexRepresentation` isn't _strictly_ necessary if you **always** supply a custom
+//! Regex when using the type by using the `{/.../}` format option, but this tends to make your code
+//! less readable.
+//!
 //! # A Note on Error Messages
 //!
 //! Errors in the format string would ideally point to the exact position in the string that
@@ -203,12 +263,13 @@
 //!
 //! Error Messages on nightly currently look like this:
 //! ```compile_fail
-//! sscanf::scanf!("", "Some Text {}{}{} and stuff", usize);
+//! # use sscanf::scanf;
+//! scanf!("", "Some Text {}{}{} and stuff", usize);
 //! ```
 //! ```text
 //! error: Missing Type for given '{}' Placeholder
 //!   |
-//! 4 | sscanf::scanf!("", "Some Text {}{}{} and stuff", usize);
+//! 4 | scanf!("", "Some Text {}{}{} and stuff", usize);
 //!   |                                 ^^
 //! ```
 //! But on stable, you are limited to only pointing at the entire format string:
@@ -217,7 +278,7 @@
 //! At "Some Text {}{}{} and stuff"
 //!                 ^^
 //!   |
-//! 4 | sscanf::scanf!("", "Some Text {}{}{} and stuff", usize);
+//! 4 | scanf!("", "Some Text {}{}{} and stuff", usize);
 //!   |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 //! ```
 //! The current workaround is to replicate that behavior in the Error Message

@@ -2,16 +2,17 @@ use super::*;
 
 pub(crate) fn parse_bracket_content<I: Iterator<Item = (usize, char)>>(
     input: &mut std::iter::Peekable<I>,
-    src: &SscanfInner,
+    src: &ScanfInner,
     start: usize,
 ) -> Result<Option<PlaceHolder>> {
     let mut config = String::new();
     while let Some((i, c)) = input.next() {
         if c == '\\' {
-            // escape any curly brackets
-            if let Some((_, c)) = input.next_if(|x| x.1 == '{' || x.1 == '}') {
-                config.push(c);
-                continue;
+            // escape any curly brackets (double \\ are halved to enable the use of \{ and \})
+            if let Some((_, next_c)) = input.next_if(|x| x.1 == '{' || x.1 == '}' || x.1 == '\\') {
+                config.push(next_c);
+            } else {
+                config.push('\\');
             }
         } else if c == '{' {
             if i == start + 1 {
@@ -46,8 +47,8 @@ pub(crate) fn regex_from_config(
     config: &str,
     ty: &TypePath,
     ph: &PlaceHolder,
-    src: &SscanfInner,
-) -> Result<(TokenStream, TokenStream)> {
+    src: &ScanfInner,
+) -> Result<(TokenStream, Option<TokenStream>)> {
     let ty_string = ty.to_token_stream().to_string();
     if let Some(radix) = get_radix(config) {
         let binary_digits = binary_length(&ty_string).ok_or_else(|| {
@@ -68,8 +69,7 @@ pub(crate) fn regex_from_config(
             Equal => r"[0-9aA]".to_string(),
             Greater => {
                 let last_letter = (b'a' + radix - 10) as char;
-                let last_letter_upper = (b'A' + radix - 10) as char;
-                format!(r"[0-9a-{}A-{}]", last_letter, last_letter_upper)
+                format!(r"[0-9a-{}A-{}]", last_letter, last_letter.to_uppercase())
             }
         };
         // repetition factor
@@ -101,7 +101,16 @@ pub(crate) fn regex_from_config(
             quote_spanned!(span => #ty::from_str_radix(cap.name(#name)?.as_str(), #radix).ok()?)
         };
 
-        Ok((quote!(#regex), matcher))
+        Ok((quote!(#regex), Some(matcher)))
+    } else if let Some(regex) = config.strip_prefix('/').and_then(|s| s.strip_suffix('/')) {
+        if let Err(err) = regex_syntax::Parser::new().parse(regex) {
+            return sub_error_result(
+                &format!("{}\n\nIn custom Regex format option", err),
+                src,
+                ph.span,
+            );
+        }
+        Ok((quote!(#regex), None))
     } else {
         match ty_string.as_str() {
             "DateTime" | "NaiveDate" | "NaiveTime" | "NaiveDateTime" => {
@@ -112,12 +121,12 @@ pub(crate) fn regex_from_config(
                 let matcher = wrap_in_feature_gate(
                     quote_spanned!(span =>
                     ::sscanf::chrono::#ty::parse_from_str(cap.name(#name)?.as_str(), #chrono_fmt)
-                            .expect("chrono parsing should be exact")
+                            .expect("sscanf error: chrono failed to parse its own format")
                         ),
                     ty,
                 );
 
-                Ok((quote!(#regex), matcher))
+                Ok((quote!(#regex), Some(matcher)))
             }
             "Utc" | "Local" => {
                 let (regex, chrono_fmt) = chrono::map_chrono_format(config, src, ph.span.0)?;
@@ -131,10 +140,10 @@ pub(crate) fn regex_from_config(
                     ty,
                 );
 
-                Ok((quote!(#regex), matcher))
+                Ok((quote!(#regex), Some(matcher)))
             }
             _ => sub_error_result(
-                &format!("Unknown format option: '{}'", config),
+                &format!("Unknown format option: '{}'.\nHint: regex format options must start and end with '/'", config),
                 src,
                 ph.span,
             ),
@@ -143,18 +152,20 @@ pub(crate) fn regex_from_config(
 }
 
 fn get_radix(config: &str) -> Option<u8> {
-    if let Some(n) = config
-        .strip_prefix('r')
-        .and_then(|s| s.parse::<u8>().ok())
-        .filter(|n| *n >= 2 && *n <= 36)
-    {
-        return Some(n);
-    }
     match config {
         "x" => Some(16),
         "o" => Some(8),
         "b" => Some(2),
-        _ => None,
+        _ => {
+            let radix = config.strip_prefix('r')?.parse::<u8>().ok()?;
+
+            // Range taken from: https://doc.rust-lang.org/std/primitive.usize.html#panics
+            if (2..=36).contains(&radix) {
+                Some(radix)
+            } else {
+                None
+            }
+        }
     }
 }
 

@@ -1,5 +1,0 @@
-error: expected string literal
- --> $DIR/literal.rs:4:27
-  |
-4 |     sscanf::scanf!(input, fmt, std::vec::Vec<usize>);
-  |                           ^^^
