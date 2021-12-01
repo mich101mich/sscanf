@@ -26,11 +26,11 @@
 //! can be thought of as reversing a call to `format!()`:
 //! ```
 //! // format: takes format string and values, returns String
-//! let s = format!("Hello {}_{}!", "World", 5);
-//! assert_eq!(s, "Hello World_5!");
+//! let s = format!("Hello {}{}!", "World", 5);
+//! assert_eq!(s, "Hello World5!");
 //!
 //! // scanf: takes String, format string and types, returns Tuple
-//! let parsed = sscanf::scanf!(s, "Hello {}_{}!", String, usize);
+//! let parsed = sscanf::scanf!(s, "Hello {}{}!", String, usize);
 //! // parsed is Option<(String, usize)>
 //! assert_eq!(parsed, Some((String::from("World"), 5)));
 //! ```
@@ -73,7 +73,7 @@
 //! assert_eq!(a, "A Sentence with Spaces");
 //! assert_eq!(b, "Another Sentence");
 //!
-//! let input = "Formats:  0xab01  0o127  0b101010  1Z";
+//! let input = "Formats:  0xab01  0o127  101010  1Z";
 //! let parsed = scanf!(input, "Formats:  {x}  {o}  {b}  {r36}", usize, i32, u8, u32);
 //! let (a, b, c, d) = parsed.unwrap();
 //! assert_eq!(a, 0xab01);     // Hex
@@ -92,7 +92,7 @@
 //! For example:
 //! - `char` is just one Character (regex `"."`)
 //! - `String` is any sequence of Characters (regex `".+"`)
-//! - Numbers are any sequence of digits (regex `"\d+"`)
+//! - Numbers are any sequence of digits (regex `"[-+]?\d+"`)
 //!
 //! And so on. The actual implementation for numbers tries to take the size of the Type into
 //! account and some other details, but that is the gist of the parsing.
@@ -106,8 +106,8 @@
 //! as `'\{'` instead of `'{{'` to avoid ambiguity.
 //!
 //! Procedural macro don't have any reliable type info and can only compare types by name. This means
-//! that Format Options only work with a literal type like "`i32`", **NO** Paths (~~`std::i32`~~) or
-//! Wrappers (~~`struct Wrapper(i32);`~~) or Aliases (~~`type Alias = i32;`~~). **ONLY** `i32`,
+//! that the number options below only work with a literal type like "`i32`", **NO** Paths (~~`std::i32`~~)
+//! or Wrappers (~~`struct Wrapper(i32);`~~) or Aliases (~~`type Alias = i32;`~~). **ONLY** `i32`,
 //! `usize`, `u16`, ...
 //!
 //! | config                     | description                | possible types |
@@ -116,7 +116,7 @@
 //! | `{x}`                      | hexadecimal numbers        | numbers        |
 //! | `{o}`                      | octal numbers              | numbers        |
 //! | `{b}`                      | binary numbers             | numbers        |
-//! | `{r2}`..=`{r36}`           | radix 2 - radix 32 numbers | numbers        |
+//! | `{r2}` - `{r36}`           | radix 2 - radix 32 numbers | numbers        |
 //! | `{` _\<chrono format>_ `}` | chrono format              | chrono types   |
 //!
 //! **Custom Regex:**
@@ -137,9 +137,9 @@
 //! As mentioned above, `'{'` `'}'` have to be escaped with a `'\'`. This means that:
 //! - `"{"` or `"}"` would give a compiler error
 //! - `"\{"` or `"\}"` lead to a `"{"` or `"}"` inside of the regex
-//!   - curly brackets have a special meaning in regex as counted repetition etc.
+//!   - curly brackets have a special meaning in regex as counted repetition
 //! - `"\\{"` or `"\\}"` would give a compiler error
-//!   - first `'\'` just escapes the second one, leaving just the brackets
+//!   - first `'\'` escapes the second one, leaving just the brackets
 //! - `"\\\{"` or `"\\\}"` lead to a `"\{"` or `"\}"` inside of the regex
 //!   - the first `'\'` escapes the second one, leading to a literal `'\'` in the regex. the third
 //!     escapes the curly bracket as in the second case
@@ -148,8 +148,8 @@
 //! Works with non-`String` types too:
 //! ```
 //! # use sscanf::scanf;
-//! let input = "Match 4 digits: 123456";
-//! let parsed = scanf!(input, r"Match 4 digits: {/\d\{4\}/}{}", usize, usize);
+//! let input = "Match 4 digits of 123456";
+//! let parsed = scanf!(input, r"Match 4 digits of {/\d\{4\}/}{}", usize, usize);
 //!                            // raw string (r"") to write \d instead of \\d
 //!
 //! // regex  \d{4}  matches 4 digits
@@ -164,7 +164,7 @@
 //! - `x`: hexadecimal Number (Digits 0-9 and A-F, optional Prefix `0x`)
 //! - `o`: octal Number (Digits 0-7, optional Prefix `0o`)
 //! - `b`: binary Number (Digits 0-1, optional Prefix `0b`)
-//! - `r2` ..= `r36`: any radix Number (no prefix)
+//! - `r2` - `r36`: any radix Number (no prefix)
 //!
 //! **[`chrono`](https://docs.rs/chrono/^0.4/chrono/) integration (Requires `chrono` feature):**
 //!
@@ -175,7 +175,7 @@
 //! [`Utc`](https://docs.rs/chrono/^0.4/chrono/offset/struct.Utc.html) and
 //! [`Local`](https://docs.rs/chrono/^0.4/chrono/offset/struct.Local.html) can be used and accept
 //! a [Date/Time format string](https://docs.rs/chrono/0.4.19/chrono/format/strftime/index.html)
-//! inside of the `{` `}`, that will then be used for both the Regex generation and parsing of the
+//! inside of the `{` `}`. This will then be used for both the Regex generation and parsing of the
 //! type.
 //!
 //! Using [`DateTime`](https://docs.rs/chrono/^0.4/chrono/struct.DateTime.html) returns a
