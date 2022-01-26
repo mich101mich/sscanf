@@ -12,14 +12,8 @@ mod chrono;
 #[test]
 fn basic() {
     let input = "Test 5 1.4 {} bob!";
-    let output = scanf!(
-        input,
-        "Test {} {} {{}} {}!",
-        usize,
-        f32,
-        std::string::String
-    );
-    assert!(output.is_some());
+    let output = scanf!(input, "Test {usize} {f32} {{}} {}!", std::string::String);
+    assert!(output.is_ok());
     let (a, b, c) = output.unwrap();
     assert_eq!(a, 5);
     assert!((b - 1.4).abs() < f32::EPSILON, "b is {}", b);
@@ -31,71 +25,61 @@ fn basic() {
     let input = "Position<5,0.3,2>; Dir: N24E10";
     let output = scanf!(
         input,
-        "Position<{},{},{}>; Dir: {}{}{}{}",
-        f32,
-        f32,
-        f32,
-        char,
-        usize,
-        char,
-        usize
+        "Position<{f32},{f32},{f32}>; Dir: {char}{usize}{char}{usize}",
     );
-    assert_eq!(output, Some((5.0, 0.3, 2.0, 'N', 24, 'E', 10)));
+    assert_eq!(output, Ok((5.0, 0.3, 2.0, 'N', 24, 'E', 10)));
 }
 
 #[test]
 fn no_types() {
     let result = scanf!("hi", "hi");
-    assert_eq!(result, Some(()));
+    assert_eq!(result, Ok(()));
     let result = scanf!("hi", "no");
     assert_eq!(result, None);
 }
 
 #[test]
 fn alternate_inputs() {
-    assert_eq!(scanf!("5", "{}", usize), Some(5));
+    assert_eq!(scanf!("5", "{usize}"), Ok(5));
 
     let input = "5";
-    assert_eq!(scanf!(input, "{}", usize), Some(5));
+    assert_eq!(scanf!(input, "{usize}"), Ok(5));
 
     let input = String::from("5");
-    assert_eq!(scanf!(input, "{}", usize), Some(5));
+    assert_eq!(scanf!(input, "{usize}"), Ok(5));
 
     let input = String::from("5");
-    assert_eq!(scanf!(input.as_str(), "{}", usize), Some(5));
+    assert_eq!(scanf!(input.as_str(), "{usize}"), Ok(5));
 
     let input = ['5'];
-    assert_eq!(
-        scanf!(input.iter().collect::<String>(), "{}", usize),
-        Some(5)
-    );
+    assert_eq!(scanf!(input.iter().collect::<String>(), "{usize}"), Ok(5));
 }
 
 #[test]
 fn get_regex() {
     let input = "Test 5 1.4 {} bob!";
-    let regex = scanf_get_regex!("Test {} {} {{}} {}!", usize, f32, std::string::String);
+    let regex = scanf_get_regex!("Test {usize} {f32} {{}} {}!", std::string::String);
     assert_eq!(
         regex.as_str(),
         r"^Test (?P<type_1>\+?\d{1,20}) (?P<type_2>[-+]?\d+\.?\d*) \{\} (?P<type_3>.+)!$"
     );
 
     let output = regex.captures(input);
-    assert!(output.is_some());
+    assert!(output.is_ok());
     let output = output.unwrap();
-    assert_eq!(output.name("type_1").map(|m| m.as_str()), Some("5"));
-    assert_eq!(output.name("type_2").map(|m| m.as_str()), Some("1.4"));
-    assert_eq!(output.name("type_3").map(|m| m.as_str()), Some("bob"));
-    assert_eq!(output.get(1).map(|m| m.as_str()), Some("5"));
-    assert_eq!(output.get(2).map(|m| m.as_str()), Some("1.4"));
-    assert_eq!(output.get(3).map(|m| m.as_str()), Some("bob"));
+    assert_eq!(output.name("type_1").map(|m| m.as_str()), Ok("5"));
+    assert_eq!(output.name("type_2").map(|m| m.as_str()), Ok("1.4"));
+    assert_eq!(output.name("type_3").map(|m| m.as_str()), Ok("bob"));
+    assert_eq!(output.get(1).map(|m| m.as_str()), Ok("5"));
+    assert_eq!(output.get(2).map(|m| m.as_str()), Ok("1.4"));
+    assert_eq!(output.get(3).map(|m| m.as_str()), Ok("bob"));
 }
 
 #[test]
 fn unescaped() {
     let input = "5.0SOME_RANDOM_TEXT3";
-    let output = scanf_unescaped!(input, "{}.*{}", f32, usize);
-    assert_eq!(output, Some((5.0, 3)));
+    let output = scanf_unescaped!(input, "{f32}.*{usize}");
+    assert_eq!(output, Ok((5.0, 3)));
 }
 
 #[test]
@@ -114,20 +98,17 @@ fn generic_types() {
 
     let input = "Test";
     let output = scanf!(input, "{}", Bob<usize>);
-    assert_eq!(output, Some(Default::default()));
+    assert_eq!(output, Ok(Default::default()));
+
+    let input = "Test";
+    let output = scanf!(input, "{Bob<usize>}");
+    assert_eq!(output, Ok(Default::default()));
 }
 
 #[test]
 fn config_numbers() {
     let input = "A Sentence with Spaces. Number formats: 0xab01 0o127 0b101010.";
-    let parsed = scanf!(
-        input,
-        "{}. Number formats: {x} {o} {b}.",
-        String,
-        usize,
-        i32,
-        u8
-    );
+    let parsed = scanf!(input, "{String}. Number formats: {usize:x} {i32:o} {u8:b}.",);
     let (a, b, c, d) = parsed.unwrap();
     assert_eq!(a, "A Sentence with Spaces");
     assert_eq!(b, 0xab01);
@@ -154,12 +135,15 @@ fn invalid_regex_representation() {
 #[test]
 fn custom_regex() {
     let input = "ab123cd";
-    let parsed = scanf!(input, r"{}{/\d/}{/\d\d.*/}", String, u8, String);
-    assert_eq!(parsed, Some((String::from("ab"), 1, String::from("23cd"))));
+    let parsed = scanf!(input, r"{String}{u8:/\d/}{String:/\d\d.*/}");
+    assert_eq!(parsed, Ok((String::from("ab"), 1, String::from("23cd"))));
 
     let input = r"({(\}*[\{";
-    let parsed = scanf!(input, r"{/\(\\\{\(\\\\\}\*/}{/\[\\\\\\\{/}", String, String);
-    assert_eq!(parsed, Some((String::from("({(\\}*"), String::from("[\\{"))));
+    let parsed = scanf!(input, r"{:/\(\\\{\(\\\\\}\*/}{:/\[\\\\\\\{/}", String, String);
+    assert_eq!(
+        parsed,
+        Ok((String::from("({(\\}*"), String::from("[\\{")))
+    );
 }
 
 #[test]
@@ -179,7 +163,7 @@ fn custom_chrono_type() {
 
     let input = "42";
     let parsed = sscanf::scanf!(input, "{}", DateTime);
-    assert_eq!(parsed, Some(DateTime(42)));
+    assert_eq!(parsed, Ok(DateTime(42)));
 }
 
 #[test]

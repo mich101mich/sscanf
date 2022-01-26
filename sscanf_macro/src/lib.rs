@@ -7,7 +7,7 @@ use syn::{
     parse::{Error, Parse, ParseStream, Result},
     parse_macro_input,
     spanned::Spanned,
-    Expr, LitStr, Token, TypePath,
+    Expr, LitStr, Path, Token,
 };
 
 mod chrono;
@@ -15,6 +15,7 @@ mod format_config;
 
 struct PlaceHolder {
     name: String,
+    type_token: Option<Path>,
     config: Option<String>,
     span: (usize, usize),
 }
@@ -28,7 +29,7 @@ struct ScanfInner {
     /// number of chars in fmt_span before content starts (e.g. 2 for "r#")
     span_offset: usize,
     /// Types after the format string
-    type_tokens: Vec<TypePath>,
+    type_tokens: Vec<Path>,
 }
 /// Input string, format string and types for scanf and scanf_unescaped
 struct Scanf {
@@ -81,7 +82,7 @@ impl Parse for ScanfInner {
             input.parse::<Token![,]>()?; // the comma after the format string
 
             type_tokens = input
-                .parse_terminated::<_, Token![,]>(TypePath::parse)?
+                .parse_terminated::<_, Token![,]>(Path::parse)?
                 .into_iter()
                 .collect();
         }
@@ -191,23 +192,33 @@ fn generate_regex(
     input: ScanfInner,
     escape_input: bool,
 ) -> Result<(TokenStream, Vec<TokenStream>)> {
-    let (placeholders, regex_parts) = parse_format_string(&input, escape_input)?;
+    let (mut placeholders, regex_parts) = parse_format_string(&input, escape_input)?;
+
+    let mut type_tokens = input.type_tokens.iter().cloned();
 
     let mut error = TokenStream::new();
-    // generate an error for all placeholders that don't have a corresponding type
-    for ph in placeholders.iter().skip(input.type_tokens.len()) {
-        let message = format!(
-            "Missing Type for given '{{{}}}' Placeholder",
-            ph.config.as_deref().unwrap_or("")
-        );
-        error.extend(sub_error(&message, &input, ph.span).to_compile_error());
+    for ph in &mut placeholders {
+        if ph.type_token.is_none() {
+            if let Some(ty) = type_tokens.next() {
+                ph.type_token = Some(ty);
+            } else {
+                // generate an error for all placeholders that don't have a corresponding type
+                let message = if let Some(config) = &ph.config {
+                    format!("Missing Type for given '{{:{}}}' Placeholder", config)
+                } else {
+                    "Missing Type for given '{}' Placeholder".to_string()
+                };
+                error.extend(sub_error(&message, &input, ph.span).to_compile_error());
+            }
+        }
     }
     // generate an error for all types that don't have a corresponding placeholder
-    for ty in input.type_tokens.iter().skip(placeholders.len()) {
+    for ty in type_tokens {
         error.extend(
             Error::new_spanned(ty, "More Types than '{}' Placeholders provided").to_compile_error(),
         );
     }
+
     if !error.is_empty() {
         error.extend(quote!(let REGEX = ::sscanf::regex::Regex::new("").unwrap();));
         return Ok((error, vec![]));
@@ -218,11 +229,9 @@ fn generate_regex(
     let mut match_grabber = vec![];
     // if there are n types, there are n+1 regex_parts, so add the first n during this loop and
     // add the last one afterwards
-    for ((ph, ty), regex_prefix) in placeholders
-        .iter()
-        .zip(input.type_tokens.iter())
-        .zip(regex_parts.iter())
-    {
+    for (ph, regex_prefix) in placeholders.iter().zip(regex_parts.iter()) {
+        let ty = ph.type_token.as_ref().unwrap();
+
         regex_builder.push(quote!(#regex_prefix));
         let mut regex = None;
         let mut matcher = None;
@@ -338,6 +347,16 @@ fn parse_format_string(
     Ok((placeholders, regex))
 }
 
+/// Returns a span inside of fmt_span, if possible. Otherwise, returns the entire span.
+fn sub_span(src: &ScanfInner, (start, end): (usize, usize)) -> Span {
+    let s = start + src.span_offset + 1; // + 1 for "
+    let e = end + src.span_offset + 1;
+    src.fmt_span
+        .subspan(s..=e)
+        .unwrap_or_else(|| src.fmt_span.span())
+}
+
+/// `sub_error`, but wrapped in a Result.
 fn sub_error_result<T>(message: &str, src: &ScanfInner, (start, end): (usize, usize)) -> Result<T> {
     Err(sub_error(message, src, (start, end)))
 }

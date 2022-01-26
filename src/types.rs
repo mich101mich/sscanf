@@ -71,7 +71,7 @@ impl RegexRepresentation for FullF32 {
     /// Matches any floating point number, including `nan`, `inf`, `2.0e5`, ...
     ///
     /// See [FromStr on f32](https://doc.rust-lang.org/std/primitive.f32.html#impl-FromStr) for details
-    const REGEX: &'static str = r"[-+]?([nN]a[nN]|[iI]nf|(\d+|\d+\.\d*|\d*\.\d+)([eE][-+]?\d+)?)";
+    const REGEX: &'static str = r"[-+]?(?:[nN]a[nN]|[iI]nf|(?:\d+|\d+\.\d*|\d*\.\d+)(?:[eE][-+]?\d+)?)";
 }
 impl_wrapper_ops!(FullF32, f32);
 

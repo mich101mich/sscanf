@@ -23,7 +23,7 @@
 /// impl sscanf::RegexRepresentation for Fraction {
 ///     /// matches an optional '-' or '+' followed by a number.
 ///     /// possibly with a '/' and another Number
-///     const REGEX: &'static str = r"[-+]?\d+(/\d+)?";
+///     const REGEX: &'static str = r"[-+]?\d+(?:/\d+)?";
 /// }
 /// impl std::str::FromStr for Fraction {
 ///     type Err = std::num::ParseIntError;
@@ -43,7 +43,7 @@
 /// # #[derive(Debug, PartialEq)]
 /// # struct Fraction(isize, usize);
 /// # impl sscanf::RegexRepresentation for Fraction {
-/// #     const REGEX: &'static str = r"[-+]?\d+(/\d+)?";
+/// #     const REGEX: &'static str = r"[-+]?\d+(?:/\d+)?";
 /// # }
 /// # impl std::str::FromStr for Fraction {
 /// #     type Err = std::num::ParseIntError;

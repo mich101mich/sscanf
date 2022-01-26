@@ -5,15 +5,38 @@ pub(crate) fn parse_bracket_content<I: Iterator<Item = (usize, char)>>(
     src: &ScanfInner,
     start: usize,
 ) -> Result<Option<PlaceHolder>> {
+    let mut type_name = String::new();
+    let mut type_token = None;
+    let mut in_type = true;
     let mut config = String::new();
+    let mut has_config = false;
     while let Some((i, c)) = input.next() {
-        if c == '\\' {
+        if in_type && (c == ':' || c == '}') && !type_name.is_empty() {
+            let s = start;
+            let e = i;
+            let span = sub_span(src, (s, e));
+            let tokens: TokenStream = match type_name.parse() {
+                Ok(tokens) => tokens,
+                Err(err) => {
+                    return sub_error_result(
+                        &format!("Invalid type in placeholder: {:?}", err),
+                        src,
+                        (s, e),
+                    );
+                }
+            };
+            type_token = Some(syn::parse2::<Path>(quote_spanned!(span => #tokens))?);
+        }
+        if c == '\\' && !in_type {
             // escape any curly brackets (double \\ are halved to enable the use of \{ and \})
             if let Some((_, next_c)) = input.next_if(|x| x.1 == '{' || x.1 == '}' || x.1 == '\\') {
                 config.push(next_c);
             } else {
                 config.push('\\');
             }
+        } else if c == ':' && in_type {
+            in_type = false;
+            has_config = true;
         } else if c == '{' {
             if i == start + 1 {
                 // '{' followed by '{' => escaped '{{'
@@ -27,12 +50,17 @@ pub(crate) fn parse_bracket_content<I: Iterator<Item = (usize, char)>>(
         } else if c == '}' {
             return Ok(Some(PlaceHolder {
                 name: String::new(),
-                config: if i == start + 1 { None } else { Some(config) },
+                type_token,
+                config: has_config.then(|| config),
                 span: (start, i),
             }));
         } else {
-            // anything else is part of the config
-            config.push(c);
+            // anything else is part of the type or config
+            if in_type {
+                type_name.push(c);
+            } else {
+                config.push(c);
+            }
         }
     }
     // end of input string
@@ -45,7 +73,7 @@ pub(crate) fn parse_bracket_content<I: Iterator<Item = (usize, char)>>(
 
 pub(crate) fn regex_from_config(
     config: &str,
-    ty: &TypePath,
+    ty: &Path,
     ph: &PlaceHolder,
     src: &ScanfInner,
 ) -> Result<(TokenStream, Option<TokenStream>)> {
