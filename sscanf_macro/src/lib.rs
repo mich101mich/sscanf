@@ -66,7 +66,7 @@ impl Parse for ScanfInner {
             // TokenStream and then into a String (LitStr cannot be directly converted to a String)
             // and then iterate over that string for the first ", because anything before that
             // **should** (this will totally break at some point) be the prefix.
-            lit.chars().enumerate().find(|c| c.1 == '"').unwrap().0
+            lit.chars().position(|c| c == '"').unwrap()
         };
 
         // fmt has to be parsed as `syn::LitStr` to access the content as a string. But in order to
@@ -181,8 +181,11 @@ fn scanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
     quote!(
         {
             #regex
+            let input = #src_str;
             #[allow(clippy::needless_question_mark)]
-            REGEX.captures(#src_str).and_then(|cap| Some(( #(#matcher),* )))
+            REGEX.captures(input)
+                .ok_or_else(|| ::sscanf::Error::RegexMatchFailed(input, &REGEX))
+                .and_then(|cap| Ok(( #(#matcher),* )))
         }
     )
     .into()
@@ -234,12 +237,12 @@ fn generate_regex(
 
         regex_builder.push(quote!(#regex_prefix));
         let mut regex = None;
-        let mut matcher = None;
+        let mut converter = None;
 
         if let Some(config) = ph.config.as_ref() {
             let res = format_config::regex_from_config(config, ty, ph, &input)?;
             regex = Some(res.0);
-            matcher = res.1;
+            converter = res.1;
         }
 
         let (start, end) = full_span(&ty);
@@ -261,12 +264,18 @@ fn generate_regex(
         });
         regex_builder.push(regex);
 
-        let matcher = matcher.unwrap_or_else(|| {
-            let mut s = quote_spanned!(start => <#ty as );
-            s.extend(
-                quote_spanned!(end => ::std::str::FromStr>::from_str(cap.name(#name)?.as_str()).ok()?),
-            );
-            s
+        let converter = converter.unwrap_or_else(|| {
+            let start_convert = quote_spanned!(start => <#ty as );
+            let end_convert = quote_spanned!(end => ::std::str::FromStr>::from_str(input));
+            quote!(#start_convert #end_convert)
+        });
+
+        let matcher = quote!({
+            let input = cap.name(#name)
+                .expect("scanf: Invalid regex: Could not find one of the captures")
+                .as_str();
+            #converter
+                .map_err(|err| ::sscanf::Error::FromStrFailed(stringify!(#ty), input, Box::new(err)))?
         });
         match_grabber.push(matcher);
     }
@@ -282,7 +291,7 @@ fn generate_regex(
                 ::sscanf::regex::Regex::new(
                     ::sscanf::const_format::concatcp!( #(#regex_builder),* )
                 )
-                .expect("sscanf cannot generate Regex");
+                .expect("scanf: cannot generate Regex");
         }
     );
 

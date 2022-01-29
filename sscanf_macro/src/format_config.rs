@@ -12,20 +12,34 @@ pub(crate) fn parse_bracket_content<I: Iterator<Item = (usize, char)>>(
     let mut has_config = false;
     while let Some((i, c)) = input.next() {
         if in_type && (c == ':' || c == '}') && !type_name.is_empty() {
-            let s = start;
-            let e = i;
+            let s = start + 1;
+            let e = i - 1;
             let span = sub_span(src, (s, e));
-            let tokens: TokenStream = match type_name.parse() {
-                Ok(tokens) => tokens,
-                Err(err) => {
-                    return sub_error_result(
-                        &format!("Invalid type in placeholder: {:?}", err),
+
+            // check if it looks like the old format
+            if c == '}' && get_radix(&type_name).is_some() {
+                let msg = format!(
+                    "It looks like you are using the old format.\nconfig options now require a ':' prefix like so: {{:{}}}",
+                    type_name
+                );
+                return sub_error_result(&msg, src, (s, e));
+            }
+
+            let tokens = type_name
+                .parse::<TokenStream>()
+                .map_err(|err| err.to_string())
+                .and_then(|tokens| {
+                    syn::parse2::<Path>(quote_spanned!(span => #tokens))
+                        .map_err(|err| err.to_string())
+                })
+                .map_err(|err| {
+                    sub_error(
+                        &format!("Invalid type in placeholder: {}.\nIf this is supposed to be a format option, prefix it with a ':'", err),
                         src,
                         (s, e),
-                    );
-                }
-            };
-            type_token = Some(syn::parse2::<Path>(quote_spanned!(span => #tokens))?);
+                    )
+                })?;
+            type_token = Some(tokens);
         }
         if c == '\\' && !in_type {
             // escape any curly brackets (double \\ are halved to enable the use of \{ and \})
@@ -118,18 +132,15 @@ pub(crate) fn regex_from_config(
         }
 
         let span = ty.span();
-        let name = &ph.name;
         let radix = radix as u32;
-        let matcher = if let Some(prefix) = prefix {
-            quote_spanned!(span => #ty::from_str_radix({
-                let s = cap.name(#name)?.as_str();
-                s.strip_prefix(#prefix).unwrap_or(s)
-            }, #radix).ok()?)
+        let input_mapper = if let Some(prefix) = prefix {
+            quote!(input.strip_prefix(#prefix).unwrap_or(input))
         } else {
-            quote_spanned!(span => #ty::from_str_radix(cap.name(#name)?.as_str(), #radix).ok()?)
+            quote!(input)
         };
+        let converter = quote_spanned!(span => #ty::from_str_radix(#input_mapper, #radix));
 
-        Ok((quote!(#regex), Some(matcher)))
+        Ok((quote!(#regex), Some(converter)))
     } else if let Some(regex) = config.strip_prefix('/').and_then(|s| s.strip_suffix('/')) {
         if let Err(err) = regex_syntax::Parser::new().parse(regex) {
             return sub_error_result(
@@ -140,42 +151,22 @@ pub(crate) fn regex_from_config(
         }
         Ok((quote!(#regex), None))
     } else {
-        match ty_string.as_str() {
-            "DateTime" | "NaiveDate" | "NaiveTime" | "NaiveDateTime" => {
-                let (regex, chrono_fmt) = chrono::map_chrono_format(config, src, ph.span.0)?;
-
-                let span = ty.span();
-                let name = &ph.name;
-                let matcher = wrap_in_feature_gate(
-                    quote_spanned!(span =>
-                    ::sscanf::chrono::#ty::parse_from_str(cap.name(#name)?.as_str(), #chrono_fmt)
-                            .expect("sscanf error: chrono failed to parse its own format")
-                        ),
-                    ty,
-                );
-
-                Ok((quote!(#regex), Some(matcher)))
-            }
-            "Utc" | "Local" => {
-                let (regex, chrono_fmt) = chrono::map_chrono_format(config, src, ph.span.0)?;
-
-                let span = ty.span();
-                let name = &ph.name;
-                let matcher = wrap_in_feature_gate(
-                    quote_spanned!(span =>
-                        ::sscanf::chrono::#ty.datetime_from_str(cap.name(#name)?.as_str(), #chrono_fmt).ok()?
-                    ),
-                    ty,
-                );
-
-                Ok((quote!(#regex), Some(matcher)))
-            }
-            _ => sub_error_result(
+        let function_name = match ty_string.as_str() {
+            "DateTime" | "NaiveDate" | "NaiveTime" | "NaiveDateTime" => quote!(::parse_from_str),
+            "Utc" | "Local" => quote!(.datetime_from_str),
+            _ => return sub_error_result(
                 &format!("Unknown format option: '{}'.\nHint: regex format options must start and end with '/'", config),
                 src,
                 ph.span,
             ),
-        }
+        };
+        let span = ty.span();
+        let (regex, chrono_fmt) = chrono::map_chrono_format(config, src, ph.span.0)?;
+        let converter = wrap_in_feature_gate(
+            quote_spanned!(span => ::sscanf::chrono::#ty #function_name(input, #chrono_fmt)),
+            ty,
+        );
+        Ok((quote!(#regex), Some(converter)))
     }
 }
 
