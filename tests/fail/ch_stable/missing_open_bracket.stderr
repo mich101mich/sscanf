@@ -1,6 +1,6 @@
 error: Unexpected standalone '}'. Literal '}' need to be escaped as '}}':
-At "asdf}asdf"
-        ^
+       At "asdf}asdf"
+               ^
  --> $DIR/missing_open_bracket.rs:2:26
   |
 2 |     sscanf::scanf!("hi", "asdf}asdf");

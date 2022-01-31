@@ -10,6 +10,7 @@ pub(crate) fn parse_bracket_content<I: Iterator<Item = (usize, char)>>(
     let mut in_type = true;
     let mut config = String::new();
     let mut has_config = false;
+    let mut config_start = 0;
     while let Some((i, c)) = input.next() {
         if in_type && (c == ':' || c == '}') && !type_name.is_empty() {
             let s = start + 1;
@@ -17,7 +18,7 @@ pub(crate) fn parse_bracket_content<I: Iterator<Item = (usize, char)>>(
             let span = sub_span(src, (s, e));
 
             // check if it looks like the old format
-            if c == '}' && get_radix(&type_name).is_some() {
+            if (c == '}' && get_radix(&type_name).is_some()) || (type_name.starts_with('/') && type_name.ends_with('/')) {
                 let msg = format!(
                     "It looks like you are using the old format.\nconfig options now require a ':' prefix like so: {{:{}}}",
                     type_name
@@ -51,6 +52,7 @@ pub(crate) fn parse_bracket_content<I: Iterator<Item = (usize, char)>>(
         } else if c == ':' && in_type {
             in_type = false;
             has_config = true;
+            config_start = i + 1;
         } else if c == '{' {
             if i == start + 1 {
                 // '{' followed by '{' => escaped '{{'
@@ -65,7 +67,7 @@ pub(crate) fn parse_bracket_content<I: Iterator<Item = (usize, char)>>(
             return Ok(Some(PlaceHolder {
                 name: String::new(),
                 type_token,
-                config: has_config.then(|| config),
+                config: has_config.then(|| (config, config_start)),
                 span: (start, i),
             }));
         } else {
@@ -87,8 +89,8 @@ pub(crate) fn parse_bracket_content<I: Iterator<Item = (usize, char)>>(
 
 pub(crate) fn regex_from_config(
     config: &str,
+    config_span: (usize, usize),
     ty: &Path,
-    ph: &PlaceHolder,
     src: &ScanfInner,
 ) -> Result<(TokenStream, Option<TokenStream>)> {
     let ty_string = ty.to_token_stream().to_string();
@@ -146,7 +148,7 @@ pub(crate) fn regex_from_config(
             return sub_error_result(
                 &format!("{}\n\nIn custom Regex format option", err),
                 src,
-                ph.span,
+                config_span,
             );
         }
         Ok((quote!(#regex), None))
@@ -157,11 +159,11 @@ pub(crate) fn regex_from_config(
             _ => return sub_error_result(
                 &format!("Unknown format option: '{}'.\nHint: regex format options must start and end with '/'", config),
                 src,
-                ph.span,
+                config_span,
             ),
         };
         let span = ty.span();
-        let (regex, chrono_fmt) = chrono::map_chrono_format(config, src, ph.span.0)?;
+        let (regex, chrono_fmt) = chrono::map_chrono_format(config, src, config_span.0)?;
         let converter = wrap_in_feature_gate(
             quote_spanned!(span => ::sscanf::chrono::#ty #function_name(input, #chrono_fmt)),
             ty,

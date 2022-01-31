@@ -62,7 +62,7 @@ fn get_regex() {
     let regex = scanf_get_regex!("Test {usize} {f32} {{}} {}!", std::string::String);
     assert_eq!(
         regex.as_str(),
-        r"^Test (?P<type_1>\+?\d{1,20}) (?P<type_2>[-+]?\d+\.?\d*) \{\} (?P<type_3>.+)!$"
+        r"^Test (?P<type_1>\+?\d{1,20}) (?P<type_2>[-+]?\d+\.?\d*) \{\} (?P<type_3>.+?)!$"
     );
 
     let output = regex.captures(input);

@@ -1,3 +1,3 @@
 fn main() {
-    sscanf::scanf!("", "   {/ab(ab/}   ", String).unwrap();
+    sscanf::scanf!("", "   {:/ab(ab/}   ", String).unwrap();
 }

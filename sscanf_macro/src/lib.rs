@@ -16,7 +16,7 @@ mod format_config;
 struct PlaceHolder {
     name: String,
     type_token: Option<Path>,
-    config: Option<String>,
+    config: Option<(String, usize)>,
     span: (usize, usize),
 }
 
@@ -75,17 +75,16 @@ impl Parse for ScanfInner {
         let mut fmt_span = Literal::string(&fmt.value());
         fmt_span.set_span(fmt.span()); // fmt is a single Token so span() works even on stable
 
-        let type_tokens;
-        if input.is_empty() {
-            type_tokens = vec![];
+        let type_tokens = if input.is_empty() {
+            vec![]
         } else {
             input.parse::<Token![,]>()?; // the comma after the format string
 
-            type_tokens = input
+            input
                 .parse_terminated::<_, Token![,]>(Path::parse)?
                 .into_iter()
-                .collect();
-        }
+                .collect()
+        };
 
         Ok(ScanfInner {
             fmt: fmt.value(),
@@ -206,7 +205,7 @@ fn generate_regex(
                 ph.type_token = Some(ty);
             } else {
                 // generate an error for all placeholders that don't have a corresponding type
-                let message = if let Some(config) = &ph.config {
+                let message = if let Some((config, _)) = &ph.config {
                     format!("Missing Type for given '{{:{}}}' Placeholder", config)
                 } else {
                     "Missing Type for given '{}' Placeholder".to_string()
@@ -239,8 +238,9 @@ fn generate_regex(
         let mut regex = None;
         let mut converter = None;
 
-        if let Some(config) = ph.config.as_ref() {
-            let res = format_config::regex_from_config(config, ty, ph, &input)?;
+        if let Some((config, config_start)) = ph.config.as_ref() {
+            let config_span = (*config_start, ph.span.1 - 1); // -1 to exclude the closing '}'
+            let res = format_config::regex_from_config(config, config_span, ty, &input)?;
             regex = Some(res.0);
             converter = res.1;
         }

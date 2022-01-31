@@ -9,16 +9,16 @@ fn date_time() {
 
     let input = "2021-06-21T13:37:42+04:30";
     let parsed = scanf!(input, "{DateTime<FixedOffset>}");
-    assert_eq!(parsed, Some(expected));
+    assert_eq!(parsed, Ok(expected));
 
     let parsed = scanf!(input, "{DateTime<Utc>}");
-    assert_eq!(parsed, Some(expected.into()));
+    assert_eq!(parsed, Ok(expected.into()));
 
     let parsed = scanf!(input, "{DateTime:%Y-%m-%dT%H:%M:%S%:z}");
-    assert_eq!(parsed, Some(expected));
+    assert_eq!(parsed, Ok(expected));
 
     let parsed = scanf!(input, "{DateTime:%FT%T%:z}");
-    assert_eq!(parsed, Some(expected));
+    assert_eq!(parsed, Ok(expected));
 }
 
 #[test]
@@ -27,7 +27,7 @@ fn naive_date() {
     let input = "2021-06-21";
 
     let parsed = scanf!(input, "{NaiveDate:%F}");
-    assert_eq!(parsed, Some(expected));
+    assert_eq!(parsed, Ok(expected));
 }
 
 #[test]
@@ -36,7 +36,7 @@ fn naive_time() {
     let input = "13:37:42";
 
     let parsed = scanf!(input, "{NaiveTime:%T}");
-    assert_eq!(parsed, Some(expected));
+    assert_eq!(parsed, Ok(expected));
 }
 
 #[test]
@@ -45,7 +45,7 @@ fn naive_date_time() {
     let input = "2021-06-21 13:37:42";
 
     let parsed = scanf!(input, "{NaiveDateTime:%Y-%m-%d %H:%M:%S}");
-    assert_eq!(parsed, Some(expected));
+    assert_eq!(parsed, Ok(expected));
 }
 
 #[test]
@@ -54,7 +54,7 @@ fn utc() {
 
     let input = "2021-06-21 13:37:42";
     let parsed = scanf!(input, "{Utc:%Y-%m-%d %H:%M:%S}");
-    assert_eq!(parsed, Some(expected));
+    assert_eq!(parsed, Ok(expected));
 }
 
 #[test]
@@ -63,7 +63,7 @@ fn local() {
 
     let input = "2021-06-21 13:37:42";
     let parsed = scanf!(input, "{Local:%Y-%m-%d %H:%M:%S}");
-    assert_eq!(parsed, Some(expected));
+    assert_eq!(parsed, Ok(expected));
 }
 
 #[test]
@@ -72,7 +72,7 @@ fn escaping() {
 
     let input = "{}2021-06-21{} 13:37:42}}";
     let parsed = scanf!(input, r"{{{Utc:\}%Y-%m-%d\{\} %H:%M:%S\}}}}");
-    assert_eq!(parsed, Some(expected));
+    assert_eq!(parsed, Ok(expected));
 }
 
 #[test]
@@ -81,7 +81,7 @@ fn formats() {
 
     let input = "2021 June  1 01: 2:3";
     let parsed = scanf!(input, "{Utc:%C%y %B %e %0H:%_M:%-S}");
-    assert_eq!(parsed, Some(expected));
+    assert_eq!(parsed, Ok(expected));
 
     macro_rules! cmp {
         ($a: literal, $b: literal) => {

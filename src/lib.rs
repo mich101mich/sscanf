@@ -43,7 +43,7 @@
 //! # use sscanf::scanf;
 //! let s = "Text that doesn't match the format string";
 //! let parsed = scanf!(s, "Hello {}_{}!", String, usize);
-//! assert!(matches!(parsed, sscanf::Error::RegexMatchFailed(..)));
+//! assert!(matches!(parsed, Err(sscanf::Error::RegexMatchFailed(..))));
 //! ```
 //!
 //! Note that the original C-function and this Crate are called sscanf, which is the technically
@@ -359,16 +359,16 @@ pub use sscanf_macro::scanf;
 /// assert_eq!(regex.as_str(), r"^Test (?P<type_1>\+?\d{1,20}) (?P<type_2>[-+]?\d{1,10})$");
 ///
 /// let output = regex.captures(input);
-/// assert!(output.is_ok());
+/// assert!(output.is_some());
 /// let output = output.unwrap();
 ///
 /// let capture_5 = output.name("type_1");
-/// assert!(capture_5.is_ok());
+/// assert!(capture_5.is_some());
 /// assert_eq!(capture_5.unwrap().as_str(), "5");
 /// assert_eq!(capture_5, output.get(1));
 ///
 /// let capture_negative_2 = output.name("type_2");
-/// assert!(capture_negative_2.is_ok());
+/// assert!(capture_negative_2.is_some());
 /// assert_eq!(capture_negative_2.unwrap().as_str(), "-2");
 /// assert_eq!(capture_negative_2, output.get(2));
 /// ```
@@ -389,7 +389,7 @@ pub use sscanf_macro::scanf_get_regex;
 /// use sscanf::scanf;
 /// let input = "5.0SOME_RANDOM_TEXT3";
 /// let output = scanf!(input, "{f32}.*{usize}");
-/// assert_eq!(output, None); // does not match
+/// assert!(output.is_err()); // does not match
 ///
 /// let input2 = "5.0.*3";
 /// let output2 = scanf!(input2, "{f32}.*{usize}"); // regular scanf is unaffected by special characters

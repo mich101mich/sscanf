@@ -39,11 +39,11 @@ macro_rules! impl_wrapper_ops {
 /// let input = "Match a Banana against a number";
 /// let output = scanf!(input, "{}{}{}", String, f32, String);
 /// // There are no Numbers in input, so expect None
-/// assert!(output.is_none());
+/// assert!(output.is_err());
 ///
 /// let output = scanf!(input, "{}{}{}", String, FullF32, String);
 /// // The 'nan' part in "Banana" is parsed as f32::NaN
-/// assert!(output.is_some());
+/// assert!(output.is_ok());
 /// assert!(output.unwrap().1.is_nan());
 /// ```
 ///
