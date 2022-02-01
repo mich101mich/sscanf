@@ -15,32 +15,46 @@ pub(crate) fn parse_bracket_content<I: Iterator<Item = (usize, char)>>(
         if in_type && (c == ':' || c == '}') && !type_name.is_empty() {
             let s = start + 1;
             let e = i - 1;
-            let span = sub_span(src, (s, e));
-
             // check if it looks like the old format
-            if (c == '}' && get_radix(&type_name).is_some()) || (type_name.starts_with('/') && type_name.ends_with('/')) {
+            if (c == '}' && get_radix(&type_name).is_some())
+                || (type_name.starts_with('/') && type_name.ends_with('/'))
+            {
                 let msg = format!(
                     "It looks like you are using the old format.\nconfig options now require a ':' prefix like so: {{:{}}}",
                     type_name
                 );
                 return sub_error_result(&msg, src, (s, e));
             }
-
+            // dirty hack #493: type_name needs to be converted to a Path token, because quote
+            // would surround a String with '"', and we don't want that. And we can't change that
+            // other than changing the type of the variable.
+            // So we parse from String to TokenStream, then parse from TokenStream to Path.
+            // The alternative would be to construct the Path ourselves, but path has _way_ too
+            // many parts to it with variable stuff and incomplete constructors, that's too
+            // much work.
             let tokens = type_name
                 .parse::<TokenStream>()
                 .map_err(|err| err.to_string())
                 .and_then(|tokens| {
-                    syn::parse2::<Path>(quote_spanned!(span => #tokens))
-                        .map_err(|err| err.to_string())
+                    syn::parse2::<Path>(quote!(#tokens))
+                    .map_err(|err| err.to_string())
                 })
                 .map_err(|err| {
+                    let hint = if c == '}' {
+                        // stuff in the placeholder that isn't a type, but none of the valid config options
+                        "The syntax for placeholders is {<type>} or {<type>:<config>}. Make sure <type> is a valid type."
+                    } else {
+                        // User knows about format options, so give them debugging advice
+                        "The part before the ':' is interpreted as a type with no checks done by scanf."
+                    };
+                    let hint2 = "If you want syntax highlighting and better errors, place the type in the arguments after the format string while debugging";
                     sub_error(
-                        &format!("Invalid type in placeholder: {}.\nIf this is supposed to be a format option, prefix it with a ':'", err),
+                        &format!("Invalid type in placeholder: {}.\nHint: {}\n{}", err, hint, hint2),
                         src,
                         (s, e),
                     )
                 })?;
-            type_token = Some(tokens);
+            type_token = Some((tokens, Some((s, e))));
         }
         if c == '\\' && !in_type {
             // escape any curly brackets (double \\ are halved to enable the use of \{ and \})
@@ -59,7 +73,7 @@ pub(crate) fn parse_bracket_content<I: Iterator<Item = (usize, char)>>(
                 return Ok(None);
             }
             return sub_error_result(
-                "Expected '}' after given '{', got '{' instead. Curly Brackets inside format options must be escaped with '\\'",
+                "Unescaped '{' in placeholder. Curly Brackets inside format options must be escaped with '\\'",
                 src,
                 (start, i),
             );
@@ -91,14 +105,17 @@ pub(crate) fn regex_from_config(
     config: &str,
     config_span: (usize, usize),
     ty: &Path,
+    ty_span: Option<(usize, usize)>,
     src: &ScanfInner,
 ) -> Result<(TokenStream, Option<TokenStream>)> {
     let ty_string = ty.to_token_stream().to_string();
     if let Some(radix) = get_radix(config) {
         let binary_digits = binary_length(&ty_string).ok_or_else(|| {
-            Error::new_spanned(
+            ty_error(
+                "Radix options only work on primitive numbers from std with no path or type alias",
                 ty,
-                "radix options only work on primitive numbers from std with no path or type alias",
+                ty_span,
+                src,
             )
         })?;
         // digit conversion: digits_base / log_x(base) * log_x(target) with any log-base x,
@@ -133,7 +150,13 @@ pub(crate) fn regex_from_config(
             regex = format!(r"{}{1}|{1}", pref, regex);
         }
 
-        let span = ty.span();
+        let span = if let Some(ty_span) = ty_span {
+            sub_span(src, ty_span)
+        } else {
+            // we know ty is a primitive type without path, which are always just one token
+            // => no Span voodoo necessary
+            ty.span()
+        };
         let radix = radix as u32;
         let input_mapper = if let Some(prefix) = prefix {
             quote!(input.strip_prefix(#prefix).unwrap_or(input))
@@ -156,19 +179,50 @@ pub(crate) fn regex_from_config(
         let function_name = match ty_string.as_str() {
             "DateTime" | "NaiveDate" | "NaiveTime" | "NaiveDateTime" => quote!(::parse_from_str),
             "Utc" | "Local" => quote!(.datetime_from_str),
-            _ => return sub_error_result(
-                &format!("Unknown format option: '{}'.\nHint: regex format options must start and end with '/'", config),
-                src,
-                config_span,
-            ),
+            _ => {
+                let hint = if config.starts_with(':') {
+                    // User wrote '::', probably a type starting with a path
+                    "Paths (or anything with a ':') are not allowed in the type inside of a placeholder.
+Put the path in the arguments behind the format string or `use` the type"
+                } else {
+                    // No idea what went wrong, maybe it was supposed to be a regex?
+                    "Regex format options must start and end with '/'"
+                };
+                return sub_error_result(
+                    &format!("Unknown format option: '{}'.\nHint: {}", config, hint),
+                    src,
+                    config_span,
+                );
+            }
         };
-        let span = ty.span();
+        let span = if let Some(ty_span) = ty_span {
+            sub_span(src, ty_span)
+        } else {
+            // ty is one of the words in the match above, so only one token => no Span voodoo necessary
+            ty.span()
+        };
         let (regex, chrono_fmt) = chrono::map_chrono_format(config, src, config_span.0)?;
-        let converter = wrap_in_feature_gate(
-            quote_spanned!(span => ::sscanf::chrono::#ty #function_name(input, #chrono_fmt)),
+
+        let converter =
+            quote_spanned!(span => ::sscanf::chrono::#ty #function_name(input, #chrono_fmt));
+        let error = ty_error(
+            "sscanf is missing 'chrono' feature to use chrono types",
             ty,
-        );
+            ty_span,
+            src,
+        )
+        .to_compile_error();
+
+        let converter = quote!(::sscanf::chrono_check!({#converter}, {#error}));
         Ok((quote!(#regex), Some(converter)))
+    }
+}
+
+fn ty_error(message: &str, ty: &Path, ty_span: Option<(usize, usize)>, src: &ScanfInner) -> Error {
+    if let Some((s, e)) = ty_span {
+        sub_error(message, src, (s, e))
+    } else {
+        Error::new_spanned(ty, message)
     }
 }
 
@@ -201,13 +255,4 @@ fn binary_length(ty: &str) -> Option<usize> {
         "usize" | "isize" if usize::MAX as u64 == u64::MAX as u64 => Some(64),
         _ => None,
     }
-}
-
-fn wrap_in_feature_gate(tokens: TokenStream, span: impl quote::ToTokens) -> TokenStream {
-    let error = Error::new_spanned(
-        span,
-        "sscanf is missing 'chrono' feature to use chrono types",
-    )
-    .to_compile_error();
-    quote!(::sscanf::chrono_check!({#tokens}, {#error}))
 }

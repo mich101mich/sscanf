@@ -17,25 +17,25 @@ error: Incomplete chrono format '%'. Literal '%' need to be escaped as '%%'
   |                             ^^
 
 error: Incomplete %f specifier ('.' can only appear in combination with %f)
- --> $DIR/incomplete.rs:5:29
+ --> $DIR/incomplete.rs:5:37
   |
-5 |     sscanf::scanf!("hi", "{:%.3a}", DateTime);
-  |                             ^^^
+5 |     sscanf::scanf!("hi", "{DateTime:%.3a}");
+  |                                     ^^^
 
 error: Incomplete %f specifier (numbers can only appear in combination with %f)
- --> $DIR/incomplete.rs:6:29
+ --> $DIR/incomplete.rs:6:37
   |
-6 |     sscanf::scanf!("hi", "{:%38}", DateTime);
-  |                             ^^
+6 |     sscanf::scanf!("hi", "{DateTime:%38}");
+  |                                     ^^
 
 error: Incomplete chrono format '%'. Literal '%' need to be escaped as '%%'
- --> $DIR/incomplete.rs:7:29
+ --> $DIR/incomplete.rs:7:37
   |
-7 |     sscanf::scanf!("hi", "{:%}", DateTime);
-  |                             ^
+7 |     sscanf::scanf!("hi", "{DateTime:%}");
+  |                                     ^
 
 error: Incomplete chrono format '%'. Literal '%' need to be escaped as '%%'
- --> $DIR/incomplete.rs:8:31
+ --> $DIR/incomplete.rs:8:39
   |
-8 |     sscanf::scanf!("hi", "{:%%%}", DateTime);
-  |                               ^
+8 |     sscanf::scanf!("hi", "{DateTime:%%%}");
+  |                                       ^

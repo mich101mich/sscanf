@@ -15,7 +15,7 @@ mod format_config;
 
 struct PlaceHolder {
     name: String,
-    type_token: Option<Path>,
+    type_token: Option<(Path, Option<(usize, usize)>)>,
     config: Option<(String, usize)>,
     span: (usize, usize),
 }
@@ -202,7 +202,7 @@ fn generate_regex(
     for ph in &mut placeholders {
         if ph.type_token.is_none() {
             if let Some(ty) = type_tokens.next() {
-                ph.type_token = Some(ty);
+                ph.type_token = Some((ty, None));
             } else {
                 // generate an error for all placeholders that don't have a corresponding type
                 let message = if let Some((config, _)) = &ph.config {
@@ -231,8 +231,8 @@ fn generate_regex(
     let mut match_grabber = vec![];
     // if there are n types, there are n+1 regex_parts, so add the first n during this loop and
     // add the last one afterwards
-    for (ph, regex_prefix) in placeholders.iter().zip(regex_parts.iter()) {
-        let ty = ph.type_token.as_ref().unwrap();
+    for (ph, regex_prefix) in placeholders.into_iter().zip(regex_parts.iter()) {
+        let (ty, ty_span) = ph.type_token.unwrap();
 
         regex_builder.push(quote!(#regex_prefix));
         let mut regex = None;
@@ -240,12 +240,17 @@ fn generate_regex(
 
         if let Some((config, config_start)) = ph.config.as_ref() {
             let config_span = (*config_start, ph.span.1 - 1); // -1 to exclude the closing '}'
-            let res = format_config::regex_from_config(config, config_span, ty, &input)?;
+            let res = format_config::regex_from_config(config, config_span, &ty, ty_span, &input)?;
             regex = Some(res.0);
             converter = res.1;
         }
 
-        let (start, end) = full_span(&ty);
+        let (start, end) = if let Some(ty_span) = ty_span {
+            let span = sub_span(&input, ty_span);
+            (span, span)
+        } else {
+            full_span(&ty)
+        };
         let name = &ph.name;
 
         let regex = regex.unwrap_or_else(|| {
@@ -281,7 +286,7 @@ fn generate_regex(
     }
 
     // add the last regex_part
-    let last_regex = &regex_parts[placeholders.len()];
+    let last_regex = regex_parts.last().unwrap();
     regex_builder.push(quote!(#last_regex));
 
     #[rustfmt::skip]
@@ -291,7 +296,7 @@ fn generate_regex(
                 ::sscanf::regex::Regex::new(
                     ::sscanf::const_format::concatcp!( #(#regex_builder),* )
                 )
-                .expect("scanf: cannot generate Regex");
+                .expect("scanf: Cannot generate Regex");
         }
     );
 

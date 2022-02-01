@@ -118,7 +118,7 @@ fn config_numbers() {
 }
 
 #[test]
-#[should_panic(expected = "scanf: cannot generate Regex")]
+#[should_panic(expected = "scanf: Cannot generate Regex")]
 fn invalid_regex_representation() {
     struct Test;
     impl std::str::FromStr for Test {
@@ -145,6 +145,17 @@ fn custom_regex() {
         parsed,
         Ok((String::from("({(\\}*"), String::from("[\\{")))
     );
+
+    #[derive(Debug, PartialEq)]
+    struct NoRegex;
+    impl std::str::FromStr for NoRegex {
+        type Err = ();
+        fn from_str(_s: &str) -> Result<Self, Self::Err> {
+            Ok(NoRegex)
+        }
+    }
+    let parsed = scanf!(input, "{NoRegex:/.*/}");
+    assert_eq!(parsed, Ok(NoRegex));
 }
 
 #[test]

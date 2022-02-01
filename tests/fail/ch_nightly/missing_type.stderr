@@ -9,3 +9,9 @@ error: Missing Type for given '{:bob}' Placeholder
   |
 2 |     sscanf::scanf!("hi", "asdf{}{}asdf{:bob}", usize);
   |                                       ^^^^^^
+
+error: Missing Type for given '{}' Placeholder
+ --> $DIR/missing_type.rs:3:42
+  |
+3 |     sscanf::scanf!("hi", "asdf{}{usize}as{}df{i32}", usize);
+  |                                          ^^

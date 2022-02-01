@@ -40,14 +40,14 @@ impl<'input> std::fmt::Display for Error<'input> {
             Error::RegexMatchFailed(input, regex) => {
                 write!(
                     f,
-                    "scanf: failed to match string {:?} against regex {}",
+                    "scanf: Failed to match string {:?} against regex {}",
                     input, regex
                 )
             }
             Error::FromStrFailed(ty, input, error) => {
                 write!(
                     f,
-                    "scanf: could not convert type <{}> from input \"{}\": {:?}",
+                    "scanf: Could not convert type <{}> from input \"{}\": {:?}",
                     ty, input, error
                 )
             }
