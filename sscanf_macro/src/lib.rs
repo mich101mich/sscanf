@@ -194,7 +194,7 @@ fn generate_regex(
     input: ScanfInner,
     escape_input: bool,
 ) -> Result<(TokenStream, Vec<TokenStream>)> {
-    let (mut placeholders, regex_parts) = parse_format_string(&input, escape_input)?;
+    let (mut placeholders, regex_parts) = format_config::parse_format_string(&input, escape_input)?;
 
     let mut type_tokens = input.type_tokens.iter().cloned();
 
@@ -305,64 +305,6 @@ fn generate_regex(
     );
 
     Ok((regex, match_grabber))
-}
-
-fn parse_format_string(
-    input: &ScanfInner,
-    escape_input: bool,
-) -> Result<(Vec<PlaceHolder>, Vec<String>)> {
-    let mut placeholders = vec![];
-
-    // all completed parts of the regex
-    let mut regex = vec![];
-    let mut current_regex = String::from("^");
-
-    // name of the next placeholder
-    let mut name_index = 1;
-
-    // keep the iterator as a variable to allow peeking and advancing in a sub-function
-    let mut iter = input.fmt.chars().enumerate().peekable();
-
-    while let Some((i, c)) = iter.next() {
-        if c == '{' {
-            if let Some(mut ph) = format_config::parse_bracket_content(&mut iter, input, i)? {
-                ph.name = format!("type_{}", name_index);
-                name_index += 1;
-
-                current_regex += &format!("(?P<{}>", ph.name);
-                regex.push(current_regex);
-                current_regex = String::from(")");
-
-                placeholders.push(ph);
-                continue;
-            } else {
-                // escaped '{{', will be handled like a regular char by the following code
-            }
-        } else if c == '}' {
-            if iter.next() == Some((i + 1, '}')) {
-                // escaped '}}', will be handled like a regular char by the following code
-                // next automatically advanced the iterator to skip the second '}'
-            } else {
-                // we have a '}' that is not escaped and not in a placeholder
-                return sub_error_result(
-                    "Unexpected standalone '}'. Literal '}' need to be escaped as '}}'",
-                    input,
-                    (i, i),
-                );
-            }
-        }
-
-        if escape_input && regex_syntax::is_meta_character(c) {
-            current_regex.push('\\');
-        }
-
-        current_regex.push(c);
-    }
-
-    current_regex.push('$');
-    regex.push(current_regex);
-
-    Ok((placeholders, regex))
 }
 
 /// Returns a span inside of fmt_span, if possible. Otherwise, returns the entire span.

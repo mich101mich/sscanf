@@ -1,5 +1,63 @@
 use super::*;
 
+pub(crate) fn parse_format_string(
+    input: &ScanfInner,
+    escape_input: bool,
+) -> Result<(Vec<PlaceHolder>, Vec<String>)> {
+    let mut placeholders = vec![];
+
+    // all completed parts of the regex
+    let mut regex = vec![];
+    let mut current_regex = String::from("^");
+
+    // name of the next placeholder
+    let mut name_index = 1;
+
+    // keep the iterator as a variable to allow peeking and advancing in a sub-function
+    let mut iter = input.fmt.chars().enumerate().peekable();
+
+    while let Some((i, c)) = iter.next() {
+        if c == '{' {
+            if let Some(mut ph) = parse_bracket_content(&mut iter, input, i)? {
+                ph.name = format!("type_{}", name_index);
+                name_index += 1;
+
+                current_regex += &format!("(?P<{}>", ph.name);
+                regex.push(current_regex);
+                current_regex = String::from(")");
+
+                placeholders.push(ph);
+                continue;
+            } else {
+                // escaped '{{', will be handled like a regular char by the following code
+            }
+        } else if c == '}' {
+            if iter.next() == Some((i + 1, '}')) {
+                // escaped '}}', will be handled like a regular char by the following code
+                // next automatically advanced the iterator to skip the second '}'
+            } else {
+                // we have a '}' that is not escaped and not in a placeholder
+                return sub_error_result(
+                    "Unexpected standalone '}'. Literal '}' need to be escaped as '}}'",
+                    input,
+                    (i, i),
+                );
+            }
+        }
+
+        if escape_input && regex_syntax::is_meta_character(c) {
+            current_regex.push('\\');
+        }
+
+        current_regex.push(c);
+    }
+
+    current_regex.push('$');
+    regex.push(current_regex);
+
+    Ok((placeholders, regex))
+}
+
 pub(crate) fn parse_bracket_content<I: Iterator<Item = (usize, char)>>(
     input: &mut std::iter::Peekable<I>,
     src: &ScanfInner,
@@ -111,12 +169,8 @@ pub(crate) fn regex_from_config(
     let ty_string = ty.to_token_stream().to_string();
     if let Some(radix) = get_radix(config) {
         let binary_digits = binary_length(&ty_string).ok_or_else(|| {
-            ty_error(
-                "Radix options only work on primitive numbers from std with no path or type alias",
-                ty,
-                ty_span,
-                src,
-            )
+            let msg = "Radix options only work on primitive numbers from std with no path or alias";
+            ty_error(msg, ty, ty_span, src)
         })?;
         // digit conversion: digits_base / log_x(base) * log_x(target) with any log-base x,
         // so we choose log_2 where log_2(target) = 1;
@@ -137,14 +191,11 @@ pub(crate) fn regex_from_config(
         regex += &format!(r"{{1, {}}}", digits);
 
         // optional prefix
-        let prefix = if radix == 16 {
-            Some("0x")
-        } else if radix == 8 {
-            Some("0o")
-        } else if radix == 2 {
-            Some("0b")
-        } else {
-            None
+        let prefix = match radix {
+            2 => Some("0b"),
+            8 => Some("0o"),
+            16 => Some("0x"),
+            _ => None,
         };
         if let Some(pref) = prefix.as_ref() {
             regex = format!(r"{}{1}|{1}", pref, regex);

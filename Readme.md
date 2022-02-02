@@ -26,7 +26,7 @@ If matching the format string failed, an Error is returned:
 ```rust
 let s = "Text that doesn't match the format string";
 let parsed = scanf!(s, "Hello {}{}!", String, usize);
-assert!(matches!(parsed, sscanf::Error::RegexMatchFailed(..)));
+assert!(matches!(parsed, sscanf::Error::RegexMatchFailed{..}));
 ```
 
 Note that the original C-function and this Crate are called sscanf, which is the technically
@@ -57,12 +57,18 @@ assert_eq!(b, "Another Sentence");
 let input = "Formats:  0xab01  0o127  101010  1Z";
 let parsed = scanf!(input, "Formats:  {usize:x}  {i32:o}  {u8:b}  {u32:r36}");
 let (a, b, c, d) = parsed.unwrap();
-assert_eq!(a, 0xab01);     // Hex
+assert_eq!(a, 0xab01);     // Hexadecimal
 assert_eq!(b, 0o127);      // Octal
 assert_eq!(c, 0b101010);   // Binary
 
 assert_eq!(d, 71);         // any radix (r36 = Radix 36)
 assert_eq!(d, u32::from_str_radix("1Z", 36).unwrap());
+
+let input = "color: #D4AF37";
+// Number types take their size into account, and hexadecimal u8 can have at most 2 digits.
+// => the only possible match is 2 digits each.
+let (r, g, b) = scanf!(input, "color: #{u8:x}{u8:x}{u8:x}").unwrap();
+assert_eq!((r, g, b), (0xD4, 0xAF, 0x37));
 ```
 The input here is a `&'static str`, but in can be `String`, `&str`, `&String`, ...
 Basically anything with [`AsRef<str>`](https://doc.rust-lang.org/std/convert/trait.AsRef.html)
@@ -125,6 +131,9 @@ As mentioned above, `'{'` `'}'` have to be escaped with a `'\'`. This means that
   - the first `'\'` escapes the second one, leading to a literal `'\'` in the regex. the third
     escapes the curly bracket as in the second case
   - needed in order to have the regex match an actual curly bracket
+
+Note that this is only the case if you are using raw strings for formats, regular strings require
+escaping `'\'`, so this would double the number of `'\\'`.
 
 Works with non-`String` types too:
 ```rust

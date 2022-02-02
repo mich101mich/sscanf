@@ -61,7 +61,7 @@
 //! The second imitates the [Rust format!() behavior since 1.58](https://blog.rust-lang.org/2022/01/13/Rust-1.58.0.html#captured-identifiers-in-format-strings).
 //! This option does not allow any paths (like `std::str::String`) or any other form that might
 //! contain a `:`, since `:` marks the start of [Format Options](https://docs.rs/sscanf/^0.1.4/sscanf/#format-options).
-//! 
+//!
 //! More examples of the capabilities of [`scanf`]:
 //! ```
 //! # use sscanf::scanf;
@@ -85,12 +85,18 @@
 //! let input = "Formats:  0xab01  0o127  101010  1Z";
 //! let parsed = scanf!(input, "Formats:  {usize:x}  {i32:o}  {u8:b}  {u32:r36}");
 //! let (a, b, c, d) = parsed.unwrap();
-//! assert_eq!(a, 0xab01);     // Hex
+//! assert_eq!(a, 0xab01);     // Hexadecimal
 //! assert_eq!(b, 0o127);      // Octal
 //! assert_eq!(c, 0b101010);   // Binary
 //!
 //! assert_eq!(d, 71);         // any radix (r36 = Radix 36)
 //! assert_eq!(d, u32::from_str_radix("1Z", 36).unwrap());
+//!
+//! let input = "color: #D4AF37";
+//! // Number types take their size into account, and hexadecimal u8 can have at most 2 digits.
+//! // => the only possible match is 2 digits each.
+//! let (r, g, b) = scanf!(input, "color: #{u8:x}{u8:x}{u8:x}").unwrap();
+//! assert_eq!((r, g, b), (0xD4, 0xAF, 0x37));
 //! ```
 //! The input in this case is a `&'static str`, but in can be `String`, `&str`, `&String`, ...
 //! Basically anything with [`AsRef<str>`](https://doc.rust-lang.org/std/convert/trait.AsRef.html)
@@ -154,6 +160,9 @@
 //!   - the first `'\'` escapes the second one, leading to a literal `'\'` in the regex. the third
 //!     escapes the curly bracket as in the second case
 //!   - needed in order to have the regex match an actual curly bracket
+//!
+//! Note that this is only the case if you are using raw strings for formats, regular strings require
+//! escaping `'\'`, so this would double the number of `'\\'`.
 //!
 //! Works with non-`String` types too:
 //! ```
@@ -322,7 +331,7 @@
 /// the [crate root documentation](https://docs.rs/sscanf/^0.1.4/sscanf/#format-options).
 ///
 /// Returns a Result<( _<types>_... ), [`crate::Error`]>. See the error documentation for details.
-/// 
+///
 /// ## Examples
 /// More examples can be seen in the crate root documentation.
 /// ```
