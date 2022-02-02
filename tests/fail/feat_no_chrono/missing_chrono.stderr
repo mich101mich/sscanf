@@ -1,5 +1,0 @@
-error: sscanf is missing 'chrono' feature to use chrono types
- --> $DIR/missing_chrono.rs:3:66
-  |
-3 |     let parsed = sscanf::scanf!(input, "{%Y-%m-%dT%H:%M:%S%:z}", DateTime);
-  |                                                                  ^^^^^^^^

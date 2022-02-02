@@ -4,7 +4,7 @@ error: regex parse error:
        error: unclosed group
 
        In custom Regex format option
- --> $DIR/invalid_custom_regex.rs:2:28
+ --> $DIR/invalid_custom_regex.rs:2:30
   |
-2 |     sscanf::scanf!("", "   {/ab(ab/}   ", String).unwrap();
-  |                            ^^^^^^^^^
+2 |     sscanf::scanf!("", "   {:/ab(ab/}   ", String).unwrap();
+  |                              ^^^^^^^

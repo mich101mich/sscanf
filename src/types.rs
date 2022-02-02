@@ -39,11 +39,11 @@ macro_rules! impl_wrapper_ops {
 /// let input = "Match a Banana against a number";
 /// let output = scanf!(input, "{}{}{}", String, f32, String);
 /// // There are no Numbers in input, so expect None
-/// assert!(output.is_none());
+/// assert!(output.is_err());
 ///
 /// let output = scanf!(input, "{}{}{}", String, FullF32, String);
 /// // The 'nan' part in "Banana" is parsed as f32::NaN
-/// assert!(output.is_some());
+/// assert!(output.is_ok());
 /// assert!(output.unwrap().1.is_nan());
 /// ```
 ///
@@ -71,7 +71,7 @@ impl RegexRepresentation for FullF32 {
     /// Matches any floating point number, including `nan`, `inf`, `2.0e5`, ...
     ///
     /// See [FromStr on f32](https://doc.rust-lang.org/std/primitive.f32.html#impl-FromStr) for details
-    const REGEX: &'static str = r"[-+]?([nN]a[nN]|[iI]nf|(\d+|\d+\.\d*|\d*\.\d+)([eE][-+]?\d+)?)";
+    const REGEX: &'static str = r"[-+]?(?:[nN]a[nN]|[iI]nf|(?:\d+|\d+\.\d*|\d*\.\d+)(?:[eE][-+]?\d+)?)";
 }
 impl_wrapper_ops!(FullF32, f32);
 
@@ -115,7 +115,7 @@ impl_wrapper_ops!(FullF64, f64);
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[deprecated(
     since = "0.1.3",
-    note = "use \"{x}\" with the desired number type instead"
+    note = "use \"{:x}\" with the desired number type instead"
 )]
 pub struct HexNumber(pub usize);
 

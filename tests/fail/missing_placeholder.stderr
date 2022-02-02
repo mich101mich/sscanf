@@ -1,11 +1,17 @@
 error: More Types than '{}' Placeholders provided
- --> $DIR/missing_brackets.rs:2:43
+ --> $DIR/missing_placeholder.rs:2:43
   |
 2 |     sscanf::scanf!("hi", "asdf{}", usize, std::vec::Vec<std::string::String>, u32);
   |                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 error: More Types than '{}' Placeholders provided
- --> $DIR/missing_brackets.rs:2:79
+ --> $DIR/missing_placeholder.rs:2:79
   |
 2 |     sscanf::scanf!("hi", "asdf{}", usize, std::vec::Vec<std::string::String>, u32);
   |                                                                               ^^^
+
+error: More Types than '{}' Placeholders provided
+ --> $DIR/missing_placeholder.rs:3:55
+  |
+3 |     sscanf::scanf!("hi", "asdf{u32}{}{usize}", usize, u32);
+  |                                                       ^^^

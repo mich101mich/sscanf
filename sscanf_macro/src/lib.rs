@@ -7,7 +7,7 @@ use syn::{
     parse::{Error, Parse, ParseStream, Result},
     parse_macro_input,
     spanned::Spanned,
-    Expr, LitStr, Token, TypePath,
+    Expr, LitStr, Path, Token,
 };
 
 mod chrono;
@@ -15,7 +15,8 @@ mod format_config;
 
 struct PlaceHolder {
     name: String,
-    config: Option<String>,
+    type_token: Option<(Path, Option<(usize, usize)>)>,
+    config: Option<(String, usize)>,
     span: (usize, usize),
 }
 
@@ -28,7 +29,7 @@ struct ScanfInner {
     /// number of chars in fmt_span before content starts (e.g. 2 for "r#")
     span_offset: usize,
     /// Types after the format string
-    type_tokens: Vec<TypePath>,
+    type_tokens: Vec<Path>,
 }
 /// Input string, format string and types for scanf and scanf_unescaped
 struct Scanf {
@@ -65,7 +66,7 @@ impl Parse for ScanfInner {
             // TokenStream and then into a String (LitStr cannot be directly converted to a String)
             // and then iterate over that string for the first ", because anything before that
             // **should** (this will totally break at some point) be the prefix.
-            lit.chars().enumerate().find(|c| c.1 == '"').unwrap().0
+            lit.chars().position(|c| c == '"').unwrap()
         };
 
         // fmt has to be parsed as `syn::LitStr` to access the content as a string. But in order to
@@ -74,17 +75,16 @@ impl Parse for ScanfInner {
         let mut fmt_span = Literal::string(&fmt.value());
         fmt_span.set_span(fmt.span()); // fmt is a single Token so span() works even on stable
 
-        let type_tokens;
-        if input.is_empty() {
-            type_tokens = vec![];
+        let type_tokens = if input.is_empty() {
+            vec![]
         } else {
             input.parse::<Token![,]>()?; // the comma after the format string
 
-            type_tokens = input
-                .parse_terminated::<_, Token![,]>(TypePath::parse)?
+            input
+                .parse_terminated::<_, Token![,]>(Path::parse)?
                 .into_iter()
-                .collect();
-        }
+                .collect()
+        };
 
         Ok(ScanfInner {
             fmt: fmt.value(),
@@ -180,8 +180,11 @@ fn scanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
     quote!(
         {
             #regex
+            let input = #src_str;
             #[allow(clippy::needless_question_mark)]
-            REGEX.captures(#src_str).and_then(|cap| Some(( #(#matcher),* )))
+            REGEX.captures(input)
+                .ok_or_else(|| ::sscanf::Error::RegexMatchFailed { input, regex: &REGEX, })
+                .and_then(|cap| Ok(( #(#matcher),* )))
         }
     )
     .into()
@@ -191,23 +194,33 @@ fn generate_regex(
     input: ScanfInner,
     escape_input: bool,
 ) -> Result<(TokenStream, Vec<TokenStream>)> {
-    let (placeholders, regex_parts) = parse_format_string(&input, escape_input)?;
+    let (mut placeholders, regex_parts) = format_config::parse_format_string(&input, escape_input)?;
+
+    let mut type_tokens = input.type_tokens.iter().cloned();
 
     let mut error = TokenStream::new();
-    // generate an error for all placeholders that don't have a corresponding type
-    for ph in placeholders.iter().skip(input.type_tokens.len()) {
-        let message = format!(
-            "Missing Type for given '{{{}}}' Placeholder",
-            ph.config.as_deref().unwrap_or("")
-        );
-        error.extend(sub_error(&message, &input, ph.span).to_compile_error());
+    for ph in &mut placeholders {
+        if ph.type_token.is_none() {
+            if let Some(ty) = type_tokens.next() {
+                ph.type_token = Some((ty, None));
+            } else {
+                // generate an error for all placeholders that don't have a corresponding type
+                let message = if let Some((config, _)) = &ph.config {
+                    format!("Missing Type for given '{{:{}}}' Placeholder", config)
+                } else {
+                    "Missing Type for given '{}' Placeholder".to_string()
+                };
+                error.extend(sub_error(&message, &input, ph.span).to_compile_error());
+            }
+        }
     }
     // generate an error for all types that don't have a corresponding placeholder
-    for ty in input.type_tokens.iter().skip(placeholders.len()) {
+    for ty in type_tokens {
         error.extend(
             Error::new_spanned(ty, "More Types than '{}' Placeholders provided").to_compile_error(),
         );
     }
+
     if !error.is_empty() {
         error.extend(quote!(let REGEX = ::sscanf::regex::Regex::new("").unwrap();));
         return Ok((error, vec![]));
@@ -218,22 +231,26 @@ fn generate_regex(
     let mut match_grabber = vec![];
     // if there are n types, there are n+1 regex_parts, so add the first n during this loop and
     // add the last one afterwards
-    for ((ph, ty), regex_prefix) in placeholders
-        .iter()
-        .zip(input.type_tokens.iter())
-        .zip(regex_parts.iter())
-    {
+    for (ph, regex_prefix) in placeholders.into_iter().zip(regex_parts.iter()) {
+        let (ty, ty_span) = ph.type_token.unwrap();
+
         regex_builder.push(quote!(#regex_prefix));
         let mut regex = None;
-        let mut matcher = None;
+        let mut converter = None;
 
-        if let Some(config) = ph.config.as_ref() {
-            let res = format_config::regex_from_config(config, ty, ph, &input)?;
+        if let Some((config, config_start)) = ph.config.as_ref() {
+            let config_span = (*config_start, ph.span.1 - 1); // -1 to exclude the closing '}'
+            let res = format_config::regex_from_config(config, config_span, &ty, ty_span, &input)?;
             regex = Some(res.0);
-            matcher = res.1;
+            converter = res.1;
         }
 
-        let (start, end) = full_span(&ty);
+        let (start, end) = if let Some(ty_span) = ty_span {
+            let span = sub_span(&input, ty_span);
+            (span, span)
+        } else {
+            full_span(&ty)
+        };
         let name = &ph.name;
 
         let regex = regex.unwrap_or_else(|| {
@@ -252,18 +269,28 @@ fn generate_regex(
         });
         regex_builder.push(regex);
 
-        let matcher = matcher.unwrap_or_else(|| {
-            let mut s = quote_spanned!(start => <#ty as );
-            s.extend(
-                quote_spanned!(end => ::std::str::FromStr>::from_str(cap.name(#name)?.as_str()).ok()?),
-            );
-            s
+        let converter = converter.unwrap_or_else(|| {
+            let start_convert = quote_spanned!(start => <#ty as );
+            let end_convert = quote_spanned!(end => ::std::str::FromStr>::from_str(input));
+            quote!(#start_convert #end_convert)
+        });
+
+        let matcher = quote!({
+            let input = cap.name(#name)
+                .expect("scanf: Invalid regex: Could not find one of the captures")
+                .as_str();
+            #converter
+                .map_err(|err| ::sscanf::Error::FromStrFailed {
+                    type_name: stringify!(#ty),
+                    input,
+                    error: Box::new(err)
+                })?
         });
         match_grabber.push(matcher);
     }
 
     // add the last regex_part
-    let last_regex = &regex_parts[placeholders.len()];
+    let last_regex = regex_parts.last().unwrap();
     regex_builder.push(quote!(#last_regex));
 
     #[rustfmt::skip]
@@ -273,71 +300,23 @@ fn generate_regex(
                 ::sscanf::regex::Regex::new(
                     ::sscanf::const_format::concatcp!( #(#regex_builder),* )
                 )
-                .expect("sscanf cannot generate Regex");
+                .expect("scanf: Cannot generate Regex");
         }
     );
 
     Ok((regex, match_grabber))
 }
 
-fn parse_format_string(
-    input: &ScanfInner,
-    escape_input: bool,
-) -> Result<(Vec<PlaceHolder>, Vec<String>)> {
-    let mut placeholders = vec![];
-
-    // all completed parts of the regex
-    let mut regex = vec![];
-    let mut current_regex = String::from("^");
-
-    // name of the next placeholder
-    let mut name_index = 1;
-
-    // keep the iterator as a variable to allow peeking and advancing in a sub-function
-    let mut iter = input.fmt.chars().enumerate().peekable();
-
-    while let Some((i, c)) = iter.next() {
-        if c == '{' {
-            if let Some(mut ph) = format_config::parse_bracket_content(&mut iter, input, i)? {
-                ph.name = format!("type_{}", name_index);
-                name_index += 1;
-
-                current_regex += &format!("(?P<{}>", ph.name);
-                regex.push(current_regex);
-                current_regex = String::from(")");
-
-                placeholders.push(ph);
-                continue;
-            } else {
-                // escaped '{{', will be handled like a regular char by the following code
-            }
-        } else if c == '}' {
-            if iter.next() == Some((i + 1, '}')) {
-                // escaped '}}', will be handled like a regular char by the following code
-                // next automatically advanced the iterator to skip the second '}'
-            } else {
-                // we have a '}' that is not escaped and not in a placeholder
-                return sub_error_result(
-                    "Unexpected standalone '}'. Literal '}' need to be escaped as '}}'",
-                    input,
-                    (i, i),
-                );
-            }
-        }
-
-        if escape_input && regex_syntax::is_meta_character(c) {
-            current_regex.push('\\');
-        }
-
-        current_regex.push(c);
-    }
-
-    current_regex.push('$');
-    regex.push(current_regex);
-
-    Ok((placeholders, regex))
+/// Returns a span inside of fmt_span, if possible. Otherwise, returns the entire span.
+fn sub_span(src: &ScanfInner, (start, end): (usize, usize)) -> Span {
+    let s = start + src.span_offset + 1; // + 1 for "
+    let e = end + src.span_offset + 1;
+    src.fmt_span
+        .subspan(s..=e)
+        .unwrap_or_else(|| src.fmt_span.span())
 }
 
+/// `sub_error`, but wrapped in a Result.
 fn sub_error_result<T>(message: &str, src: &ScanfInner, (start, end): (usize, usize)) -> Result<T> {
     Err(sub_error(message, src, (start, end)))
 }

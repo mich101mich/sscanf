@@ -21,7 +21,7 @@ pub(crate) fn map_chrono_format(f: &str, src: &ScanfInner, offset: usize) -> Res
     let mut iter = f
         .chars()
         .enumerate()
-        .map(|(i, c)| (i + offset + 1, c))
+        .map(|(i, c)| (i + offset, c))
         .peekable();
 
     while let Some((i, c)) = iter.next() {

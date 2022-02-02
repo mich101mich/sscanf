@@ -1,3 +1,3 @@
 fn main() {
-    sscanf::scanf!("hi", "{%O}", DateTime);
+    sscanf::scanf!("hi", "{:%O}", DateTime);
 }

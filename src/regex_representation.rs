@@ -23,7 +23,7 @@
 /// impl sscanf::RegexRepresentation for Fraction {
 ///     /// matches an optional '-' or '+' followed by a number.
 ///     /// possibly with a '/' and another Number
-///     const REGEX: &'static str = r"[-+]?\d+(/\d+)?";
+///     const REGEX: &'static str = r"[-+]?\d+(?:/\d+)?";
 /// }
 /// impl std::str::FromStr for Fraction {
 ///     type Err = std::num::ParseIntError;
@@ -43,7 +43,7 @@
 /// # #[derive(Debug, PartialEq)]
 /// # struct Fraction(isize, usize);
 /// # impl sscanf::RegexRepresentation for Fraction {
-/// #     const REGEX: &'static str = r"[-+]?\d+(/\d+)?";
+/// #     const REGEX: &'static str = r"[-+]?\d+(?:/\d+)?";
 /// # }
 /// # impl std::str::FromStr for Fraction {
 /// #     type Err = std::num::ParseIntError;
@@ -60,22 +60,22 @@
 /// use sscanf::scanf;
 ///
 /// let output = scanf!("2/5", "{}", Fraction);
-/// assert_eq!(output, Some(Fraction(2, 5)));
+/// assert_eq!(output, Ok(Fraction(2, 5)));
 ///
 /// let output = scanf!("-25/3", "{}", Fraction);
-/// assert_eq!(output, Some(Fraction(-25, 3)));
+/// assert_eq!(output, Ok(Fraction(-25, 3)));
 ///
 /// let output = scanf!("8", "{}", Fraction);
-/// assert_eq!(output, Some(Fraction(8, 1)));
+/// assert_eq!(output, Ok(Fraction(8, 1)));
 ///
 /// let output = scanf!("6e/3", "{}", Fraction);
-/// assert_eq!(output, None);
+/// assert!(output.is_err());
 ///
 /// let output = scanf!("6/-3", "{}", Fraction);
-/// assert_eq!(output, None); // only first number can be negative
+/// assert!(output.is_err()); // only first number can be negative
 ///
 /// let output = scanf!("6/3", "{}", Fraction);
-/// assert_eq!(output, Some(Fraction(6, 3)));
+/// assert_eq!(output, Ok(Fraction(6, 3)));
 /// ```
 pub trait RegexRepresentation {
     /// A regular Expression that exactly matches any String representation of the implementing Type
@@ -161,9 +161,9 @@ impl RegexRepresentation for String {
     /// Matches any sequence of Characters.
     /// ```
     /// # use sscanf::RegexRepresentation;
-    /// assert_eq!(String::REGEX, r".+")
+    /// assert_eq!(String::REGEX, r".+?")
     /// ```
-    const REGEX: &'static str = r".+";
+    const REGEX: &'static str = r".+?";
 }
 impl RegexRepresentation for char {
     /// Matches a single Character.

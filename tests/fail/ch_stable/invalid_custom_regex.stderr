@@ -1,12 +1,12 @@
 error: regex parse error:
-    ab(ab
-      ^
-error: unclosed group
+           ab(ab
+             ^
+       error: unclosed group
 
-In custom Regex format option:
-At "   {/ab(ab/}   "
-       ^^^^^^^^^
+       In custom Regex format option:
+       At "   {:/ab(ab/}   "
+                ^^^^^^^
  --> $DIR/invalid_custom_regex.rs:2:24
   |
-2 |     sscanf::scanf!("", "   {/ab(ab/}   ", String).unwrap();
-  |                        ^^^^^^^^^^^^^^^^^
+2 |     sscanf::scanf!("", "   {:/ab(ab/}   ", String).unwrap();
+  |                        ^^^^^^^^^^^^^^^^^^
