@@ -66,7 +66,7 @@
 //! ```
 //! # use sscanf::scanf;
 //! let input = "<x=3, y=-6, z=6>";
-//! let parsed = scanf!(input, "<x={i32}, y={i32}, z={i32}>"); // types can be written inside placeholders
+//! let parsed = scanf!(input, "<x={i32}, y={i32}, z={i32}>");
 //! assert_eq!(parsed, Ok((3, -6, 6)));
 //!
 //! let input = "Move to N36E21";
