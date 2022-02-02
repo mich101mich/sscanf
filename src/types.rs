@@ -115,7 +115,7 @@ impl_wrapper_ops!(FullF64, f64);
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[deprecated(
     since = "0.1.3",
-    note = "use \"{x}\" with the desired number type instead"
+    note = "use \"{:x}\" with the desired number type instead"
 )]
 pub struct HexNumber(pub usize);
 

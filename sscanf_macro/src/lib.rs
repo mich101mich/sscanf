@@ -183,7 +183,7 @@ fn scanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
             let input = #src_str;
             #[allow(clippy::needless_question_mark)]
             REGEX.captures(input)
-                .ok_or_else(|| ::sscanf::Error::RegexMatchFailed(input, &REGEX))
+                .ok_or_else(|| ::sscanf::Error::RegexMatchFailed { input, regex: &REGEX, })
                 .and_then(|cap| Ok(( #(#matcher),* )))
         }
     )
@@ -280,7 +280,11 @@ fn generate_regex(
                 .expect("scanf: Invalid regex: Could not find one of the captures")
                 .as_str();
             #converter
-                .map_err(|err| ::sscanf::Error::FromStrFailed(stringify!(#ty), input, Box::new(err)))?
+                .map_err(|err| ::sscanf::Error::FromStrFailed {
+                    type_name: stringify!(#ty),
+                    input,
+                    error: Box::new(err)
+                })?
         });
         match_grabber.push(matcher);
     }

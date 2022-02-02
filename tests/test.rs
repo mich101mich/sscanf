@@ -1,4 +1,5 @@
 use sscanf::*;
+use std::str::FromStr;
 
 mod types {
     mod full_f32;
@@ -90,8 +91,8 @@ fn generic_types() {
     impl<T> RegexRepresentation for Bob<T> {
         const REGEX: &'static str = ".*";
     }
-    impl<T: Default> std::str::FromStr for Bob<T> {
-        type Err = <f64 as std::str::FromStr>::Err;
+    impl<T: Default> FromStr for Bob<T> {
+        type Err = <f64 as FromStr>::Err;
         fn from_str(_: &str) -> Result<Self, Self::Err> {
             Ok(Default::default())
         }
@@ -121,7 +122,7 @@ fn config_numbers() {
 #[should_panic(expected = "scanf: Cannot generate Regex")]
 fn invalid_regex_representation() {
     struct Test;
-    impl std::str::FromStr for Test {
+    impl FromStr for Test {
         type Err = ();
         fn from_str(_: &str) -> Result<Self, Self::Err> {
             Ok(Test)
@@ -140,15 +141,17 @@ fn custom_regex() {
     assert_eq!(parsed, Ok((String::from("ab"), 1, String::from("23cd"))));
 
     let input = r"({(\}*[\{";
-    let parsed = scanf!(input, r"{:/\(\\\{\(\\\\\}\*/}{:/\[\\\\\\\{/}", String, String);
-    assert_eq!(
-        parsed,
-        Ok((String::from("({(\\}*"), String::from("[\\{")))
+    let parsed = scanf!(
+        input,
+        r"{:/\(\\\{\(\\\\\}\*/}{:/\[\\\\\\\{/}",
+        String,
+        String
     );
+    assert_eq!(parsed, Ok((String::from("({(\\}*"), String::from("[\\{"))));
 
     #[derive(Debug, PartialEq)]
     struct NoRegex;
-    impl std::str::FromStr for NoRegex {
+    impl FromStr for NoRegex {
         type Err = ();
         fn from_str(_s: &str) -> Result<Self, Self::Err> {
             Ok(NoRegex)
@@ -159,6 +162,36 @@ fn custom_regex() {
 }
 
 #[test]
+#[should_panic(expected = "RegexMatchFailed { input: \"hi\", regex: ^bob$ }")]
+fn check_error_regex() {
+    scanf!("hi", "bob").unwrap();
+}
+#[test]
+#[should_panic(
+    expected = "FromStrFailed { type_name: \"usize\", input: \"hi\", error: ParseIntError { kind: InvalidDigit } }"
+)]
+fn check_error_from_str_1() {
+    scanf!("5bobhibob", "{u32}bob{usize:/.*/}bob").unwrap();
+}
+#[test]
+#[should_panic(
+    expected = "FromStrFailed { type_name: \"Test\", input: \"hi\", error: ParseIntError { kind: InvalidDigit } }"
+)]
+fn check_error_from_str_2() {
+    struct Test(usize);
+    impl FromStr for Test {
+        type Err = <usize as FromStr>::Err;
+        fn from_str(s: &str) -> Result<Self, Self::Err> {
+            s.parse().map(Test)
+        }
+    }
+    impl RegexRepresentation for Test {
+        const REGEX: &'static str = ".*";
+    }
+    scanf!("bobhibob", "bob{}bob", Test).unwrap();
+}
+
+#[test]
 fn custom_chrono_type() {
     #[derive(Debug, PartialEq)]
     struct DateTime(usize);
@@ -166,8 +199,8 @@ fn custom_chrono_type() {
     impl sscanf::RegexRepresentation for DateTime {
         const REGEX: &'static str = r"\d+";
     }
-    impl std::str::FromStr for DateTime {
-        type Err = <usize as std::str::FromStr>::Err;
+    impl FromStr for DateTime {
+        type Err = <usize as FromStr>::Err;
         fn from_str(s: &str) -> Result<Self, Self::Err> {
             Ok(DateTime(s.parse()?))
         }

@@ -43,7 +43,7 @@
 //! # use sscanf::scanf;
 //! let s = "Text that doesn't match the format string";
 //! let parsed = scanf!(s, "Hello {}_{}!", String, usize);
-//! assert!(matches!(parsed, Err(sscanf::Error::RegexMatchFailed(..))));
+//! assert!(matches!(parsed, Err(sscanf::Error::RegexMatchFailed{..})));
 //! ```
 //!
 //! Note that the original C-function and this Crate are called sscanf, which is the technically
@@ -125,7 +125,7 @@
 //! | `{:x}`                      | hexadecimal numbers        | numbers        |
 //! | `{:o}`                      | octal numbers              | numbers        |
 //! | `{:b}`                      | binary numbers             | numbers        |
-//! | `{:r2}` - `{:r36}`          | radix 2 - radix 32 numbers | numbers        |
+//! | `{:r2}` - `{:r36}`          | radix 2 - radix 36 numbers | numbers        |
 //! | `{:` _\<chrono format>_ `}` | chrono format              | chrono types   |
 //!
 //! **Custom Regex:**
@@ -171,7 +171,7 @@
 //! **Number Options:**
 //!
 //! Only work on primitive number types (`u8`, ..., `u128`, `i8`, ..., `i128`, `usize`, `isize`).
-//! - `x`: hexadecimal Number (Digits 0-9 and A-F, optional Prefix `0x`)
+//! - `x`: hexadecimal Number (Digits 0-9 and a-f or A-F, optional Prefix `0x`)
 //! - `o`: octal Number (Digits 0-7, optional Prefix `0o`)
 //! - `b`: binary Number (Digits 0-1, optional Prefix `0b`)
 //! - `r2` - `r36`: any radix Number (no prefix)
@@ -285,8 +285,8 @@
 //! But on stable, you are limited to only pointing at the entire format string:
 //! ```text
 //! error: Missing Type for given '{}' Placeholder:
-//! At "Some Text {}{}{} and stuff"
-//!                 ^^
+//!        At "Some Text {}{}{} and stuff"
+//!                        ^^
 //!   |
 //! 4 | scanf!("", "Some Text {}{}{} and stuff", usize);
 //!   |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
