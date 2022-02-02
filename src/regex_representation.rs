@@ -165,6 +165,14 @@ impl RegexRepresentation for String {
     /// ```
     const REGEX: &'static str = r".+?";
 }
+impl RegexRepresentation for str {
+    /// Matches any sequence of Characters.
+    /// ```
+    /// # use sscanf::RegexRepresentation;
+    /// assert_eq!(str::REGEX, r".+?")
+    /// ```
+    const REGEX: &'static str = r".+?";
+}
 impl RegexRepresentation for char {
     /// Matches a single Character.
     /// ```

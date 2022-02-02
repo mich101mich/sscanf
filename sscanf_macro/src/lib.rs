@@ -1,4 +1,4 @@
-//! Crate with proc_macros for sscanf. Not usable as a standalone crate.
+//! Crate with proc_macros for [sscanf](https://crates.io/crates/sscanf). Not usable as a standalone crate.
 
 use proc_macro::TokenStream as TokenStream1;
 use proc_macro2::{Literal, Span, TokenStream};
@@ -13,10 +13,16 @@ use syn::{
 mod chrono;
 mod format_config;
 
+/// Data about a placeholder in the format string.
 struct PlaceHolder {
+    /// The name of the capture group.
     name: String,
+    /// If known, the type to parse to and possibly the indices inside the format
+    /// string if the type is written in the placeholder.
     type_token: Option<(Path, Option<(usize, usize)>)>,
+    /// The format config and the index where it starts.
     config: Option<(String, usize)>,
+    /// The indices of the { } in the format string.
     span: (usize, usize),
 }
 
@@ -137,18 +143,21 @@ impl Parse for Scanf {
     }
 }
 
+#[doc(hidden)]
 #[proc_macro]
 pub fn scanf(input: TokenStream1) -> TokenStream1 {
     let input = parse_macro_input!(input as Scanf);
     scanf_internal(input, true)
 }
 
+#[doc(hidden)]
 #[proc_macro]
 pub fn scanf_unescaped(input: TokenStream1) -> TokenStream1 {
     let input = parse_macro_input!(input as Scanf);
     scanf_internal(input, false)
 }
 
+#[doc(hidden)]
 #[proc_macro]
 pub fn scanf_get_regex(input: TokenStream1) -> TokenStream1 {
     let input = parse_macro_input!(input as ScanfInner);
@@ -184,7 +193,7 @@ fn scanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
             #[allow(clippy::needless_question_mark)]
             REGEX.captures(input)
                 .ok_or_else(|| ::sscanf::Error::RegexMatchFailed { input, regex: &REGEX, })
-                .and_then(|cap| Ok(( #(#matcher),* )))
+                .and_then(|cap| ::std::result::Result::<_, ::sscanf::Error>::Ok(( #(#matcher),* )))
         }
     )
     .into()
@@ -275,17 +284,25 @@ fn generate_regex(
             quote!(#start_convert #end_convert)
         });
 
-        let matcher = quote!({
-            let input = cap.name(#name)
+        let get_input = quote!(
+            cap.name(#name)
                 .expect("scanf: Invalid regex: Could not find one of the captures")
-                .as_str();
-            #converter
-                .map_err(|err| ::sscanf::Error::FromStrFailed {
-                    type_name: stringify!(#ty),
-                    input,
-                    error: Box::new(err)
-                })?
-        });
+                .as_str()
+        );
+
+        let matcher = if ty.to_token_stream().to_string() == "str" {
+            quote!(#get_input)
+        } else {
+            quote!({
+                let input = #get_input;
+                #converter
+                    .map_err(|err| ::sscanf::Error::FromStrFailed {
+                        type_name: stringify!(#ty),
+                        input,
+                        error: Box::new(err)
+                    })?
+            })
+        };
         match_grabber.push(matcher);
     }
 

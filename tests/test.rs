@@ -29,6 +29,9 @@ fn basic() {
         "Position<{f32},{f32},{f32}>; Dir: {char}{usize}{char}{usize}",
     );
     assert_eq!(output, Ok((5.0, 0.3, 2.0, 'N', 24, 'E', 10)));
+
+    let output = scanf!("hi", "{str}").unwrap();
+    assert_eq!(output, "hi");
 }
 
 #[test]
@@ -110,7 +113,7 @@ fn generic_types() {
 #[test]
 fn config_numbers() {
     let input = "A Sentence with Spaces. Number formats: 0xab01 0o127 0b101010.";
-    let parsed = scanf!(input, "{String}. Number formats: {usize:x} {i32:o} {u8:b}.");
+    let parsed = scanf!(input, "{str}. Number formats: {usize:x} {i32:o} {u8:b}.");
     let (a, b, c, d) = parsed.unwrap();
     assert_eq!(a, "A Sentence with Spaces");
     assert_eq!(b, 0xab01);
@@ -137,17 +140,12 @@ fn invalid_regex_representation() {
 #[test]
 fn custom_regex() {
     let input = "ab123cd";
-    let parsed = scanf!(input, r"{String}{u8:/\d/}{String:/\d\d.*/}");
-    assert_eq!(parsed, Ok((String::from("ab"), 1, String::from("23cd"))));
+    let parsed = scanf!(input, r"{str}{u8:/\d/}{str:/\d\d.*/}");
+    assert_eq!(parsed, Ok(("ab", 1, "23cd")));
 
     let input = r"({(\}*[\{";
-    let parsed = scanf!(
-        input,
-        r"{:/\(\\\{\(\\\\\}\*/}{:/\[\\\\\\\{/}",
-        String,
-        String
-    );
-    assert_eq!(parsed, Ok((String::from("({(\\}*"), String::from("[\\{"))));
+    let parsed = scanf!(input, r"{:/\(\\\{\(\\\\\}\*/}{:/\[\\\\\\\{/}", str, str);
+    assert_eq!(parsed, Ok(("({(\\}*", "[\\{")));
 
     #[derive(Debug, PartialEq)]
     struct NoRegex;
