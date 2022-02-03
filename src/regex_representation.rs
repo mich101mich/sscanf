@@ -159,6 +159,9 @@ impl_num!(f64; f32, f64);
 
 impl RegexRepresentation for String {
     /// Matches any sequence of Characters.
+    ///
+    /// Note that this clones part of the input string, which is usually not necessary. Use
+    /// [`str`](#impl-RegexRepresentation-for-str) unless you explicitly need ownership.
     /// ```
     /// # use sscanf::RegexRepresentation;
     /// assert_eq!(String::REGEX, r".+?")
@@ -167,6 +170,14 @@ impl RegexRepresentation for String {
 }
 impl RegexRepresentation for str {
     /// Matches any sequence of Characters.
+    ///
+    /// Note that this is the non-borrowed form of the usual `&str`. This is the type that should be
+    /// used when calling scanf!() because of proc-macro limitations. The type returned by scanf!()
+    /// is `&str` as one would expect.
+    ///
+    /// This is also currently the only type that borrows part of the input string, so you need to
+    /// keep lifetimes in mind when using this type. If the input string doesn't live long enough,
+    /// use [`String`](#impl-RegexRepresentation-for-String) instead.
     /// ```
     /// # use sscanf::RegexRepresentation;
     /// assert_eq!(str::REGEX, r".+?")
@@ -217,8 +228,7 @@ mod chrono_integration {
         /// # use sscanf::RegexRepresentation; use chrono::*;
         /// assert_eq!(DateTime::<Utc>::REGEX, r"\d\d\d\d-(0\d|1[0-2])-([0-2]\d|3[01])T([01]\d|2[0-3]):[0-5]\d:([0-5]\d|60)(Z|\+\d\d:[0-5]\d)")
         /// ```
-        const REGEX: &'static str =
-            r"\d\d\d\d-(0\d|1[0-2])-([0-2]\d|3[01])T([01]\d|2[0-3]):[0-5]\d:([0-5]\d|60)(Z|\+\d\d:[0-5]\d)";
+        const REGEX: &'static str = r"\d\d\d\d-(0\d|1[0-2])-([0-2]\d|3[01])T([01]\d|2[0-3]):[0-5]\d:([0-5]\d|60)(Z|\+\d\d:[0-5]\d)";
     }
     impl RegexRepresentation for DateTime<Local> {
         /// Matches a DateTime
@@ -229,8 +239,7 @@ mod chrono_integration {
         /// # use sscanf::RegexRepresentation; use chrono::*;
         /// assert_eq!(DateTime::<Local>::REGEX, r"\d\d\d\d-(0\d|1[0-2])-([0-2]\d|3[01])T([01]\d|2[0-3]):[0-5]\d:([0-5]\d|60)\+\d\d:[0-5]\d")
         /// ```
-        const REGEX: &'static str =
-            r"\d\d\d\d-(0\d|1[0-2])-([0-2]\d|3[01])T([01]\d|2[0-3]):[0-5]\d:([0-5]\d|60)\+\d\d:[0-5]\d";
+        const REGEX: &'static str = r"\d\d\d\d-(0\d|1[0-2])-([0-2]\d|3[01])T([01]\d|2[0-3]):[0-5]\d:([0-5]\d|60)\+\d\d:[0-5]\d";
     }
     impl RegexRepresentation for DateTime<FixedOffset> {
         /// Matches a DateTime
@@ -241,7 +250,6 @@ mod chrono_integration {
         /// # use sscanf::RegexRepresentation; use chrono::*;
         /// assert_eq!(DateTime::<FixedOffset>::REGEX, r"\d\d\d\d-(0\d|1[0-2])-([0-2]\d|3[01])T([01]\d|2[0-3]):[0-5]\d:([0-5]\d|60)\+\d\d:[0-5]\d")
         /// ```
-        const REGEX: &'static str =
-            r"\d\d\d\d-(0\d|1[0-2])-([0-2]\d|3[01])T([01]\d|2[0-3]):[0-5]\d:([0-5]\d|60)\+\d\d:[0-5]\d";
+        const REGEX: &'static str = r"\d\d\d\d-(0\d|1[0-2])-([0-2]\d|3[01])T([01]\d|2[0-3]):[0-5]\d:([0-5]\d|60)\+\d\d:[0-5]\d";
     }
 }

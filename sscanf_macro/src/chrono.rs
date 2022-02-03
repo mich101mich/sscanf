@@ -193,6 +193,6 @@ fn get_date_fmt(
         't' => '\t'.to_string(),
         'n' => '\n'.to_string(),
         '%' => '%'.to_string(),
-        x => return sub_error_result(&format!("Unknown chrono format {}. See https://docs.rs/chrono/^0/chrono/format/strftime/ for a full list", x), src, (i, i)),
+        x => return sub_error_result(&format!("Unknown chrono format {}. See https://docs.rs/chrono/^0.4/chrono/format/strftime/ for a full list", x), src, (i, i)),
     })
 }

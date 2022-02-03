@@ -143,21 +143,18 @@ impl Parse for Scanf {
     }
 }
 
-#[doc(hidden)]
 #[proc_macro]
 pub fn scanf(input: TokenStream1) -> TokenStream1 {
     let input = parse_macro_input!(input as Scanf);
     scanf_internal(input, true)
 }
 
-#[doc(hidden)]
 #[proc_macro]
 pub fn scanf_unescaped(input: TokenStream1) -> TokenStream1 {
     let input = parse_macro_input!(input as Scanf);
     scanf_internal(input, false)
 }
 
-#[doc(hidden)]
 #[proc_macro]
 pub fn scanf_get_regex(input: TokenStream1) -> TokenStream1 {
     let input = parse_macro_input!(input as ScanfInner);
