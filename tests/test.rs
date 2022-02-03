@@ -190,6 +190,17 @@ fn check_error_from_str_2() {
 }
 
 #[test]
+fn string_lifetime() {
+    // compare with tests/fail/str_lifetime.rs
+    let s;
+    {
+        let input = String::from("hi");
+        s = sscanf::scanf!(input, "{String}").unwrap();
+    }
+    println!("{}", s);
+}
+
+#[test]
 fn custom_chrono_type() {
     #[derive(Debug, PartialEq)]
     struct DateTime(usize);
