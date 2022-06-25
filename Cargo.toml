@@ -14,7 +14,7 @@ exclude = ["/.vscode/*", "/sscanf_macro/", "/.gitignore", "/.github/*", "/*.bat"
 [dependencies]
 sscanf_macro = { path = "sscanf_macro", version = "=0.2.2"}
 regex = "1.5"
-const_format = "0.2"
+const_format = "0.2.25"
 lazy_static = "1.4"
 chrono = { version = "0.4", optional = true }
 
