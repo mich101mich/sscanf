@@ -168,38 +168,45 @@ pub(crate) fn regex_from_config(
 ) -> Result<(TokenStream, Option<TokenStream>)> {
     let ty_string = ty.to_token_stream().to_string();
     if let Some(radix) = get_radix(config) {
-        let binary_digits = binary_length(&ty_string).ok_or_else(|| {
+        let num_digits_binary = binary_length(&ty_string).ok_or_else(|| {
             let msg = "Radix options only work on primitive numbers from std with no path or alias";
             ty_error(msg, ty, ty_span, src)
         })?;
-        // digit conversion: digits_base / log_x(base) * log_x(target) with any log-base x,
-        // so we choose log_2 where log_2(target) = 1;
-        let binaries_per_digit = (radix as f32).log2();
-        let digits = (binary_digits as f32 / binaries_per_digit).ceil() as u8;
 
-        // possible characters for digits
-        use std::cmp::Ordering::*;
-        let mut regex = match radix.cmp(&10) {
-            Less => format!(r"[0-{}]", radix - 1),
-            Equal => r"[0-9aA]".to_string(),
-            Greater => {
-                let last_letter = (b'a' + radix - 10) as char;
-                format!(r"[0-9a-{}A-{}]", last_letter, last_letter.to_uppercase())
-            }
-        };
-        // repetition factor
-        regex += &format!(r"{{1, {}}}", digits);
+        let signed = ty_string.starts_with('i');
+        let sign = if signed { "[-+]?" } else { "\\+?" };
 
-        // optional prefix
         let prefix = match radix {
             2 => Some("0b"),
             8 => Some("0o"),
             16 => Some("0x"),
             _ => None,
         };
-        if let Some(pref) = prefix.as_ref() {
-            regex = format!(r"{}{1}|{1}", pref, regex);
-        }
+        let prefix_string = prefix.map(|s| format!("(?:{})?", s)).unwrap_or_default();
+
+        // possible characters for digits
+        use std::cmp::Ordering::*;
+        let possible_chars = match radix.cmp(&10) {
+            Less => format!("0-{}", radix - 1),
+            Equal => "0-9aA".to_string(),
+            Greater => {
+                let last_letter = (b'a' + radix - 10) as char;
+                format!("0-9a-{}A-{}", last_letter, last_letter.to_uppercase())
+            }
+        };
+
+        // digit conversion:   num_digits_in_base_a = num_digits_in_base_b / log(b) * log(a)
+        // where log can be any type of logarithm. Since binary is base 2 and log_2(2) = 1,
+        // we can use log_2 to simplify the math
+        let num_digits = f32::ceil(num_digits_binary as f32 / f32::log2(radix as f32)) as u8;
+
+        let regex = format!(
+            "{sign}{prefix}[{digits}]{{1,{n}}}",
+            sign = sign,
+            prefix = prefix_string,
+            digits = possible_chars,
+            n = num_digits
+        );
 
         let span = if let Some(ty_span) = ty_span {
             sub_span(src, ty_span)
@@ -209,12 +216,23 @@ pub(crate) fn regex_from_config(
             ty.span()
         };
         let radix = radix as u32;
-        let input_mapper = if let Some(prefix) = prefix {
-            quote!(input.strip_prefix(#prefix).unwrap_or(input))
+        let converter = if let Some(prefix) = prefix {
+            if signed {
+                quote_spanned!(span => {
+                    let s = input.strip_prefix(&['+', '-']).unwrap_or(input);
+                    let s = s.strip_prefix(#prefix).unwrap_or(s);
+                    #ty::from_str_radix(s, #radix).map(|i| if input.starts_with('-') { -i } else { i })
+                })
+            } else {
+                quote_spanned!(span => {
+                    let s = input.strip_prefix('+').unwrap_or(input);
+                    let s = s.strip_prefix(#prefix).unwrap_or(s);
+                    #ty::from_str_radix(s, #radix)
+                })
+            }
         } else {
-            quote!(input)
+            quote_spanned!(span => #ty::from_str_radix(input, #radix))
         };
-        let converter = quote_spanned!(span => #ty::from_str_radix(#input_mapper, #radix));
 
         Ok((quote!(#regex), Some(converter)))
     } else if let Some(regex) = config.strip_prefix('/').and_then(|s| s.strip_suffix('/')) {
@@ -295,15 +313,14 @@ fn get_radix(config: &str) -> Option<u8> {
     }
 }
 
-fn binary_length(ty: &str) -> Option<usize> {
+fn binary_length(ty: &str) -> Option<u32> {
     match ty {
-        "u8" | "i8" => Some(8),
-        "u16" | "i16" => Some(16),
-        "u32" | "i32" => Some(32),
-        "u64" | "i64" => Some(64),
-        "u128" | "i128" => Some(128),
-        "usize" | "isize" if usize::MAX as u64 == u32::MAX as u64 => Some(32),
-        "usize" | "isize" if usize::MAX as u64 == u64::MAX as u64 => Some(64),
+        "u8" | "i8" => Some(u8::BITS),
+        "u16" | "i16" => Some(u16::BITS),
+        "u32" | "i32" => Some(u32::BITS),
+        "u64" | "i64" => Some(u64::BITS),
+        "u128" | "i128" => Some(u128::BITS),
+        "usize" | "isize" => Some(usize::BITS),
         _ => None,
     }
 }

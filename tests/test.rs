@@ -119,6 +119,34 @@ fn config_numbers() {
     assert_eq!(b, 0xab01);
     assert_eq!(c, 0o127);
     assert_eq!(d, 0b101010);
+
+    let input = "-10 -0xab01 -0o127 -0b101010";
+    let parsed = scanf!(input, "{i32:r3} {isize:x} {i32:o} {i8:b}");
+    let (a, b, c, d) = parsed.unwrap();
+    assert_eq!(a, -3);
+    assert_eq!(b, -0xab01);
+    assert_eq!(c, -0o127);
+    assert_eq!(d, -0b101010);
+
+    let input = "+10 +0xab01 +0o127 +0b101010";
+    let parsed = scanf!(input, "{i32:r3} {isize:x} {i32:o} {i8:b}");
+    let (a, b, c, d) = parsed.unwrap();
+    assert_eq!(a, 3);
+    assert_eq!(b, 0xab01);
+    assert_eq!(c, 0o127);
+    assert_eq!(d, 0b101010);
+
+    let input = "-0xab01";
+    let parsed = scanf!(input, "{usize:x}");
+    assert!(parsed.is_err());
+
+    let input = "+10 +0xab01 +0o127 +0b101010";
+    let parsed = scanf!(input, "{u32:r3} {usize:x} {u32:o} {u8:b}");
+    let (a, b, c, d) = parsed.unwrap();
+    assert_eq!(a, 3);
+    assert_eq!(b, 0xab01);
+    assert_eq!(c, 0o127);
+    assert_eq!(d, 0b101010);
 }
 
 #[test]
