@@ -9,8 +9,10 @@
 /// unexpected parsing failures.
 /// 
 /// **Note:** The parser uses indexing to access capture groups. To avoid messing with the
-/// indexing, the regex should not contain any capture groups by either not using round brackets
-/// `(<content>)` or by escaping the round brackets `(?:<content>)`.
+/// indexing, the regex should not contain any capture groups by using the `(?:)` syntax
+/// on any round brackets:
+/// 
+/// Any `(<content>)` should be replaced with `(?:<content>)`
 ///
 /// ## Example
 /// Let's say we want to add a Fraction parser
@@ -26,6 +28,7 @@
 ///     /// matches an optional '-' or '+' followed by a number.
 ///     /// possibly with a '/' and another Number
 ///     const REGEX: &'static str = r"[-+]?\d+(?:/\d+)?";
+///     //                                     ^^ escapes the group. Has to be used on any ( ) in a regex.
 /// }
 /// impl std::str::FromStr for Fraction {
 ///     type Err = std::num::ParseIntError;
