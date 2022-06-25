@@ -327,27 +327,33 @@
 
 /// A Macro to parse a String based on a format-String, similar to sscanf in C
 ///
-/// Takes at least two Parameters:
-/// - An input string (`String`, `str`, ... as long as it has `AsRef<str>`)
-///   - `scanf` does not take Ownership!
-/// - A format string literal (see below)
+/// ## Signature
+/// ```ignore
+/// scanf!(input: impl AsRef<str> + 'input, format: <literal>, Type...) -> Result<(Type...), Error<'input>>
+/// ```
 ///
-/// As well as any number of Types.
+/// ## Parameters
+/// * `input`: The String to parse. Can be anything that implements [`AsRef<str>`](std::convert::AsRef)
+/// * `format`: A literal string. No const or static allowed, just like with [`format!()`](std::format).
+/// * `Type...`: The Types to parse. Can be any type that implements [`RegexRepresentation`] and [`FromStr`](std::str::FromStr).
 ///
-/// The format string _has_ to be a str literal (with some form of `"` on either side),
+/// Returns: A [`Result`](std::result::Result) with the parsed Types or an [`Error`](Error) if the parsing failed.
+///
+/// The format string _has_ to be a string literal (with some form of `"` on either side),
 /// because it is parsed by the procedural macro at compile time and checks if all the types
 /// and placeholders are matched. This is not possible from inside a Variable or even a `const
 /// &str` somewhere else.
 ///
 /// Placeholders within the format string are marked with `{}`. Any `{` or `}` that should not be
-/// treated as placeholders need to be escaped by writing `{{` or `}}`. For any placeholder there
+/// treated as placeholders need to be escaped by writing `{{` or `}}`. For every placeholder there
 /// has to be a Type name inside the `{}` or exactly one Type in the parameters after the format
 /// string.
 ///
 /// Any additional formatting options are placed behind a `:`. For a list of options, see
 /// the [crate root documentation](index.html#format-options).
 ///
-/// Returns a Result<( _<types>_... ), [`crate::Error`]>. See the error documentation for details.
+/// Note the lifetime `'input` on Error. This is the lifetime of the input string, which is borrowed
+/// by the Error. If one of the types is `str`, it will be returned as `&'input str`.
 ///
 /// ## Examples
 /// More examples can be seen in the crate root documentation.
@@ -370,8 +376,20 @@ pub use sscanf_macro::scanf;
 
 /// Same as [`scanf`], but returns the Regex without running it. Useful for Debugging or Efficiency.
 ///
+/// ## Signature
+/// ```ignore
+/// scanf!(format: <literal>, Type...) -> &'static Regex
+/// ```
+///
+/// ## Parameters
+/// * `format`: A literal string. No const or static allowed, just like with [`format!()`](std::format).
+/// * `Type...`: The Types to parse. Can be any type that implements [`RegexRepresentation`] and [`FromStr`](std::str::FromStr).
+///
+/// Returns: A reference to the generated [`Regex`](regex::Regex).
+///
 /// The Placeholders can be obtained by capturing the Regex and using the 1-based index of the Group.
 ///
+/// ## Examples
 /// ```
 /// use sscanf::scanf_get_regex;
 /// let input = "Test 5 -2";
@@ -385,17 +403,18 @@ pub use sscanf_macro::scanf;
 /// let capture_5 = output.get(1);
 /// assert!(capture_5.is_some());
 /// assert_eq!(capture_5.unwrap().as_str(), "5");
-/// assert_eq!(capture_5, output.get(1));
 ///
 /// let capture_negative_2 = output.get(2);
 /// assert!(capture_negative_2.is_some());
 /// assert_eq!(capture_negative_2.unwrap().as_str(), "-2");
-/// assert_eq!(capture_negative_2, output.get(2));
 /// ```
 pub use sscanf_macro::scanf_get_regex;
 
 /// Same as [`scanf`], but allows use of Regex in the format String.
 ///
+/// Signature and Parameters are the same as [`scanf`].
+/// 
+/// ## Examples
 /// ```
 /// use sscanf::scanf_unescaped;
 /// let input = "5.0SOME_RANDOM_TEXT3";
