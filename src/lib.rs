@@ -378,7 +378,7 @@ pub use sscanf_macro::scanf;
 ///
 /// ## Signature
 /// ```ignore
-/// scanf!(format: <literal>, Type...) -> &'static Regex
+/// scanf_get_regex!(format: <literal>, Type...) -> &'static Regex
 /// ```
 ///
 /// ## Parameters
