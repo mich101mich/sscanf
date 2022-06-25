@@ -1,4 +1,5 @@
 use super::*;
+use std::fmt::Write;
 
 pub(crate) fn parse_format_string(
     input: &ScanfInner,
@@ -22,7 +23,7 @@ pub(crate) fn parse_format_string(
                 ph.name = format!("type_{}", name_index);
                 name_index += 1;
 
-                current_regex += &format!("(?P<{}>", ph.name);
+                write!(current_regex, "(?P<{}>", ph.name).unwrap();
                 regex.push(current_regex);
                 current_regex = String::from(")");
 

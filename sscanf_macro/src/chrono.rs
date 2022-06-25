@@ -78,18 +78,18 @@ fn get_date_fmt(
     Ok(match letter.1 {
         'Y' | 'G' => pad_to("0", 4),
         'C' | 'y' | 'g' => pad_to("0", 2),
-        'm' => format!(r"({}\d|1[0-2])", pad("0")),
+        'm' => format!(r"(?:{}\d|1[0-2])", pad("0")),
         'b' | 'h' => r"[a-zA-Z]{3}".to_string(),
         'B' => r"[a-zA-Z]{3,9}".to_string(),
-        'd' => format!(r"({}\d|[12]\d|3[01])", pad("0")),
-        'e' => format!(r"({}\d|[12]\d|3[01])", pad(" ")),
+        'd' => format!(r"(?:{}\d|[12]\d|3[01])", pad("0")),
+        'e' => format!(r"(?:{}\d|[12]\d|3[01])", pad(" ")),
         'a' => r"[a-zA-Z]{3}".to_string(),
         'A' => r"[a-zA-Z]+".to_string(),
         'w' => "[0-6]".to_string(),
         'u' => "[1-7]".to_string(),
-        'U' | 'W' => format!(r"({}\d|[1-4]\d|5[0-3])", pad("0")),
-        'V' => format!(r"({}[1-9]|[1-4]\d|5[0-3])", pad("0")),
-        'j' => format!(r"({0}{0}[1-9]|{0}\d\d|[1-3][0-5]\d|[1-3]6[0-6])", pad("0")),
+        'U' | 'W' => format!(r"(?:{}\d|[1-4]\d|5[0-3])", pad("0")),
+        'V' => format!(r"(?:{}[1-9]|[1-4]\d|5[0-3])", pad("0")),
+        'j' => format!(r"(?:{0}{0}[1-9]|{0}\d\d|[1-3][0-5]\d|[1-3]6[0-6])", pad("0")),
         'D' => format!(
             "{}/{}/{}",
             get_date_fmt((i, 'm'), padding, src, iter)?,
@@ -114,14 +114,14 @@ fn get_date_fmt(
             get_date_fmt((i, 'b'), padding, src, iter)?,
             get_date_fmt((i, 'Y'), padding, src, iter)?
         ),
-        'H' => format!(r"({}\d|1\d|2[0-3])", pad("0")),
-        'k' => format!(r"({}\d|1\d|2[0-3])", pad(" ")),
-        'I' => format!(r"({}[1-9]|1[0-2])", pad("0")),
-        'l' => format!(r"({}[1-9]|1[0-2])", pad(" ")),
+        'H' => format!(r"(?:{}\d|1\d|2[0-3])", pad("0")),
+        'k' => format!(r"(?:{}\d|1\d|2[0-3])", pad(" ")),
+        'I' => format!(r"(?:{}[1-9]|1[0-2])", pad("0")),
+        'l' => format!(r"(?:{}[1-9]|1[0-2])", pad(" ")),
         'P' => "(am|pm)".to_string(),
         'p' => "(AM|PM)".to_string(),
-        'M' => format!(r"({}\d|[1-5]\d)", pad("0")),
-        'S' => format!(r"({}\d|[1-5]\d|60)", pad("0")),
+        'M' => format!(r"(?:{}\d|[1-5]\d)", pad("0")),
+        'S' => format!(r"(?:{}\d|[1-5]\d|60)", pad("0")),
         'f' => r"\d{9}".to_string(),
         '.' => {
             let start = i - 1;
@@ -170,7 +170,7 @@ fn get_date_fmt(
                 if c == ':' {
                     r"\+\d\d:\d\d".to_string()
                 } else {
-                    r"\+\d\d(\d\d)?".to_string()
+                    r"\+\d\d(?:\d\d)?".to_string()
                 }
             } else {
                 return sub_error_result("Incomplete %z specifier (':' can only appear in combination with %z)", src, (i - 1, i));

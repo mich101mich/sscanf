@@ -55,14 +55,10 @@ pub struct FullF32(pub f32);
 impl std::str::FromStr for FullF32 {
     type Err = <f32 as std::str::FromStr>::Err;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let f = if s.to_lowercase().ends_with("nan") {
-            if s.len() == 4 {
-                -f32::NAN
-            } else {
-                f32::NAN
-            }
-        } else {
-            s.to_lowercase().parse()?
+        let f = match s.to_lowercase().as_str() {
+            "nan" => f32::NAN,
+            "-nan" => -f32::NAN,
+            s => s.parse()?,
         };
         Ok(FullF32(f))
     }
@@ -85,14 +81,10 @@ pub struct FullF64(pub f64);
 impl std::str::FromStr for FullF64 {
     type Err = <f64 as std::str::FromStr>::Err;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let f = if s.to_lowercase().ends_with("nan") {
-            if s.len() == 4 {
-                -f64::NAN
-            } else {
-                f64::NAN
-            }
-        } else {
-            s.to_lowercase().parse()?
+        let f = match s.to_lowercase().as_str() {
+            "nan" => f64::NAN,
+            "-nan" => -f64::NAN,
+            s => s.parse()?,
         };
         Ok(FullF64(f))
     }
@@ -112,7 +104,7 @@ impl_wrapper_ops!(FullF64, f64);
 /// assert_eq!(output.0, 0xdeadbeef);
 /// assert_eq!(output.1, 0x123456789abcdef);
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[deprecated(
     since = "0.1.3",
     note = "use \"{:x}\" with the desired number type instead"

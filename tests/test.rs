@@ -89,7 +89,7 @@ fn unescaped() {
 
 #[test]
 fn generic_types() {
-    #[derive(Debug, PartialEq, Default)]
+    #[derive(Debug, PartialEq, Eq, Default)]
     pub struct Bob<T>(pub std::marker::PhantomData<T>);
     impl<T> RegexRepresentation for Bob<T> {
         const REGEX: &'static str = ".*";

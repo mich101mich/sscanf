@@ -1,5 +1,7 @@
 //! Crate with proc_macros for [sscanf](https://crates.io/crates/sscanf). Not usable as a standalone crate.
 
+use std::fmt::Write;
+
 use proc_macro::TokenStream as TokenStream1;
 use proc_macro2::{Literal, Span, TokenStream};
 use quote::{quote, quote_spanned, ToTokens};
@@ -353,9 +355,9 @@ fn sub_error(message: &str, src: &ScanfInner, (start, end): (usize, usize)) -> E
         if src.span_offset > 0 {
             let hashtags = (1..src.span_offset).map(|_| '#').collect::<String>();
 
-            m += &format!("At r{0}\"{1}\"{0}", hashtags, src.fmt);
+            write!(m, "At r{0}\"{1}\"{0}", hashtags, src.fmt).unwrap();
         } else {
-            m += &format!("At \"{}\"", src.fmt);
+            write!(m, "At \"{}\"", src.fmt).unwrap();
         }
         m.push('\n');
 

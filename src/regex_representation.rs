@@ -226,9 +226,9 @@ mod chrono_integration {
         /// `year-month-dayThour:minute:secondZ`
         /// ```
         /// # use sscanf::RegexRepresentation; use chrono::*;
-        /// assert_eq!(DateTime::<Utc>::REGEX, r"\d\d\d\d-(0\d|1[0-2])-([0-2]\d|3[01])T([01]\d|2[0-3]):[0-5]\d:([0-5]\d|60)(Z|\+\d\d:[0-5]\d)")
+        /// assert_eq!(DateTime::<Utc>::REGEX, r"\d\d\d\d-(?:0\d|1[0-2])-(?:[0-2]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:(?:[0-5]\d|60)(?:Z|\+\d\d:[0-5]\d)")
         /// ```
-        const REGEX: &'static str = r"\d\d\d\d-(0\d|1[0-2])-([0-2]\d|3[01])T([01]\d|2[0-3]):[0-5]\d:([0-5]\d|60)(Z|\+\d\d:[0-5]\d)";
+        const REGEX: &'static str = r"\d\d\d\d-(?:0\d|1[0-2])-(?:[0-2]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:(?:[0-5]\d|60)(?:Z|\+\d\d:[0-5]\d)";
     }
     impl RegexRepresentation for DateTime<Local> {
         /// Matches a DateTime
@@ -237,9 +237,9 @@ mod chrono_integration {
         /// `year-month-dayThour:minute:second+timezone`
         /// ```
         /// # use sscanf::RegexRepresentation; use chrono::*;
-        /// assert_eq!(DateTime::<Local>::REGEX, r"\d\d\d\d-(0\d|1[0-2])-([0-2]\d|3[01])T([01]\d|2[0-3]):[0-5]\d:([0-5]\d|60)\+\d\d:[0-5]\d")
+        /// assert_eq!(DateTime::<Local>::REGEX, r"\d\d\d\d-(?:0\d|1[0-2])-(?:[0-2]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:(?:[0-5]\d|60)\+\d\d:[0-5]\d")
         /// ```
-        const REGEX: &'static str = r"\d\d\d\d-(0\d|1[0-2])-([0-2]\d|3[01])T([01]\d|2[0-3]):[0-5]\d:([0-5]\d|60)\+\d\d:[0-5]\d";
+        const REGEX: &'static str = r"\d\d\d\d-(?:0\d|1[0-2])-(?:[0-2]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:(?:[0-5]\d|60)\+\d\d:[0-5]\d";
     }
     impl RegexRepresentation for DateTime<FixedOffset> {
         /// Matches a DateTime
@@ -248,8 +248,8 @@ mod chrono_integration {
         /// `year-month-dayThour:minute:second+timezone`
         /// ```
         /// # use sscanf::RegexRepresentation; use chrono::*;
-        /// assert_eq!(DateTime::<FixedOffset>::REGEX, r"\d\d\d\d-(0\d|1[0-2])-([0-2]\d|3[01])T([01]\d|2[0-3]):[0-5]\d:([0-5]\d|60)\+\d\d:[0-5]\d")
+        /// assert_eq!(DateTime::<FixedOffset>::REGEX, r"\d\d\d\d-(?:0\d|1[0-2])-(?:[0-2]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:(?:[0-5]\d|60)\+\d\d:[0-5]\d")
         /// ```
-        const REGEX: &'static str = r"\d\d\d\d-(0\d|1[0-2])-([0-2]\d|3[01])T([01]\d|2[0-3]):[0-5]\d:([0-5]\d|60)\+\d\d:[0-5]\d";
+        const REGEX: &'static str = r"\d\d\d\d-(?:0\d|1[0-2])-(?:[0-2]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:(?:[0-5]\d|60)\+\d\d:[0-5]\d";
     }
 }
