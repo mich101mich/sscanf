@@ -9,7 +9,7 @@ readme = "Readme.md"
 license = "MIT"
 keywords = ["parsing", "regex", "text", "string", "scanf"]
 categories = ["parsing"]
-exclude = ["/.vscode/*", "/sscanf_macro/", "/.gitignore", "/.github/*", "/*.bat"]
+exclude = ["/.vscode/*", "/sscanf_macro/", "/.gitignore", "/.github/*", "/*.bat", "/*.sh"]
 
 [dependencies]
 sscanf_macro = { path = "sscanf_macro", version = "=0.2.2"}

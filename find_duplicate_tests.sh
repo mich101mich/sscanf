@@ -1,0 +1,1 @@
+find tests ! -empty -type f -exec md5sum {} + | rg .stderr | sort | uniq -w32 -dD
