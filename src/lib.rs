@@ -164,7 +164,10 @@
 //! assert_eq!(parsed, Ok(("rando", "m Text")));
 //! ```
 //!
-//! As mentioned above, `'{'` `'}'` have to be escaped with a `'\'`. This means that:
+//! Note: If you use any unescaped ( ) in your regex, you have to prevent them from forming
+//! a capture group by adding a `?:` at the beginning: `{:/..(..)../}` becomes `{:/..(?:..)../}`.
+//!
+//! As mentioned previously, `'{'` `'}'` have to be escaped with a `'\'`. This means that:
 //! - `"{"` or `"}"` would give a compiler error
 //! - `"\{"` or `"\}"` lead to a `"{"` or `"}"` inside of the regex
 //!   - curly brackets have a special meaning in regex as counted repetition
@@ -360,7 +363,7 @@
 /// assert_eq!(parsed, Ok(('N', 36, 'E', 21)));
 ///
 /// let input = "4-5 t: ftttttrvts";
-/// let parsed = scanf!(input, "{usize}-{usize} {char}: {}", str); // mixed types (discouraged)
+/// let parsed = scanf!(input, "{usize}-{usize} {}: {str}", char); // mixed types (discouraged)
 /// assert_eq!(parsed, Ok((4, 5, 't', "ftttttrvts")));
 /// ```
 pub use sscanf_macro::scanf;
