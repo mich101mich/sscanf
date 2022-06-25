@@ -66,15 +66,12 @@ fn get_regex() {
     let regex = scanf_get_regex!("Test {usize} {f32} {{}} {}!", std::string::String);
     assert_eq!(
         regex.as_str(),
-        r"^Test (?P<type_1>\+?\d{1,20}) (?P<type_2>[-+]?\d+\.?\d*) \{\} (?P<type_3>.+?)!$"
+        r"^Test (\+?\d{1,20}) ([-+]?\d+\.?\d*) \{\} (.+?)!$"
     );
 
     let output = regex.captures(input);
     assert!(output.is_some());
     let output = output.unwrap();
-    assert_eq!(output.name("type_1").map(|m| m.as_str()), Some("5"));
-    assert_eq!(output.name("type_2").map(|m| m.as_str()), Some("1.4"));
-    assert_eq!(output.name("type_3").map(|m| m.as_str()), Some("bob"));
     assert_eq!(output.get(1).map(|m| m.as_str()), Some("5"));
     assert_eq!(output.get(2).map(|m| m.as_str()), Some("1.4"));
     assert_eq!(output.get(3).map(|m| m.as_str()), Some("bob"));
@@ -162,7 +159,7 @@ fn invalid_regex_representation() {
     impl RegexRepresentation for Test {
         const REGEX: &'static str = ")";
     }
-    scanf!("hi", "{}", Test).unwrap();
+    scanf!("hi", "{Test}").unwrap();
 }
 
 #[test]
@@ -236,6 +233,22 @@ fn error_lifetime() {
         Ok(())
     }
     foo().unwrap();
+}
+
+#[test]
+#[should_panic(expected = "scanf: Regex has 1 more capture groups than expected.")]
+fn custom_regex_with_capture_group() {
+    struct Test(usize);
+    impl FromStr for Test {
+        type Err = <usize as FromStr>::Err;
+        fn from_str(s: &str) -> Result<Self, Self::Err> {
+            s.parse().map(Test)
+        }
+    }
+    impl RegexRepresentation for Test {
+        const REGEX: &'static str = "(.*)";
+    }
+    scanf!("5", "{Test}").unwrap();
 }
 
 #[test]

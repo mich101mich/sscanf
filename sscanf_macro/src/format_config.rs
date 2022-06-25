@@ -1,5 +1,4 @@
 use super::*;
-use std::fmt::Write;
 
 pub(crate) fn parse_format_string(
     input: &ScanfInner,
@@ -11,19 +10,13 @@ pub(crate) fn parse_format_string(
     let mut regex = vec![];
     let mut current_regex = String::from("^");
 
-    // name of the next placeholder
-    let mut name_index = 1;
-
     // keep the iterator as a variable to allow peeking and advancing in a sub-function
     let mut iter = input.fmt.chars().enumerate().peekable();
 
     while let Some((i, c)) = iter.next() {
         if c == '{' {
-            if let Some(mut ph) = parse_bracket_content(&mut iter, input, i)? {
-                ph.name = format!("type_{}", name_index);
-                name_index += 1;
-
-                write!(current_regex, "(?P<{}>", ph.name).unwrap();
+            if let Some(ph) = parse_bracket_content(&mut iter, input, i)? {
+                current_regex.push('(');
                 regex.push(current_regex);
                 current_regex = String::from(")");
 
@@ -138,7 +131,6 @@ pub(crate) fn parse_bracket_content<I: Iterator<Item = (usize, char)>>(
             );
         } else if c == '}' {
             return Ok(Some(PlaceHolder {
-                name: String::new(),
                 type_token,
                 config: has_config.then(|| (config, config_start)),
                 span: (start, i),

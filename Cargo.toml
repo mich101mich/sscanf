@@ -1,6 +1,6 @@
 [package]
 name = "sscanf"
-version = "0.2.2"
+version = "0.3.0"
 authors = ["mich101mich <mich101mich@gmail.com>"]
 edition = "2018"
 description = "A sscanf (inverse of format!()) Macro based on Regex"
@@ -12,7 +12,7 @@ categories = ["parsing"]
 exclude = ["/.vscode/*", "/sscanf_macro/", "/.gitignore", "/.github/*", "/*.bat", "/*.sh"]
 
 [dependencies]
-sscanf_macro = { path = "sscanf_macro", version = "=0.2.2"}
+sscanf_macro = { path = "sscanf_macro", version = "=0.3.0"}
 regex = "1.5"
 const_format = "0.2.25"
 lazy_static = "1.4"

@@ -6,9 +6,13 @@
 /// The Regular Expression should match the string representation as exactly as possible.
 /// Any incorrect matches might be caught in the from_str parsing, but that might cause this
 /// regex to take characters that could have been matched by other placeholders, leading to
-/// unexpected parsing failures. Also: Since `scanf` only returns an `Option` it will just say
-/// `None` whether the regex matching failed or the parsing failed, so you should avoid parsing
-/// failures by writing a proper regex as much as possible.
+/// unexpected parsing failures.
+/// 
+/// **Note:** The parser uses indexing to access capture groups. To avoid messing with the
+/// indexing, the regex should not contain any capture groups by using the `(?:)` syntax
+/// on any round brackets:
+/// 
+/// Any `(<content>)` should be replaced with `(?:<content>)`
 ///
 /// ## Example
 /// Let's say we want to add a Fraction parser
@@ -24,6 +28,7 @@
 ///     /// matches an optional '-' or '+' followed by a number.
 ///     /// possibly with a '/' and another Number
 ///     const REGEX: &'static str = r"[-+]?\d+(?:/\d+)?";
+///     //                                     ^^ escapes the group. Has to be used on any ( ) in a regex.
 /// }
 /// impl std::str::FromStr for Fraction {
 ///     type Err = std::num::ParseIntError;

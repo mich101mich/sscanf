@@ -164,7 +164,10 @@
 //! assert_eq!(parsed, Ok(("rando", "m Text")));
 //! ```
 //!
-//! As mentioned above, `'{'` `'}'` have to be escaped with a `'\'`. This means that:
+//! Note: If you use any unescaped ( ) in your regex, you have to prevent them from forming
+//! a capture group by adding a `?:` at the beginning: `{:/..(..)../}` becomes `{:/..(?:..)../}`.
+//!
+//! As mentioned previously, `'{'` `'}'` have to be escaped with a `'\'`. This means that:
 //! - `"{"` or `"}"` would give a compiler error
 //! - `"\{"` or `"\}"` lead to a `"{"` or `"}"` inside of the regex
 //!   - curly brackets have a special meaning in regex as counted repetition
@@ -360,37 +363,31 @@
 /// assert_eq!(parsed, Ok(('N', 36, 'E', 21)));
 ///
 /// let input = "4-5 t: ftttttrvts";
-/// let parsed = scanf!(input, "{usize}-{usize} {char}: {}", str); // mixed types (discouraged)
+/// let parsed = scanf!(input, "{usize}-{usize} {}: {str}", char); // mixed types (discouraged)
 /// assert_eq!(parsed, Ok((4, 5, 't', "ftttttrvts")));
 /// ```
 pub use sscanf_macro::scanf;
 
 /// Same as [`scanf`], but returns the Regex without running it. Useful for Debugging or Efficiency.
 ///
-/// The Placeholders can be obtained by capturing the Regex and using either Name or index of the Group.
-///
-/// The Name is always `type_i` where `i` is the index of the type in the `scanf` call, starting at `1`.
-///
-/// Indices start at `1` as with any Regex, however it is possible that non-std implementations
-/// of [`RegexRepresentation`] create their own Capture Groups and distort the order, so use with
-/// caution.
+/// The Placeholders can be obtained by capturing the Regex and using the 1-based index of the Group.
 ///
 /// ```
 /// use sscanf::scanf_get_regex;
 /// let input = "Test 5 -2";
 /// let regex = scanf_get_regex!("Test {} {}", usize, i32);
-/// assert_eq!(regex.as_str(), r"^Test (?P<type_1>\+?\d{1,20}) (?P<type_2>[-+]?\d{1,10})$");
+/// assert_eq!(regex.as_str(), r"^Test (\+?\d{1,20}) ([-+]?\d{1,10})$");
 ///
 /// let output = regex.captures(input);
 /// assert!(output.is_some());
 /// let output = output.unwrap();
 ///
-/// let capture_5 = output.name("type_1");
+/// let capture_5 = output.get(1);
 /// assert!(capture_5.is_some());
 /// assert_eq!(capture_5.unwrap().as_str(), "5");
 /// assert_eq!(capture_5, output.get(1));
 ///
-/// let capture_negative_2 = output.name("type_2");
+/// let capture_negative_2 = output.get(2);
 /// assert!(capture_negative_2.is_some());
 /// assert_eq!(capture_negative_2.unwrap().as_str(), "-2");
 /// assert_eq!(capture_negative_2, output.get(2));
