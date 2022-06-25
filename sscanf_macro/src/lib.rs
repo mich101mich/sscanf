@@ -17,8 +17,6 @@ mod format_config;
 
 /// Data about a placeholder in the format string.
 struct PlaceHolder {
-    /// The name of the capture group.
-    name: String,
     /// If known, the type to parse to and possibly the indices inside the format
     /// string if the type is written in the placeholder.
     type_token: Option<(Path, Option<(usize, usize)>)>,
@@ -234,12 +232,14 @@ fn generate_regex(
         return Ok((error, vec![]));
     }
 
+    let expected_captures: usize = placeholders.len() + 1; // +1 for entire capture
+
     // these need to be Vec instead of TokenStream to allow adding the comma separators later
     let mut regex_builder = vec![];
     let mut match_grabber = vec![];
     // if there are n types, there are n+1 regex_parts, so add the first n during this loop and
     // add the last one afterwards
-    for (ph, regex_prefix) in placeholders.into_iter().zip(regex_parts.iter()) {
+    for (i, (ph, regex_prefix)) in placeholders.into_iter().zip(regex_parts.iter()).enumerate() {
         let (ty, ty_span) = ph.type_token.unwrap();
 
         regex_builder.push(quote!(#regex_prefix));
@@ -259,7 +259,6 @@ fn generate_regex(
         } else {
             full_span(&ty)
         };
-        let name = &ph.name;
 
         let regex = regex.unwrap_or_else(|| {
             // proc_macros don't have any type information, so we can't check if the type
@@ -283,8 +282,9 @@ fn generate_regex(
             quote!(#start_convert #end_convert)
         });
 
+        let index = i + 1; // +1 to account for the entire capture
         let get_input = quote!(
-            cap.name(#name)
+            cap.get(#index)
                 .expect("scanf: Invalid regex: Could not find one of the captures")
                 .as_str()
         );
@@ -312,11 +312,21 @@ fn generate_regex(
     #[rustfmt::skip]
     let regex = quote!(
         ::sscanf::lazy_static::lazy_static!{
-            static ref REGEX: ::sscanf::regex::Regex =
-                ::sscanf::regex::Regex::new(
-                    ::sscanf::const_format::concatcp!( #(#regex_builder),* )
-                )
-                .expect("scanf: Cannot generate Regex");
+            static ref REGEX: ::sscanf::regex::Regex = {
+                let regex_str = ::sscanf::const_format::concatcp!( #(#regex_builder),* );
+                let regex = ::sscanf::regex::Regex::new(regex_str)
+                    .expect("scanf: Cannot generate Regex");
+
+                if regex.captures_len() != #expected_captures {
+                    let diff = regex.captures_len() - #expected_captures;
+                    panic!("scanf: Regex has {} more capture groups than expected.
+If you use ( ) in a custom Regex, please add a '?:' at the beginning to avoid
+forming a capture group like this:
+    ...(...)...  =>  ...(?:...)...
+", diff);
+                }
+                regex
+            };
         }
     );
 

@@ -31,15 +31,12 @@ pub enum Error<'input> {
     /// assert!(result.is_err());
     /// let err = result.unwrap_err();
     ///
-    /// assert_eq!(err.to_string(), r#"scanf: Failed to match string "text" against regex ^a(?P<type_1>.+?)$"#);
-    /// assert_eq!(format!("{:?}", err), r#"RegexMatchFailed { input: "text", regex: ^a(?P<type_1>.+?)$ }"#);
+    /// assert_eq!(err.to_string(), r#"scanf: Failed to match string "text" against regex ^a(.+?)$"#);
+    /// assert_eq!(format!("{:?}", err), r#"RegexMatchFailed { input: "text", regex: ^a(.+?)$ }"#);
     ///
     /// if let Error::RegexMatchFailed { input, regex } = err {
     ///     assert_eq!(input, "text");
-    ///     assert_eq!(regex.as_str(), r"^a(?P<type_1>.+?)$");
-    ///     //             actual regex: ^a.+?$
-    ///     // the ?P<type_1> part is a named capture group which allows scanf to access the
-    ///     // matched content under the name "type_1" for parsing. See scanf_get_regex!()
+    ///     assert_eq!(regex.as_str(), r"^a(.+?)$");
     /// } else {
     ///     panic!("Unexpected error: {:?}", err);
     /// }

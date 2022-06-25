@@ -6,9 +6,11 @@
 /// The Regular Expression should match the string representation as exactly as possible.
 /// Any incorrect matches might be caught in the from_str parsing, but that might cause this
 /// regex to take characters that could have been matched by other placeholders, leading to
-/// unexpected parsing failures. Also: Since `scanf` only returns an `Option` it will just say
-/// `None` whether the regex matching failed or the parsing failed, so you should avoid parsing
-/// failures by writing a proper regex as much as possible.
+/// unexpected parsing failures.
+/// 
+/// **Note:** The parser uses indexing to access capture groups. To avoid messing with the
+/// indexing, the regex should not contain any capture groups by either not using round brackets
+/// `(<content>)` or by escaping the round brackets `(?:<content>)`.
 ///
 /// ## Example
 /// Let's say we want to add a Fraction parser

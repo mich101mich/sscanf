@@ -60,7 +60,7 @@ fn get_date_fmt(
     let pad = |def| padding.unwrap_or(def);
     let pad_to = |def, n| {
         let padding = pad(def);
-        let mut fmt = String::from("(");
+        let mut fmt = String::from("(?:");
         for i in 0..n {
             if i != 0 {
                 fmt += "|";
@@ -118,8 +118,8 @@ fn get_date_fmt(
         'k' => format!(r"(?:{}\d|1\d|2[0-3])", pad(" ")),
         'I' => format!(r"(?:{}[1-9]|1[0-2])", pad("0")),
         'l' => format!(r"(?:{}[1-9]|1[0-2])", pad(" ")),
-        'P' => "(am|pm)".to_string(),
-        'p' => "(AM|PM)".to_string(),
+        'P' => "(?:am|pm)".to_string(),
+        'p' => "(?:AM|PM)".to_string(),
         'M' => format!(r"(?:{}\d|[1-5]\d)", pad("0")),
         'S' => format!(r"(?:{}\d|[1-5]\d|60)", pad("0")),
         'f' => r"\d{9}".to_string(),
