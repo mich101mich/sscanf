@@ -229,6 +229,16 @@ fn string_lifetime() {
 }
 
 #[test]
+fn error_lifetime() {
+    fn foo() -> Result<(), Box<dyn std::error::Error>> {
+        let input = String::from("hi");
+        sscanf::scanf!(input, "{String}").map_err(|err| err.to_string())?;
+        Ok(())
+    }
+    foo().unwrap();
+}
+
+#[test]
 fn custom_chrono_type() {
     #[derive(Debug, PartialEq)]
     struct DateTime(usize);

@@ -44,13 +44,15 @@
 //! the values into the placeholders (`{}`), but extracts the values at those `{}` into the return
 //! Tuple.
 //!
-//! If matching the format string failed, `None` is returned:
+//! If matching the format string failed, an Error is returned:
 //! ```
 //! # use sscanf::scanf;
 //! let s = "Text that doesn't match the format string";
 //! let parsed = scanf!(s, "Hello {}_{}!", str, usize);
 //! assert!(matches!(parsed, Err(sscanf::Error::RegexMatchFailed{..})));
 //! ```
+//! **IMPORTANT**: The returned Error borrows from the input string to avoid unnecessary allocations.
+//! This means that YOU CANNOT USE '`?`' ON THE RESULT!
 //!
 //! Note that the original C-function and this Crate are called sscanf, which is the technically
 //! correct version in this context. `scanf` (with one `s`) is a similar C-function that reads a

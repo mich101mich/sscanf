@@ -32,6 +32,8 @@ let s = "Text that doesn't match the format string";
 let parsed = scanf!(s, "Hello {}{}!", str, usize);
 assert!(matches!(parsed, sscanf::Error::RegexMatchFailed{..}));
 ```
+**IMPORTANT**: The returned Error borrows from the input string to avoid unnecessary allocations.
+This means that YOU CANNOT USE '`?`' ON THE RESULT!
 
 Note that the original C-function and this Crate are called sscanf, which is the technically
 correct version in this context. `scanf` (with one `s`) is a similar C-function that reads a
