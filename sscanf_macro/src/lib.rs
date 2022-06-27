@@ -181,12 +181,13 @@ fn scanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
         param.extend(quote_spanned!(end => (#src_str)));
         // wrapping the input in a manual call to AsRef::as_ref ensures that the user
         // gets an appropriate error message if they try to use a non-string input
-        quote!(::std::convert::AsRef::<str>::as_ref(#param))
+        quote!(::std::primitive::str::get(#param, ..).unwrap())
     };
     quote!(
         {
             #regex
-            let input = #src_str;
+            #[allow(clippy::needless_borrow)]
+            let input: &str = #src_str;
             #[allow(clippy::needless_question_mark)]
             REGEX.captures(input)
                 .ok_or_else(|| ::sscanf::Error::RegexMatchFailed { input, regex: &REGEX, })

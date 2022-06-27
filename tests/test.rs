@@ -223,6 +223,11 @@ fn string_lifetime() {
         s = sscanf::scanf!(input, "{String}").unwrap();
     }
     println!("{}", s);
+
+    // check if scanf works with this function signature
+    fn _process(a: &str) -> &str {
+        scanf!(a, "{str}").unwrap()
+    }
 }
 
 #[test]

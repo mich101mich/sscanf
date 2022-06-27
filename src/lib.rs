@@ -111,7 +111,7 @@
 //! assert_eq!((r, g, b), (0xD4, 0xAF, 0x37));
 //! ```
 //! The input in this case is a `&'static str`, but in can be `String`, `&str`, `&String`, ...
-//! Basically anything with [`AsRef<str>`](https://doc.rust-lang.org/std/convert/trait.AsRef.html)
+//! Basically anything with [`Deref<Target=str>`](https://doc.rust-lang.org/std/ops/trait.Deref.html).
 //! and without taking Ownership. This also means that the input might need to outlive the
 //! `scanf!()` call, because the [`Error`](enum.Error.html)
 //! type borrows from it and using [`str`](trait.RegexRepresentation.html#impl-RegexRepresentation-for-str)
@@ -329,11 +329,11 @@
 ///
 /// ## Signature
 /// ```ignore
-/// scanf!(input: impl AsRef<str> + 'input, format: <literal>, Type...) -> Result<(Type...), Error<'input>>
+/// scanf!(input: impl Deref<Target=str> + 'input, format: <literal>, Type...) -> Result<(Type...), Error<'input>>
 /// ```
 ///
 /// ## Parameters
-/// * `input`: The String to parse. Can be anything that implements [`AsRef<str>`](std::convert::AsRef)
+/// * `input`: The String to parse. Can be anything that implements [`Deref<Target=str>`](std::ops::Deref)
 /// * `format`: A literal string. No const or static allowed, just like with [`format!()`](std::format).
 /// * `Type...`: The Types to parse. Can be any type that implements [`RegexRepresentation`] and [`FromStr`](std::str::FromStr).
 ///

@@ -91,7 +91,7 @@ let (r, g, b) = scanf!(input, "color: #{u8:x}{u8:x}{u8:x}").unwrap();
 assert_eq!((r, g, b), (0xD4, 0xAF, 0x37));
 ```
 The input here is a `&'static str`, but in can be `String`, `&str`, `&String`, ...
-Basically anything with [`AsRef<str>`](https://doc.rust-lang.org/std/convert/trait.AsRef.html)
+Basically anything with [`Deref<Target=str>`](https://doc.rust-lang.org/std/ops/trait.Deref.html)
 and without taking Ownership. This also means that the input might need to outlive the
 `scanf!()` call, because the [`Error`](https://docs.rs/sscanf/latest/sscanf/enum.Error.html)
 type borrows from it and using [`str`](https://docs.rs/sscanf/latest/sscanf/trait.RegexRepresentation.html#impl-RegexRepresentation-for-str)
