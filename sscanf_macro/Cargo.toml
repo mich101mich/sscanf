@@ -1,6 +1,6 @@
 [package]
 name = "sscanf_macro"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["mich101mich <mich101mich@gmail.com>"]
 edition = "2018"
 description = "Proc-Macros for the sscanf Crate. Not meant to be used as a standalone Crate"

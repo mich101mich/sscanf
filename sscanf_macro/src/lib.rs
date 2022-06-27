@@ -179,7 +179,7 @@ fn scanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
         let (start, end) = full_span(&src_str);
         let mut param = quote_spanned!(start => &);
         param.extend(quote_spanned!(end => (#src_str)));
-        // wrapping the input in a manual call to AsRef::as_ref ensures that the user
+        // wrapping the input in a manual call to str::get ensures that the user
         // gets an appropriate error message if they try to use a non-string input
         quote!(::std::primitive::str::get(#param, ..).unwrap())
     };
