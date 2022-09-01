@@ -1,7 +1,7 @@
-error: Missing '}' after given '{'. Literal '{' need to be escaped as '{{':
+error: missing '}' to close a placeholder. If the '{' was intended to be a literal, escape it with '{{':
        At "asdf{asdf"
-               ^^^^^^
- --> $DIR/missing_bracket.rs:2:26
+               ^^^^^
+ --> tests/fail/ch_stable/missing_bracket.rs:2:26
   |
 2 |     sscanf::scanf!("hi", "asdf{asdf");
   |                          ^^^^^^^^^^^
@@ -9,7 +9,7 @@ error: Missing '}' after given '{'. Literal '{' need to be escaped as '{{':
 error: Unexpected standalone '}'. Literal '}' need to be escaped as '}}':
        At "asdf}asdf"
                ^
- --> $DIR/missing_bracket.rs:3:26
+ --> tests/fail/ch_stable/missing_bracket.rs:3:26
   |
 3 |     sscanf::scanf!("hi", "asdf}asdf");
   |                          ^^^^^^^^^^^

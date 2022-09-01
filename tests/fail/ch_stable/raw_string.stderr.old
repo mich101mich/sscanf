@@ -1,7 +1,7 @@
 error: Missing Type for given '{}' Placeholder:
        At r"asdf{}asdf"
                 ^^
- --> $DIR/raw_string.rs:2:26
+ --> tests/fail/ch_stable/raw_string.rs:2:26
   |
 2 |     sscanf::scanf!("hi", r"asdf{}asdf");
   |                          ^^^^^^^^^^^^^
@@ -10,7 +10,7 @@ error: Unknown format option: 'bob'.
        Hint: Regex format options must start and end with '/':
        At r"asdf{:bob}asdf"
                   ^^^
- --> $DIR/raw_string.rs:3:26
+ --> tests/fail/ch_stable/raw_string.rs:3:26
   |
 3 |     sscanf::scanf!("hi", r"asdf{:bob}asdf", usize);
   |                          ^^^^^^^^^^^^^^^^^
@@ -19,7 +19,7 @@ error: Unknown format option: 'bob'.
        Hint: Regex format options must start and end with '/':
        At r"asdf{usize:bob}asdf"
                        ^^^
- --> $DIR/raw_string.rs:4:26
+ --> tests/fail/ch_stable/raw_string.rs:4:26
   |
 4 |     sscanf::scanf!("hi", r"asdf{usize:bob}asdf");
   |                          ^^^^^^^^^^^^^^^^^^^^^^
@@ -27,7 +27,7 @@ error: Unknown format option: 'bob'.
 error: Missing Type for given '{}' Placeholder:
        At r##"asdf{}asdf"##
                   ^^
- --> $DIR/raw_string.rs:5:26
+ --> tests/fail/ch_stable/raw_string.rs:5:26
   |
 5 |     sscanf::scanf!("hi", r##"asdf{}asdf"##);
   |                          ^^^^^^^^^^^^^^^^^
@@ -36,7 +36,7 @@ error: Unknown format option: 'bob'.
        Hint: Regex format options must start and end with '/':
        At r##"asdf{:bob}asdf"##
                     ^^^
- --> $DIR/raw_string.rs:6:26
+ --> tests/fail/ch_stable/raw_string.rs:6:26
   |
 6 |     sscanf::scanf!("hi", r##"asdf{:bob}asdf"##, usize);
   |                          ^^^^^^^^^^^^^^^^^^^^^
@@ -45,7 +45,7 @@ error: Unknown format option: 'bob'.
        Hint: Regex format options must start and end with '/':
        At r##"asdf{usize:bob}asdf"##
                          ^^^
- --> $DIR/raw_string.rs:7:26
+ --> tests/fail/ch_stable/raw_string.rs:7:26
   |
 7 |     sscanf::scanf!("hi", r##"asdf{usize:bob}asdf"##);
   |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^

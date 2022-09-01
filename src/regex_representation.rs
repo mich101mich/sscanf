@@ -7,11 +7,13 @@
 /// Any incorrect matches might be caught in the from_str parsing, but that might cause this
 /// regex to take characters that could have been matched by other placeholders, leading to
 /// unexpected parsing failures.
+///
+/// TODO: Talk abound concatcp!() and formatcp!()
 /// 
 /// **Note:** The parser uses indexing to access capture groups. To avoid messing with the
 /// indexing, the regex should not contain any capture groups by using the `(?:)` syntax
 /// on any round brackets:
-/// 
+///
 /// Any `(<content>)` should be replaced with `(?:<content>)`
 ///
 /// ## Example
@@ -34,7 +36,7 @@
 ///     type Err = std::num::ParseIntError;
 ///     fn from_str(s: &str) -> Result<Self, Self::Err> {
 ///         let mut iter = s.split('/');
-///         let num = iter.next().unwrap().parse::<isize>()?;
+///         let num = iter.next().unwrap_or_else(|| panic!("a:{}:{}", file!(), line!())).parse::<isize>()?;
 ///         let mut denom = 1;
 ///         if let Some(d) = iter.next() {
 ///             denom = d.parse::<usize>()?;
@@ -54,7 +56,7 @@
 /// #     type Err = std::num::ParseIntError;
 /// #     fn from_str(s: &str) -> Result<Self, Self::Err> {
 /// #         let mut iter = s.split('/');
-/// #         let num = iter.next().unwrap().parse::<isize>()?;
+/// #         let num = iter.next().unwrap_or_else(|| panic!("a:{}:{}", file!(), line!())).parse::<isize>()?;
 /// #         let mut denom = 1;
 /// #         if let Some(d) = iter.next() {
 /// #             denom = d.parse::<usize>()?;
@@ -65,13 +67,13 @@
 /// use sscanf::scanf;
 ///
 /// let output = scanf!("2/5", "{}", Fraction);
-/// assert_eq!(output, Ok(Fraction(2, 5)));
+/// assert_eq!(output.unwrap(), Fraction(2, 5));
 ///
 /// let output = scanf!("-25/3", "{}", Fraction);
-/// assert_eq!(output, Ok(Fraction(-25, 3)));
+/// assert_eq!(output.unwrap(), Fraction(-25, 3));
 ///
 /// let output = scanf!("8", "{}", Fraction);
-/// assert_eq!(output, Ok(Fraction(8, 1)));
+/// assert_eq!(output.unwrap(), Fraction(8, 1));
 ///
 /// let output = scanf!("6e/3", "{}", Fraction);
 /// assert!(output.is_err());
@@ -80,7 +82,7 @@
 /// assert!(output.is_err()); // only first number can be negative
 ///
 /// let output = scanf!("6/3", "{}", Fraction);
-/// assert_eq!(output, Ok(Fraction(6, 3)));
+/// assert_eq!(output.unwrap(), Fraction(6, 3));
 /// ```
 pub trait RegexRepresentation {
     /// A regular Expression that exactly matches any String representation of the implementing Type
@@ -216,45 +218,4 @@ impl RegexRepresentation for std::path::PathBuf {
     /// assert_eq!(PathBuf::REGEX, r".+")
     /// ```
     const REGEX: &'static str = r".+";
-}
-
-#[cfg(feature = "chrono")]
-#[cfg_attr(doc_cfg, doc(cfg(feature = "chrono")))]
-mod chrono_integration {
-    use super::RegexRepresentation;
-    use chrono::prelude::*;
-
-    impl RegexRepresentation for DateTime<Utc> {
-        /// Matches a DateTime
-        ///
-        /// Format according to [chrono](https://docs.rs/chrono/^0.4/chrono/index.html#formatting-and-parsing):
-        /// `year-month-dayThour:minute:secondZ`
-        /// ```
-        /// # use sscanf::RegexRepresentation; use chrono::*;
-        /// assert_eq!(DateTime::<Utc>::REGEX, r"\d\d\d\d-(?:0\d|1[0-2])-(?:[0-2]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:(?:[0-5]\d|60)(?:Z|\+\d\d:[0-5]\d)")
-        /// ```
-        const REGEX: &'static str = r"\d\d\d\d-(?:0\d|1[0-2])-(?:[0-2]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:(?:[0-5]\d|60)(?:Z|\+\d\d:[0-5]\d)";
-    }
-    impl RegexRepresentation for DateTime<Local> {
-        /// Matches a DateTime
-        ///
-        /// Format according to [chrono](https://docs.rs/chrono/^0.4/chrono/index.html#formatting-and-parsing):
-        /// `year-month-dayThour:minute:second+timezone`
-        /// ```
-        /// # use sscanf::RegexRepresentation; use chrono::*;
-        /// assert_eq!(DateTime::<Local>::REGEX, r"\d\d\d\d-(?:0\d|1[0-2])-(?:[0-2]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:(?:[0-5]\d|60)\+\d\d:[0-5]\d")
-        /// ```
-        const REGEX: &'static str = r"\d\d\d\d-(?:0\d|1[0-2])-(?:[0-2]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:(?:[0-5]\d|60)\+\d\d:[0-5]\d";
-    }
-    impl RegexRepresentation for DateTime<FixedOffset> {
-        /// Matches a DateTime
-        ///
-        /// Format according to [chrono](https://docs.rs/chrono/^0.4/chrono/index.html#formatting-and-parsing):
-        /// `year-month-dayThour:minute:second+timezone`
-        /// ```
-        /// # use sscanf::RegexRepresentation; use chrono::*;
-        /// assert_eq!(DateTime::<FixedOffset>::REGEX, r"\d\d\d\d-(?:0\d|1[0-2])-(?:[0-2]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:(?:[0-5]\d|60)\+\d\d:[0-5]\d")
-        /// ```
-        const REGEX: &'static str = r"\d\d\d\d-(?:0\d|1[0-2])-(?:[0-2]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:(?:[0-5]\d|60)\+\d\d:[0-5]\d";
-    }
 }

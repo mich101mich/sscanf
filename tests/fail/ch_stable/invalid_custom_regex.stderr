@@ -5,8 +5,8 @@ error: regex parse error:
 
        In custom Regex format option:
        At "   {:/ab(ab/}   "
-                ^^^^^^^
- --> $DIR/invalid_custom_regex.rs:2:24
+                 ^^^^^
+ --> tests/fail/ch_stable/invalid_custom_regex.rs:2:24
   |
 2 |     sscanf::scanf!("", "   {:/ab(ab/}   ", String).unwrap();
   |                        ^^^^^^^^^^^^^^^^^^

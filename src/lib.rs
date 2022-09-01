@@ -17,6 +17,11 @@
 )]
 #![cfg_attr(doc_cfg, feature(doc_cfg))]
 
+// TODO: Update format options
+// TODO: Talk about regex escaping (JavaScript)
+// TODO: Remove chrono
+// TODO: Remove error
+
 //! A sscanf (inverse of format!()) Macro based on Regex
 //!
 //! # sscanf
@@ -34,7 +39,7 @@
 //! let parsed = scanf!(s, "Hello {}{}!", str, usize);
 //!
 //! // parsed is Result<(&str, usize), sscanf::Error>
-//! assert_eq!(parsed, Ok(("World", 5)));
+//! assert_eq!(parsed.unwrap(), ("World", 5));
 //!
 //! // alternative syntax:
 //! let parsed2 = scanf!(s, "Hello {str}{usize}!");
@@ -76,38 +81,38 @@
 //! # use sscanf::scanf;
 //! let input = "<x=3, y=-6, z=6>";
 //! let parsed = scanf!(input, "<x={i32}, y={i32}, z={i32}>");
-//! assert_eq!(parsed, Ok((3, -6, 6)));
+//! assert_eq!(parsed.unwrap(), (3, -6, 6));
 //!
 //! let input = "Move to N36E21";
 //! let parsed = scanf!(input, "Move to {char}{usize}{char}{usize}");
-//! assert_eq!(parsed, Ok(('N', 36, 'E', 21)));
+//! assert_eq!(parsed.unwrap(), ('N', 36, 'E', 21));
 //!
 //! let input = "Escape literal { } as {{ and }}";
 //! let parsed = scanf!(input, "Escape literal {{ }} as {{{{ and }}}}");
-//! assert_eq!(parsed, Ok(()));
+//! assert_eq!(parsed.unwrap(), ());
 //!
 //! let input = "A Sentence with Spaces. Another Sentence.";
 //! // str and String do the same, but String clones from the input string
 //! // to take ownership instead of borrowing.
-//! let (a, b) = scanf!(input, "{String}. {String}.").unwrap();
+//! let (a, b) = scanf!(input, "{String}. {String}.").unwrap_or_else(|| panic!("a:{}:{}", file!(), line!()));
 //! assert_eq!(a, "A Sentence with Spaces");
 //! assert_eq!(b, "Another Sentence");
 //!
 //! // Number format options
 //! let input = "0xab01  0o127  101010  1Z";
 //! let parsed = scanf!(input, "{usize:x}  {i32:o}  {u8:b}  {u32:r36}");
-//! let (a, b, c, d) = parsed.unwrap();
+//! let (a, b, c, d) = parsed.unwrap_or_else(|| panic!("a:{}:{}", file!(), line!()));
 //! assert_eq!(a, 0xab01);     // Hexadecimal
 //! assert_eq!(b, 0o127);      // Octal
 //! assert_eq!(c, 0b101010);   // Binary
 //!
 //! assert_eq!(d, 71);         // any radix (r36 = Radix 36)
-//! assert_eq!(d, u32::from_str_radix("1Z", 36).unwrap());
+//! assert_eq!(d, u32::from_str_radix("1Z", 36).unwrap_or_else(|| panic!("a:{}:{}", file!(), line!())));
 //!
 //! let input = "color: #D4AF37";
 //! // Number types take their size into account, and hexadecimal u8 can
 //! // have at most 2 digits => only possible match is 2 digits each.
-//! let (r, g, b) = scanf!(input, "color: #{u8:x}{u8:x}{u8:x}").unwrap();
+//! let (r, g, b) = scanf!(input, "color: #{u8:x}{u8:x}{u8:x}").unwrap_or_else(|| panic!("a:{}:{}", file!(), line!()));
 //! assert_eq!((r, g, b), (0xD4, 0xAF, 0x37));
 //! ```
 //! The input in this case is a `&'static str`, but in can be `String`, `&str`, `&String`, ...
@@ -147,7 +152,6 @@
 //! | `{:o}`                      | octal numbers              | numbers        |
 //! | `{:b}`                      | binary numbers             | numbers        |
 //! | `{:r2}` - `{:r36}`          | radix 2 - radix 36 numbers | numbers        |
-//! | `{:` _\<chrono format>_ `}` | chrono format              | chrono types   |
 //!
 //! **Custom Regex:**
 //!
@@ -161,7 +165,7 @@
 //!
 //! // regex  [^m]+  matches anything that isn't an 'm'
 //! // => stops at the 'm' in 'random'
-//! assert_eq!(parsed, Ok(("rando", "m Text")));
+//! assert_eq!(parsed.unwrap(), ("rando", "m Text"));
 //! ```
 //!
 //! Note: If you use any unescaped ( ) in your regex, you have to prevent them from forming
@@ -189,7 +193,7 @@
 //!                            // raw string r"" to write \d instead of \\d
 //!
 //! // regex  \d{4}  matches exactly 4 digits
-//! assert_eq!(parsed, Ok((1234, 56)));
+//! assert_eq!(parsed.unwrap(), (1234, 56));
 //! ```
 //! Note that changing the regex of a non-`String` type might cause that type's [`FromStr`](https://doc.rust-lang.org/std/str/trait.FromStr.html)
 //! to fail
@@ -201,47 +205,6 @@
 //! - `o`: octal Number (Digits 0-7, optional Prefix `0o`)
 //! - `b`: binary Number (Digits 0-1, optional Prefix `0b`)
 //! - `r2` - `r36`: any radix Number (no prefix)
-//!
-//! **[`chrono`](https://docs.rs/chrono/^0.4/chrono/) integration (Requires `chrono` feature):**
-//!
-//! The types [`DateTime`](https://docs.rs/chrono/^0.4/chrono/struct.DateTime.html),
-//! [`NaiveDate`](https://docs.rs/chrono/^0.4/chrono/naive/struct.NaiveDate.html),
-//! [`NaiveTime`](https://docs.rs/chrono/^0.4/chrono/naive/struct.NaiveTime.html),
-//! [`NaiveDateTime`](https://docs.rs/chrono/^0.4/chrono/naive/struct.NaiveDateTime.html),
-//! [`Utc`](https://docs.rs/chrono/^0.4/chrono/offset/struct.Utc.html) and
-//! [`Local`](https://docs.rs/chrono/^0.4/chrono/offset/struct.Local.html) can be used and accept
-//! a [Date/Time format string](https://docs.rs/chrono/^0.4/chrono/format/strftime/index.html)
-//! inside of the `{` `}`. This will then be used for both the Regex generation and parsing of the
-//! type.
-//!
-//! Using [`DateTime`](https://docs.rs/chrono/^0.4/chrono/struct.DateTime.html) returns a
-//! `DateTime<FixedOffset>` and requires the rules and limits that [`DateTime::parse_from_str`](https://docs.rs/chrono/^0.4/chrono/struct.DateTime.html#method.parse_from_str)
-//! has.
-//!
-//! ```
-//! # #[cfg(feature = "chrono")]
-//! # {
-//! # use sscanf::*;
-//! use chrono::prelude::*;
-//!
-//! let input = "10:37:02";
-//! let parsed = scanf!(input, "{NaiveTime:%H:%M:%S}");
-//! assert_eq!(parsed, Ok(NaiveTime::from_hms(10, 37, 2)));
-//!
-//! let expected = Utc.ymd(2020, 5, 23).and_hms(21, 5, 7);
-//!
-//! // DateTime<*> directly implements FromStr and doesn't need a config
-//! let input = "2020-05-23T21:05:07Z";
-//! let parsed = scanf!(input, "{DateTime<Utc>}");
-//! assert_eq!(parsed, Ok(expected));
-//!
-//! let input = "Today is the 23. of May, 2020 at 09:05 pm and 7 seconds.";
-//! let parsed = scanf!(input, "Today is the {Utc:%d. of %B, %Y at %I:%M %P and %-S} seconds.");
-//! assert_eq!(parsed, Ok(expected));
-//! # }
-//! ```
-//!
-//! Note: The `chrono` feature needs to be active for this to work, because `chrono` is an optional dependency
 //!
 //! # Custom Types
 //!
@@ -362,15 +325,15 @@
 ///
 /// let input = "<x=3, y=-6, z=6>";
 /// let parsed = scanf!(input, "<x={}, y={}, z={}>", i32, i32, i32); // types in parameters
-/// assert_eq!(parsed, Ok((3, -6, 6)));
+/// assert_eq!(parsed.unwrap(), (3, -6, 6));
 ///
 /// let input = "Goto N36E21";
 /// let parsed = scanf!(input, "Goto {char}{usize}{char}{usize}"); // types in placeholders
-/// assert_eq!(parsed, Ok(('N', 36, 'E', 21)));
+/// assert_eq!(parsed.unwrap(), ('N', 36, 'E', 21));
 ///
 /// let input = "4-5 t: ftttttrvts";
 /// let parsed = scanf!(input, "{usize}-{usize} {}: {str}", char); // mixed types (discouraged)
-/// assert_eq!(parsed, Ok((4, 5, 't', "ftttttrvts")));
+/// assert_eq!(parsed.unwrap(), (4, 5, 't', "ftttttrvts"));
 /// ```
 pub use sscanf_macro::scanf;
 
@@ -398,15 +361,15 @@ pub use sscanf_macro::scanf;
 ///
 /// let output = regex.captures(input);
 /// assert!(output.is_some());
-/// let output = output.unwrap();
+/// let output = output.unwrap_or_else(|| panic!("a:{}:{}", file!(), line!()));
 ///
 /// let capture_5 = output.get(1);
 /// assert!(capture_5.is_some());
-/// assert_eq!(capture_5.unwrap().as_str(), "5");
+/// assert_eq!(capture_5.unwrap_or_else(|| panic!("a:{}:{}", file!(), line!())).as_str(), "5");
 ///
 /// let capture_negative_2 = output.get(2);
 /// assert!(capture_negative_2.is_some());
-/// assert_eq!(capture_negative_2.unwrap().as_str(), "-2");
+/// assert_eq!(capture_negative_2.unwrap_or_else(|| panic!("a:{}:{}", file!(), line!())).as_str(), "-2");
 /// ```
 pub use sscanf_macro::scanf_get_regex;
 
@@ -419,7 +382,7 @@ pub use sscanf_macro::scanf_get_regex;
 /// use sscanf::scanf_unescaped;
 /// let input = "5.0SOME_RANDOM_TEXT3";
 /// let output = scanf_unescaped!(input, "{f32}.*{usize}");
-/// assert_eq!(output, Ok((5.0, 3)));
+/// assert_eq!(output.unwrap(), (5.0, 3));
 /// ```
 ///
 /// The basic [`scanf`] would escape the `.` and `*`and match against the literal Characters,
@@ -441,14 +404,19 @@ pub use sscanf_macro::scanf_get_regex;
 /// let input = "5.0 } aaaaaa 3";
 /// let output = scanf_unescaped!(input, r"{} \}} a{{6}} {}", f32, usize);
 ///   // in regular Regex this would be   ...  \} a{6} ...
-/// assert_eq!(output, Ok((5.0, 3)));
+/// assert_eq!(output.unwrap(), (5.0, 3));
 /// ```
 ///
 /// Also Note: `^` and `$` are added automatically to the start and end.
 pub use sscanf_macro::scanf_unescaped;
 
+pub use sscanf_macro::FromScanf;
+
 mod regex_representation;
 pub use regex_representation::*;
+
+mod from_scanf;
+pub use from_scanf::*;
 
 mod types;
 pub use types::*;
@@ -462,25 +430,3 @@ pub use const_format;
 pub use lazy_static;
 #[doc(hidden)]
 pub use regex;
-
-#[cfg(feature = "chrono")]
-#[doc(hidden)]
-pub use chrono;
-
-#[cfg(feature = "chrono")]
-#[doc(hidden)]
-#[macro_export]
-macro_rules! chrono_check {
-    ($code: block, $error: block) => {
-        $code
-    };
-}
-
-#[cfg(not(feature = "chrono"))]
-#[doc(hidden)]
-#[macro_export]
-macro_rules! chrono_check {
-    ($code: block, $error: block) => {
-        $error
-    };
-}

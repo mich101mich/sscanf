@@ -3,9 +3,31 @@ error[E0277]: the trait bound `NoFromStr: FromStr` is not satisfied
   |
 9 |     sscanf::scanf!("hi", "{}", module::NoFromStr);
   |                                ^^^^^^^^^^^^^^^^^ the trait `FromStr` is not implemented for `NoFromStr`
+  = help: the following other types implement trait `FromStr`:
+            FullF32
+            FullF64
+            HexNumber
+            IpAddr
+            Ipv4Addr
+            Ipv6Addr
+            NonZeroI128
+            NonZeroI16
+          and 34 others
+  = note: required because of the requirements on the impl of `FromScanf` for `NoFromStr`
 
 error[E0277]: the trait bound `NoFromStr: FromStr` is not satisfied
   --> tests/fail/ch_stable/missing_trait_from_str.rs:11:32
    |
 11 |     sscanf::scanf!("hi", "{}", NoFromStr);
    |                                ^^^^^^^^^ the trait `FromStr` is not implemented for `NoFromStr`
+  = help: the following other types implement trait `FromStr`:
+            FullF32
+            FullF64
+            HexNumber
+            IpAddr
+            Ipv4Addr
+            Ipv6Addr
+            NonZeroI128
+            NonZeroI16
+          and 34 others
+  = note: required because of the requirements on the impl of `FromScanf` for `NoFromStr`

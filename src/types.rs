@@ -44,7 +44,7 @@ macro_rules! impl_wrapper_ops {
 /// let output = scanf!(input, "{}{}{}", str, FullF32, str);
 /// // The 'nan' part in "Banana" is parsed as f32::NaN
 /// assert!(output.is_ok());
-/// assert!(output.unwrap().1.is_nan());
+/// assert!(output.unwrap_or_else(|| panic!("a:{}:{}", file!(), line!())).1.is_nan());
 /// ```
 ///
 /// See [FromStr on f32](https://doc.rust-lang.org/std/primitive.f32.html#impl-FromStr) for the
@@ -100,7 +100,7 @@ impl_wrapper_ops!(FullF64, f64);
 /// ```
 /// # use sscanf::*;
 /// let input = "deadbeef + 0x123456789abcdef";
-/// let output = scanf!(input, "{} + {}", HexNumber, HexNumber).unwrap();
+/// let output = scanf!(input, "{} + {}", HexNumber, HexNumber).unwrap_or_else(|| panic!("a:{}:{}", file!(), line!()));
 /// assert_eq!(output.0, 0xdeadbeef);
 /// assert_eq!(output.1, 0x123456789abcdef);
 /// ```

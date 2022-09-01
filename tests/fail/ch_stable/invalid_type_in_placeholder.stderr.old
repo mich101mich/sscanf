@@ -3,7 +3,7 @@ error: Unknown format option: ':vec::Vec<usize>'.
        Put the path in the arguments behind the format string or `use` the type:
        At "{std::vec::Vec<usize>}"
                 ^^^^^^^^^^^^^^^^
-  --> $DIR/invalid_type_in_placeholder.rs:17:26
+  --> tests/fail/ch_stable/invalid_type_in_placeholder.rs:17:26
    |
 17 |     sscanf::scanf!("hi", "{std::vec::Vec<usize>}");
    |                          ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -13,7 +13,7 @@ error: Unknown format option: ':NoFromStr'.
        Put the path in the arguments behind the format string or `use` the type:
        At "{module::NoFromStr}"
                    ^^^^^^^^^^
-  --> $DIR/invalid_type_in_placeholder.rs:18:26
+  --> tests/fail/ch_stable/invalid_type_in_placeholder.rs:18:26
    |
 18 |     sscanf::scanf!("hi", "{module::NoFromStr}");
    |                          ^^^^^^^^^^^^^^^^^^^^^
@@ -23,7 +23,7 @@ error: Invalid type in placeholder: expected identifier.
        If you want syntax highlighting and better errors, place the type in the arguments after the format string while debugging:
        At "{3}"
             ^
-  --> $DIR/invalid_type_in_placeholder.rs:24:26
+  --> tests/fail/ch_stable/invalid_type_in_placeholder.rs:24:26
    |
 24 |     sscanf::scanf!("hi", "{3}");
    |                          ^^^^^
@@ -33,7 +33,7 @@ error: Invalid type in placeholder: expected identifier.
        If you want syntax highlighting and better errors, place the type in the arguments after the format string while debugging:
        At "{.}"
             ^
-  --> $DIR/invalid_type_in_placeholder.rs:25:26
+  --> tests/fail/ch_stable/invalid_type_in_placeholder.rs:25:26
    |
 25 |     sscanf::scanf!("hi", "{.}");
    |                          ^^^^^
@@ -43,7 +43,7 @@ error: Invalid type in placeholder: expected identifier.
        If you want syntax highlighting and better errors, place the type in the arguments after the format string while debugging:
        At "{3:/hi/}"
             ^
-  --> $DIR/invalid_type_in_placeholder.rs:27:26
+  --> tests/fail/ch_stable/invalid_type_in_placeholder.rs:27:26
    |
 27 |     sscanf::scanf!("hi", "{3:/hi/}");
    |                          ^^^^^^^^^^
@@ -53,13 +53,13 @@ error: Invalid type in placeholder: expected identifier.
        If you want syntax highlighting and better errors, place the type in the arguments after the format string while debugging:
        At "{.:/hi/}"
             ^
-  --> $DIR/invalid_type_in_placeholder.rs:28:26
+  --> tests/fail/ch_stable/invalid_type_in_placeholder.rs:28:26
    |
 28 |     sscanf::scanf!("hi", "{.:/hi/}");
    |                          ^^^^^^^^^^
 
 error[E0412]: cannot find type `bob` in this scope
-  --> $DIR/invalid_type_in_placeholder.rs:26:5
+  --> tests/fail/ch_stable/invalid_type_in_placeholder.rs:26:5
    |
 26 |     sscanf::scanf!("hi", "{bob}");
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not found in this scope
@@ -67,7 +67,7 @@ error[E0412]: cannot find type `bob` in this scope
    = note: this error originates in the macro `sscanf::scanf` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0412]: cannot find type `bob` in this scope
-  --> $DIR/invalid_type_in_placeholder.rs:29:5
+  --> tests/fail/ch_stable/invalid_type_in_placeholder.rs:29:5
    |
 29 |     sscanf::scanf!("hi", "{bob:/hi/}");
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not found in this scope
@@ -75,7 +75,7 @@ error[E0412]: cannot find type `bob` in this scope
    = note: this error originates in the macro `sscanf::scanf` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `NoRegex: RegexRepresentation` is not satisfied
-  --> $DIR/invalid_type_in_placeholder.rs:21:26
+  --> tests/fail/ch_stable/invalid_type_in_placeholder.rs:21:26
    |
 21 |     sscanf::scanf!("hi", "{NoRegex}");
    |                          ^^^^^^^^^^^ the trait `RegexRepresentation` is not implemented for `NoRegex`

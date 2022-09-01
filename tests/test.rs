@@ -7,8 +7,60 @@ mod types {
     mod hex_number;
 }
 
-#[cfg(feature = "chrono")]
-mod chrono;
+use sscanf::RegexRepresentation;
+
+// #[derive(FromScanf, Debug, PartialEq)]
+// #[scanf(format = "({name},{age})")]
+// struct Person {
+//     name: String,
+//     age: u8,
+// }
+
+// #[test]
+// fn test_from_regex() {
+//     let input = "Hi, I'm (Bob,42)!";
+//     let bob = sscanf::scanf!(input, "Hi, I'm {Person}!").unwrap();
+
+//     assert_eq!(
+//         bob,
+//         Person {
+//             name: "Bob".to_string(),
+//             age: 42
+//         }
+//     );
+// }
+
+// #[derive(FromScanf, Debug, PartialEq)]
+// #[scanf(Whole = "{0}", Fraction = "{numerator}/{denominator}")]
+// enum Number {
+//     Whole(isize),
+//     Fraction {
+//         numerator: isize,
+//         denominator: isize,
+//     },
+// }
+
+// #[test]
+// fn test_from_regex() {
+//     let input = "Hi, I'm (Bob,42)!. I have 5 dollars and -1/2 pennies.";
+//     let (bob, dollars, pennies) = sscanf::scanf!(
+//         input,
+//         "Hi, I'm {Person}! I have {Number} dollars and {Number} pennies."
+//     )
+//     .unwrap();
+
+//     assert_eq!(
+//         bob,
+//         Person {
+//             name: "Bob".to_string(),
+//             age: 42
+//         }
+//     );
+
+//     assert_eq!(dollars, Number::Whole(5));
+
+//     assert_eq!(pennies, Number::Fraction(-1, 2));
+// }
 
 #[test]
 fn basic() {
@@ -28,7 +80,7 @@ fn basic() {
         input,
         "Position<{f32},{f32},{f32}>; Dir: {char}{usize}{char}{usize}",
     );
-    assert_eq!(output, Ok((5.0, 0.3, 2.0, 'N', 24, 'E', 10)));
+    assert_eq!(output.unwrap(), (5.0, 0.3, 2.0, 'N', 24, 'E', 10));
 
     let output = scanf!("hi", "{str}").unwrap();
     assert_eq!(output, "hi");
@@ -37,20 +89,20 @@ fn basic() {
 #[test]
 fn no_types() {
     let result = scanf!("hi", "hi");
-    assert_eq!(result, Ok(()));
+    assert_eq!(result.unwrap(), ());
     let result = scanf!("hi", "no");
     assert!(result.is_err());
 }
 
 #[test]
 fn alternate_inputs() {
-    assert_eq!(scanf!("5", "{usize}"), Ok(5));
+    assert_eq!(scanf!("5", "{usize}").unwrap(), 5);
 
     let input = "5";
-    assert_eq!(scanf!(input, "{usize}"), Ok(5));
+    assert_eq!(scanf!(input, "{usize}").unwrap(), 5);
 
     let input = String::from("5");
-    assert_eq!(scanf!(input, "{usize}"), Ok(5));
+    assert_eq!(scanf!(input, "{usize}").unwrap(), 5);
 
     // These don't work because of the lifetime
     // let input = String::from("5");
@@ -81,7 +133,7 @@ fn get_regex() {
 fn unescaped() {
     let input = "5.0SOME_RANDOM_TEXT3";
     let output = scanf_unescaped!(input, "{f32}.*{usize}");
-    assert_eq!(output, Ok((5.0, 3)));
+    assert_eq!(output.unwrap(), (5.0, 3));
 }
 
 #[test]
@@ -100,11 +152,11 @@ fn generic_types() {
 
     let input = "Test";
     let output = scanf!(input, "{}", Bob<usize>);
-    assert_eq!(output, Ok(Default::default()));
+    assert_eq!(output.unwrap(), Default::default());
 
     let input = "Test";
     let output = scanf!(input, "{Bob<usize>}");
-    assert_eq!(output, Ok(Default::default()));
+    assert_eq!(output.unwrap(), Default::default());
 }
 
 #[test]
@@ -151,7 +203,7 @@ fn config_numbers() {
 fn invalid_regex_representation() {
     struct Test;
     impl FromStr for Test {
-        type Err = ();
+        type Err = std::convert::Infallible;
         fn from_str(_: &str) -> Result<Self, Self::Err> {
             Ok(Test)
         }
@@ -166,39 +218,39 @@ fn invalid_regex_representation() {
 fn custom_regex() {
     let input = "ab123cd";
     let parsed = scanf!(input, r"{str}{u8:/\d/}{str:/\d\d.*/}");
-    assert_eq!(parsed, Ok(("ab", 1, "23cd")));
+    assert_eq!(parsed.unwrap(), ("ab", 1, "23cd"));
 
     let input = r"({(\}*[\{";
-    let parsed = scanf!(input, r"{:/\(\\\{\(\\\\\}\*/}{:/\[\\\\\\\{/}", str, str);
-    assert_eq!(parsed, Ok(("({(\\}*", "[\\{")));
+    let parsed = scanf!(input, r"{:/\(\{\(\\\}\*/}{:/\[\\\{/}", str, str);
+    assert_eq!(parsed.unwrap(), ("({(\\}*", "[\\{"));
 
     #[derive(Debug, PartialEq)]
     struct NoRegex;
     impl FromStr for NoRegex {
-        type Err = ();
+        type Err = std::convert::Infallible;
         fn from_str(_s: &str) -> Result<Self, Self::Err> {
             Ok(NoRegex)
         }
     }
     let parsed = scanf!(input, "{NoRegex:/.*/}");
-    assert_eq!(parsed, Ok(NoRegex));
+    assert_eq!(parsed.unwrap(), NoRegex);
 }
 
 #[test]
-#[should_panic(expected = "RegexMatchFailed { input: \"hi\", regex: ^bob$ }")]
+#[should_panic(expected = "RegexMatchFailed")]
 fn check_error_regex() {
     scanf!("hi", "bob").unwrap();
 }
 #[test]
 #[should_panic(
-    expected = "FromStrFailed { type_name: \"usize\", input: \"hi\", error: ParseIntError { kind: InvalidDigit } }"
+    expected = "FromStrFailedError { type_name: \"usize\", error: ParseIntError { kind: InvalidDigit } }"
 )]
 fn check_error_from_str_1() {
     scanf!("5bobhibob", "{u32}bob{usize:/.*/}bob").unwrap();
 }
 #[test]
 #[should_panic(
-    expected = "FromStrFailed { type_name: \"Test\", input: \"hi\", error: ParseIntError { kind: InvalidDigit } }"
+    expected = "FromStrFailedError { type_name: \"test::check_error_from_str_2::Test\", error: ParseIntError { kind: InvalidDigit } }"
 )]
 fn check_error_from_str_2() {
     struct Test(usize);
@@ -241,7 +293,11 @@ fn error_lifetime() {
 }
 
 #[test]
-#[should_panic(expected = "scanf: Regex has 1 more capture groups than expected.")]
+#[should_panic(expected = "scanf: Regex has 3 capture groups, but 2 were expected.
+If you use ( ) in a custom Regex, please add a '?:' at the beginning to avoid
+forming a capture group like this:
+    ...(...)...  =>  ...(?:...)...
+")]
 fn custom_regex_with_capture_group() {
     struct Test(usize);
     impl FromStr for Test {
@@ -257,26 +313,6 @@ fn custom_regex_with_capture_group() {
 }
 
 #[test]
-fn custom_chrono_type() {
-    #[derive(Debug, PartialEq)]
-    struct DateTime(usize);
-
-    impl sscanf::RegexRepresentation for DateTime {
-        const REGEX: &'static str = r"\d+";
-    }
-    impl FromStr for DateTime {
-        type Err = <usize as FromStr>::Err;
-        fn from_str(s: &str) -> Result<Self, Self::Err> {
-            Ok(DateTime(s.parse()?))
-        }
-    }
-
-    let input = "42";
-    let parsed = sscanf::scanf!(input, "{}", DateTime);
-    assert_eq!(parsed, Ok(DateTime(42)));
-}
-
-#[test]
 fn failing_tests() {
     // Error Messages are different in nightly => Different .stderr files
     let nightly = rustc_version::version_meta().unwrap().channel == rustc_version::Channel::Nightly;
@@ -285,11 +321,6 @@ fn failing_tests() {
         "os_windows"
     } else {
         "os_linux"
-    };
-    let chrono = if cfg!(feature = "chrono") {
-        "feat_chrono"
-    } else {
-        "feat_no_chrono"
     };
 
     let t = trybuild::TestCases::new();
@@ -301,10 +332,6 @@ fn failing_tests() {
     let os_path = path.join(os);
     run_fail_test(&t, &os_path);
     run_fail_test(&t, &os_path.join(channel));
-
-    let chrono_path = path.join(chrono);
-    run_fail_test(&t, &chrono_path);
-    run_fail_test(&t, &chrono_path.join(channel));
 }
 
 fn run_fail_test(t: &trybuild::TestCases, path: &std::path::Path) {
