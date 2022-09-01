@@ -9,26 +9,26 @@ mod types {
 
 use sscanf::RegexRepresentation;
 
-// #[derive(FromScanf, Debug, PartialEq)]
-// #[scanf(format = "({name},{age})")]
-// struct Person {
-//     name: String,
-//     age: u8,
-// }
+#[derive(FromScanf, Debug, PartialEq)]
+#[scanf(format = "({name},{age})")]
+struct Person {
+    name: String,
+    age: u8,
+}
 
-// #[test]
-// fn test_from_regex() {
-//     let input = "Hi, I'm (Bob,42)!";
-//     let bob = sscanf::scanf!(input, "Hi, I'm {Person}!").unwrap();
+#[test]
+fn test_from_regex() {
+    let input = "Hi, I'm (Bob,42)!";
+    let bob = scanf!(input, "Hi, I'm {Person}!").unwrap();
 
-//     assert_eq!(
-//         bob,
-//         Person {
-//             name: "Bob".to_string(),
-//             age: 42
-//         }
-//     );
-// }
+    assert_eq!(
+        bob,
+        Person {
+            name: "Bob".to_string(),
+            age: 42
+        }
+    );
+}
 
 // #[derive(FromScanf, Debug, PartialEq)]
 // #[scanf(Whole = "{0}", Fraction = "{numerator}/{denominator}")]

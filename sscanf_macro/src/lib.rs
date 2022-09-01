@@ -173,7 +173,6 @@ fn scanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
                     let mut src = cap.iter();
                     src.next().unwrap(); // skip the full match
                     let mut len = src.len();
-                    let start_len = len;
                     let res = ::std::result::Result::Ok(( #(#matcher),* ));
                     if src.len() != 0 {
                         panic!("{} captures generated, but {} were taken
@@ -181,7 +180,7 @@ If you use ( ) in a custom Regex, please add a '?:' at the beginning to avoid
 forming a capture group like this:
     ...(...)...  =>  ...(?:...)...
 ",
-                            start_len, len
+                            REGEX.captures_len(), len
                         );
                     }
                     res
@@ -195,7 +194,9 @@ fn generate_regex(
     input: ScanfInner,
     escape_input: bool,
 ) -> Result<(TokenStream, Vec<TokenStream>)> {
-    let format = FormatString::new(input.fmt.to_slice(), escape_input)?;
+    let mut format = FormatString::new(input.fmt.to_slice(), escape_input)?;
+    format.parts[0].insert(0, '^');
+    format.parts.last_mut().unwrap().push('$');
 
     let types = &input.type_tokens;
 

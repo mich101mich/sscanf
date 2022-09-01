@@ -10,7 +10,7 @@ impl<'a> FormatString<'a> {
     pub fn new(src: StrLitSlice<'a>, escape_input: bool) -> Result<Self> {
         let mut placeholders = vec![];
         let mut parts = vec![];
-        let mut current_part = String::from("^");
+        let mut current_part = String::new();
 
         // keep the iterator as a variable to allow peeking and advancing in a sub-function
         let mut iter = src.text.chars().enumerate().peekable();
@@ -43,7 +43,6 @@ impl<'a> FormatString<'a> {
             current_part.push(c);
         }
 
-        current_part.push('$');
         parts.push(current_part);
         Ok(Self {
             src,

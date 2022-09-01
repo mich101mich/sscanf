@@ -79,7 +79,7 @@ pub fn parse_struct(name: Ident, attrs: Vec<Attribute>, data: DataStruct) -> Res
     }
 
     let mut regex_builder = vec![];
-    let mut num_captures_builder = vec![quote!(0)]; // +0 in case of unit structs
+    let mut num_captures_builder = vec![quote!(1)]; // +1 for the whole match
     let mut from_matches_builder = vec![];
     let mut ph_index = 0;
     let mut visited = vec![false; fields.len()];
@@ -142,7 +142,7 @@ pub fn parse_struct(name: Ident, attrs: Vec<Attribute>, data: DataStruct) -> Res
 
         let converter = {
             let mut s = quote_spanned!(start => <#ty as );
-            s.extend(quote_spanned!(end => ::sscanf::FromScanf>::from_matches(&mut src)?));
+            s.extend(quote_spanned!(end => ::sscanf::FromScanf>::from_matches(&mut *src)?));
             s
         };
         let ident = &fields[index].ident;
@@ -206,9 +206,11 @@ forming a capture group like this:
             type Err = FromScanfFailedError;
             const NUM_CAPTURES: usize = #(#num_captures_builder)+*;
             fn from_matches(src: &mut ::sscanf::regex::SubCaptureMatches) -> ::std::result::Result<Self, Self::Err> {
+                let start_len = src.len();
+                src.next().unwrap(); // skip the full match
                 let mut len = src.len();
-                let start_len = len;
-                let catcher = || -> ::std::result::Result<Self, ::std::boxed::Box<dyn ::std::error::Error>> {
+
+                let mut catcher = || -> ::std::result::Result<Self, ::std::boxed::Box<dyn ::std::error::Error>> {
                     Ok(#name {
                         #(#from_matches_builder),*
                     })
@@ -216,8 +218,8 @@ forming a capture group like this:
                 let res = catcher().map_err(|error| FromScanfFailedError {
                     type_name: stringify!(#name),
                     error,
-                });
-                let n = src.len() - start_len;
+                })?;
+                let n = start_len - src.len();
                 if n != Self::NUM_CAPTURES {
                     panic!("{}::NUM_CAPTURES = {} but {} were taken
 If you use ( ) in a custom Regex, please add a '?:' at the beginning to avoid

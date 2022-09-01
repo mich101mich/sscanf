@@ -38,8 +38,10 @@ pub struct FromStrFailedError<T: FromStr>
 where
     <T as FromStr>::Err: Error,
 {
-    type_name: &'static str,
-    error: <T as FromStr>::Err,
+    /// Type name of the type that failed to parse
+    pub type_name: &'static str,
+    /// Error that was returned by the `FromStr` impl
+    pub error: <T as FromStr>::Err,
 }
 
 impl<T: FromStr> std::fmt::Display for FromStrFailedError<T>
@@ -70,8 +72,10 @@ impl<T: FromStr> Error for FromStrFailedError<T> where <T as FromStr>::Err: Erro
 /// Error type for `FromScanf` impls that wrap around other `FromScanf` impls
 #[derive(Debug)]
 pub struct FromScanfFailedError {
-    type_name: &'static str,
-    error: Box<dyn Error>,
+    /// Type name of the type that failed to parse
+    pub type_name: &'static str,
+    /// Error that was returned by the underlying impl
+    pub error: Box<dyn Error>,
 }
 
 impl std::fmt::Display for FromScanfFailedError {
