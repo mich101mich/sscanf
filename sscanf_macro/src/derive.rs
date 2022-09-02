@@ -1,16 +1,10 @@
 use std::collections::HashMap;
 
-use proc_macro2::{Span, TokenStream};
-use quote::{quote, quote_spanned};
-use syn::{parse2, spanned::Spanned, Attribute, DataEnum, DataStruct, DataUnion, Ident, Type};
+use proc_macro2::{Literal, Span, TokenStream};
+use quote::quote;
+use syn::{parse2, Attribute, DataEnum, DataStruct, DataUnion, Ident};
 
 use crate::*;
-
-struct Field {
-    ident: Ident,
-    ty: Type,
-    default: Option<TokenStream>,
-}
 
 pub fn parse_struct(name: Ident, attrs: Vec<Attribute>, data: DataStruct) -> Result<TokenStream> {
     let attr = if let Some(attr) = attrs.iter().find(|a| a.path.is_ident("scanf")) {
@@ -55,11 +49,15 @@ pub fn parse_struct(name: Ident, attrs: Vec<Attribute>, data: DataStruct) -> Res
 
     let mut fields = vec![];
     let mut field_map = HashMap::new();
+    let mut defaults = vec![];
+    let mut types = vec![];
     for (i, field) in data.fields.into_iter().enumerate() {
         let ty = field.ty;
-        let ident = field
-            .ident
-            .unwrap_or_else(|| Ident::new(&format!("{}", i), ty.span()));
+        let ident = field.ident.map(FieldIdent::Named).unwrap_or_else(|| {
+            let mut literal = Literal::usize_unsuffixed(i);
+            literal.set_span(ty.span());
+            FieldIdent::Index(literal)
+        });
 
         field_map.insert(ident.to_string(), i);
 
@@ -71,22 +69,19 @@ pub fn parse_struct(name: Ident, attrs: Vec<Attribute>, data: DataStruct) -> Res
             }
         };
 
+        types.push(ty);
         fields.push(Field {
             ident,
-            ty: ty,
-            default,
+            ty_source: TypeSource::External(i),
         });
+        defaults.push(default);
     }
 
-    let mut regex_builder = vec![];
-    let mut num_captures_builder = vec![quote!(1)]; // +1 for the whole match
-    let mut from_matches_builder = vec![];
+    let mut ph_indices = vec![];
     let mut ph_index = 0;
     let mut visited = vec![false; fields.len()];
     let mut error = Error::builder();
-    for (prefix, ph) in format.parts.iter().zip(format.placeholders.iter()) {
-        regex_builder.push(quote!(#prefix));
-
+    for ph in &format.placeholders {
         let index = if let Some(name) = ph.ident.as_ref() {
             if let Ok(n) = name.text.parse::<usize>() {
                 if n < fields.len() {
@@ -107,85 +102,33 @@ pub fn parse_struct(name: Ident, attrs: Vec<Attribute>, data: DataStruct) -> Res
             ph_index - 1
         };
 
+        ph_indices.push(index);
+
         if visited[index] {
-            let msg = format!(
-                "field `{}` specified more than once",
-                fields[index].ident.to_string()
-            );
+            let name = fields[index].ident.to_string();
+            let msg = format!("field `{}` specified more than once", name);
             error.with_error(ph.src.error(&msg));
             continue;
         }
         visited[index] = true;
-
-        let ty = &fields[index].ty;
-
-        let (start, end) = full_span(&ty);
-
-        let regex = if let Some(config) = ph.config.as_ref() {
-            use FormatOptionKind::*;
-            match config.kind {
-                Regex(ref regex) => quote!(#regex),
-                Radix(ref _radix) => quote!(".*?"),
-            }
-        } else {
-            let mut s = quote_spanned!(start => <#ty as );
-            s.extend(quote_spanned!(end => ::sscanf::RegexRepresentation>::REGEX));
-            s
-        };
-        regex_builder.push(regex);
-
-        let num_captures = {
-            let mut s = quote_spanned!(start => <#ty as );
-            s.extend(quote_spanned!(end => ::sscanf::FromScanf>::NUM_CAPTURES));
-            s
-        };
-
-        let converter = {
-            let mut s = quote_spanned!(start => <#ty as );
-            s.extend(quote_spanned!(end => ::sscanf::FromScanf>::from_matches(&mut *src)?));
-            s
-        };
-        let ident = &fields[index].ident;
-        let from_matches = quote!(#ident: {
-            let value = #converter;
-            let n = len - src.len();
-            if n != #num_captures {
-                panic!("{}::NUM_CAPTURES = {} but {} were taken
-If you use ( ) in a custom Regex, please add a '?:' at the beginning to avoid
-forming a capture group like this:
-    ...(...)...  =>  ...(?:...)...
-",
-                    stringify!(#ty), #num_captures, n
-                );
-            }
-            len = src.len();
-            value
-        });
-
-        num_captures_builder.push(num_captures);
-        from_matches_builder.push(from_matches);
     }
 
     if !error.is_empty() {
         return error.build_err();
     }
 
-    {
-        let suffix = format
-            .parts
-            .last()
-            .unwrap_or_else(|| panic!("a:{}:{}", file!(), line!()));
-        regex_builder.push(quote!(#suffix));
-    }
+    let mut regex_parts = RegexParts::new(&format, &ph_indices, &fields, &types, false)?;
 
     error = Error::builder();
-    for (visited, field) in visited.iter().zip(fields.into_iter()) {
+    for ((visited, field), default) in visited.iter().zip(fields.into_iter()).zip(defaults.iter()) {
         if *visited {
             continue;
         }
-        if let Some(default) = field.default.as_ref() {
+        if let Some(default) = default.as_ref() {
             let ident = &field.ident;
-            from_matches_builder.push(quote!(#ident: #default));
+            regex_parts
+                .from_matches_builder
+                .push(quote!(#ident: #default));
         } else {
             let msg = format!("field `{}` has no format or default value", field.ident);
             error.with_spanned(field.ident, msg);
@@ -195,25 +138,26 @@ forming a capture group like this:
         return error.build_err();
     }
 
+    let regex = regex_parts.regex();
     let regex_impl = quote!(
         impl ::sscanf::RegexRepresentation for #name {
-            const REGEX: &'static str = ::sscanf::const_format::concatcp!( #(#regex_builder),* );
+            const REGEX: &'static str = #regex;
         }
     );
 
+    let num_captures = regex_parts.num_captures();
+    let from_matches = regex_parts.from_matches();
     let from_scanf_impl = quote!(
         impl ::sscanf::FromScanf for #name {
             type Err = FromScanfFailedError;
-            const NUM_CAPTURES: usize = #(#num_captures_builder)+*;
+            const NUM_CAPTURES: usize = #num_captures;
             fn from_matches(src: &mut ::sscanf::regex::SubCaptureMatches) -> ::std::result::Result<Self, Self::Err> {
                 let start_len = src.len();
                 src.next().unwrap(); // skip the full match
                 let mut len = src.len();
 
                 let mut catcher = || -> ::std::result::Result<Self, ::std::boxed::Box<dyn ::std::error::Error>> {
-                    Ok(#name {
-                        #(#from_matches_builder),*
-                    })
+                    Ok(#name #from_matches)
                 };
                 let res = catcher().map_err(|error| FromScanfFailedError {
                     type_name: stringify!(#name),
@@ -221,12 +165,9 @@ forming a capture group like this:
                 })?;
                 let n = start_len - src.len();
                 if n != Self::NUM_CAPTURES {
-                    panic!("{}::NUM_CAPTURES = {} but {} were taken
-If you use ( ) in a custom Regex, please add a '?:' at the beginning to avoid
-forming a capture group like this:
-    ...(...)...  =>  ...(?:...)...
-",
-                        stringify!(#name), Self::NUM_CAPTURES, n
+                    panic!(
+                        "{}::NUM_CAPTURES = {} but {} were taken{}",
+                        stringify!(#name), Self::NUM_CAPTURES, n, #WRONG_CAPTURES_HINT
                     );
                 }
                 Ok(res)
@@ -240,10 +181,10 @@ forming a capture group like this:
     ))
 }
 
-pub fn parse_enum(name: Ident, attrs: Vec<Attribute>, data: DataEnum) -> Result<TokenStream> {
+pub fn parse_enum(name: Ident, _attrs: Vec<Attribute>, _data: DataEnum) -> Result<TokenStream> {
     return Err(Error::new_spanned(name, "todo"));
 }
 
-pub fn parse_union(name: Ident, attrs: Vec<Attribute>, data: DataUnion) -> Result<TokenStream> {
+pub fn parse_union(name: Ident, _attrs: Vec<Attribute>, _data: DataUnion) -> Result<TokenStream> {
     return Err(Error::new_spanned(name, "union is yet not supported"));
 }

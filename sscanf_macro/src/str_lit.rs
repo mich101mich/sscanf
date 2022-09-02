@@ -14,6 +14,7 @@ pub struct StrLit {
 }
 
 /// A slice into StrLit
+#[derive(Clone)]
 pub struct StrLitSlice<'a> {
     src: &'a StrLit,
     pub text: &'a str,

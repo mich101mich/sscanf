@@ -3,6 +3,7 @@ error[E0277]: the trait bound `NoRegex: RegexRepresentation` is not satisfied
    |
 11 |     sscanf::scanf!("hi", "{}", NoRegex);
    |                                ^^^^^^^ the trait `RegexRepresentation` is not implemented for `NoRegex`
+   |
    = help: the following other types implement trait `RegexRepresentation`:
              FullF32
              FullF64
@@ -19,6 +20,7 @@ error[E0277]: the trait bound `Vec<usize>: RegexRepresentation` is not satisfied
    |
 10 |     sscanf::scanf!("hi", "{}", std::vec::Vec<usize>);
    |                                ^^^^^^^^^^^^^^^^^^^^ the trait `RegexRepresentation` is not implemented for `Vec<usize>`
+   |
    = help: the following other types implement trait `RegexRepresentation`:
              FullF32
              FullF64

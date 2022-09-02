@@ -7,7 +7,7 @@ use syn::{
     parse::{Parse, ParseStream},
     parse_macro_input,
     spanned::Spanned,
-    DeriveInput, Expr, Path, Token,
+    DeriveInput, Expr, Path, Token, Type, TypePath,
 };
 
 mod attributes;
@@ -15,6 +15,7 @@ mod error;
 mod format_option;
 mod format_string;
 mod placeholder;
+mod regex_parts;
 mod str_lit;
 
 pub(crate) use attributes::*;
@@ -22,6 +23,7 @@ pub(crate) use error::*;
 pub(crate) use format_option::*;
 pub(crate) use format_string::*;
 pub(crate) use placeholder::*;
+pub(crate) use regex_parts::*;
 pub(crate) use str_lit::*;
 
 mod derive;
@@ -171,14 +173,12 @@ fn scanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
                 .ok_or_else::<Box<dyn ::std::error::Error>, _>(|| ::std::boxed::Box::new(::sscanf::RegexMatchFailed))
                 .and_then(|cap| {
                     let mut src = cap.iter();
+                    let src = &mut src;
                     src.next().unwrap(); // skip the full match
                     let mut len = src.len();
                     let res = ::std::result::Result::Ok(( #(#matcher),* ));
                     if src.len() != 0 {
                         panic!("{} captures generated, but {} were taken
-If you use ( ) in a custom Regex, please add a '?:' at the beginning to avoid
-forming a capture group like this:
-    ...(...)...  =>  ...(?:...)...
 ",
                             REGEX.captures_len(), len
                         );
@@ -198,33 +198,34 @@ fn generate_regex(
     format.parts[0].insert(0, '^');
     format.parts.last_mut().unwrap().push('$');
 
-    let types = &input.type_tokens;
+    let types = input
+        .type_tokens
+        .into_iter()
+        .map(|path| Type::Path(TypePath { qself: None, path }))
+        .collect::<Vec<_>>();
 
-    // these need to be Vec instead of TokenStream to allow adding the comma separators later
-    let mut regex_builder = vec![];
-    let mut num_captures_builder = vec![quote!(1)]; // +1 for the entire match
-    let mut from_matches_builder = vec![];
+    let mut fields = vec![];
     let mut ph_index = 0;
     let mut visited = vec![false; types.len()];
     let mut error = Error::builder();
-    // if there are n types, there are n+1 regex_parts, so add the first n during this loop and
-    // add the last one afterwards
-    for (prefix, ph) in format.parts.iter().zip(format.placeholders.iter()) {
-        regex_builder.push(quote!(#prefix));
 
-        let (ty, ty_src) = if let Some(name) = ph.ident.as_ref() {
+    for ph in format.placeholders.iter() {
+        let ty_source = if let Some(name) = ph.ident.as_ref() {
             if let Ok(n) = name.text.parse::<usize>() {
-                if let Some(ty) = types.get(n) {
+                if n < types.len() {
                     visited[n] = true;
-                    (ty.clone(), None)
+                    TypeSource::External(n)
                 } else {
                     let msg = format!("type index {} out of range of {} types", n, types.len());
                     error.with_error(name.error(&msg));
                     continue;
                 }
             } else {
-                match to_path(name) {
-                    Ok(path) => (path, Some(name)),
+                match to_type(name) {
+                    Ok(ty) => TypeSource::Inline {
+                        ty,
+                        src: name.clone(),
+                    },
                     Err(e) => {
                         error.with_error(e);
                         continue;
@@ -234,9 +235,9 @@ fn generate_regex(
         } else {
             let n = ph_index;
             ph_index += 1;
-            if let Some(ty) = types.get(n) {
+            if n < types.len() {
                 visited[n] = true;
-                (ty.clone(), None)
+                TypeSource::External(n)
             } else {
                 let msg = format!("more placeholders than types provided");
                 error.with_error(ph.src.error(&msg));
@@ -244,84 +245,12 @@ fn generate_regex(
             }
         };
 
-        let (start, end) = if let Some(src) = ty_src.as_ref() {
-            let span = src.span();
-            (span, span)
-        } else {
-            full_span(&ty)
-        };
-
-        let regex = if let Some(config) = ph.config.as_ref() {
-            use FormatOptionKind::*;
-            match config.kind {
-                Regex(ref regex) => quote!(#regex),
-                Radix(ref _radix) => quote!(".*?"),
-            }
-        } else {
-            // proc_macros don't have any type information, so we can't check if the type
-            // implements the trait, so we wrap it in this verbose <#ty as Trait> code,
-            // so that the compiler can check if the trait is implemented, and, most importantly,
-            // tell the user if they forgot to implement the trait.
-            // The code is split into two quote_spanned calls in case the type consists of more
-            // than one token (like std::vec::Vec). Again, no span manipulation on stable and we
-            // obviously want the entire type underlined, so we have to map the start and end of
-            // the type's span to the start and end of the part that generates the error message.
-            // Yes, this works. No, this is not a good way to do this. ¯\_(ツ)_/¯
-            let mut s = quote_spanned!(start => <#ty as );
-            s.extend(quote_spanned!(end => ::sscanf::RegexRepresentation>::REGEX));
-            s
-        };
-        regex_builder.push(regex);
-
-        let (num_captures, converter) = if ty.to_token_stream().to_string() == "str" {
-            // str is special, because the type is actually &str
-            let cap = quote_spanned!(start => 1);
-            let conv = quote_spanned!(start => src.next().expect("c").expect("d").as_str());
-            (cap, conv)
-        } else {
-            let mut cap = quote_spanned!(start => <#ty as );
-            cap.extend(quote_spanned!(end => ::sscanf::FromScanf>::NUM_CAPTURES));
-
-            let mut conv = quote_spanned!(start => <#ty as );
-            conv.extend(quote_spanned!(end => ::sscanf::FromScanf>::from_matches(&mut src)?));
-
-            (cap, conv)
-        };
-
-        let from_matches = quote!({
-            let value = #converter;
-            let n = len - src.len();
-            if n != #num_captures {
-                panic!("{}::NUM_CAPTURES = {} but {} were taken
-If you use ( ) in a custom Regex, please add a '?:' at the beginning to avoid
-forming a capture group like this:
-    ...(...)...  =>  ...(?:...)...
-",
-                    stringify!(#ty), #num_captures, n
-                );
-            }
-            len = src.len();
-            value
+        fields.push(Field {
+            ident: FieldIdent::None,
+            ty_source,
         });
-
-        num_captures_builder.push(num_captures);
-        from_matches_builder.push(from_matches);
     }
 
-    if !error.is_empty() {
-        return error.build_err();
-    }
-
-    // add the last regex_part
-    {
-        let suffix = format
-            .parts
-            .last()
-            .unwrap_or_else(|| panic!("a:{}:{}", file!(), line!()));
-        regex_builder.push(quote!(#suffix));
-    }
-
-    error = Error::builder();
     for (visited, ty) in visited.iter().zip(types.iter()) {
         if !*visited {
             error.with_spanned(ty, "unused type");
@@ -331,26 +260,30 @@ forming a capture group like this:
         return error.build_err();
     }
 
+    let ph_indices = (0..fields.len()).collect::<Vec<_>>();
+    let regex_parts = RegexParts::new(&format, &ph_indices, &fields, &types, true)?;
+
+    let regex = regex_parts.regex();
+    let num_captures = regex_parts.num_captures();
     let regex = quote!(::sscanf::lazy_static::lazy_static! {
         static ref REGEX: ::sscanf::regex::Regex = {
-            let regex_str = ::sscanf::const_format::concatcp!( #(#regex_builder),* );
+            let regex_str = #regex;
             let regex = ::sscanf::regex::Regex::new(regex_str)
                 .expect("scanf: Cannot generate Regex");
 
-            const NUM_CAPTURES: usize = #(#num_captures_builder)+*;
+            const NUM_CAPTURES: usize = #num_captures;
 
             if regex.captures_len() != NUM_CAPTURES {
-                panic!("scanf: Regex has {} capture groups, but {} were expected.
-If you use ( ) in a custom Regex, please add a '?:' at the beginning to avoid
-forming a capture group like this:
-    ...(...)...  =>  ...(?:...)...
-", regex.captures_len(), NUM_CAPTURES);
+                panic!(
+                    "scanf: Regex has {} capture groups, but {} were expected.{}",
+                    regex.captures_len(), NUM_CAPTURES, #WRONG_CAPTURES_HINT
+                );
             }
             regex
         };
     });
 
-    Ok((regex, from_matches_builder))
+    Ok((regex, regex_parts.from_matches_builder))
 }
 
 fn full_span<T: ToTokens + Spanned>(span: &T) -> (Span, Span) {
@@ -369,26 +302,29 @@ fn full_span<T: ToTokens + Spanned>(span: &T) -> (Span, Span) {
     (start, end)
 }
 
-fn to_path(src: &StrLitSlice) -> Result<Path> {
-    // dirty hack #493: type_name needs to be converted to a Path token, because quote
+fn to_type(src: &StrLitSlice) -> Result<Type> {
+    // dirty hack #493: a type in a string needs to be converted to a Type token, because quote
     // would surround a String with '"', and we don't want that. And we can't change that
     // other than changing the type of the variable.
     // So we parse from String to TokenStream, then parse from TokenStream to Path.
     // The alternative would be to construct the Path ourselves, but path has _way_ too
     // many parts to it with variable stuff and incomplete constructors, that's too
     // much work.
-    src.text
-        .parse::<TokenStream>()
-        .map_err(|err| err.to_string())
-        .and_then(|tokens| {
-            syn::parse2::<Path>(quote!(#tokens))
-            .map_err(|err| err.to_string())
-        })
-        .map_err(|err| {
-            let hint =  "The syntax for placeholders is {<type>} or {<type>:<config>}. Make sure <type> is a valid type.";
-            let hint2 = "If you want syntax highlighting and better errors, place the type in the arguments after the format string while debugging";
-            src.error(
-                &format!("Invalid type in placeholder: {}.\nHint: {}\n{}", err, hint, hint2),
-            )
-        })
+    let catcher = || -> syn::Result<Type> {
+        let tokens = src.text.parse::<TokenStream>()?;
+        let span = src.span();
+        let path = syn::parse2::<Path>(quote_spanned!(span => #tokens))?;
+        // we don't parse directly to a Type to give better error messages:
+        // Path says "expected identifier"
+        // Type says "expected one of: `for`, parentheses, `fn`, `unsafe`, ..."
+        // because syn::Type contains too many other variants.
+        Ok(Type::Path(TypePath { qself: None, path }))
+    };
+    catcher().map_err(|err| {
+        let hint =  "The syntax for placeholders is {<type>} or {<type>:<config>}. Make sure <type> is a valid type.";
+        let hint2 = "If you want syntax highlighting and better errors, place the type in the arguments after the format string while debugging";
+        src.error(
+            &format!("Invalid type in placeholder: {}.\nHint: {}\n{}", err, hint, hint2),
+        )
+    })
 }
