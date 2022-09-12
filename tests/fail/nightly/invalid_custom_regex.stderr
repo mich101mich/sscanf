@@ -1,0 +1,10 @@
+error: regex parse error:
+           ab(ab
+             ^
+       error: unclosed group
+
+       In custom Regex format option
+ --> tests/fail/nightly/invalid_custom_regex.rs:2:30
+  |
+2 |     sscanf::scanf!("", "   {:/ab(ab/}   ", String).unwrap();
+  |                              ^^^^^^^

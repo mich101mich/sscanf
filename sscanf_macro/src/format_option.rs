@@ -61,7 +61,7 @@ impl<'a> FormatOption<'a> {
                     return src.slice(end..=end + 1).err(msg);
                 }
 
-                let src = src.slice(start + 1..end);
+                let src = src.slice(start..=end);
                 if let Err(err) = regex_syntax::Parser::new().parse(&regex) {
                     let msg = format!("{}\n\nIn custom Regex format option", err);
                     return src.err(&msg);
@@ -76,7 +76,7 @@ impl<'a> FormatOption<'a> {
             _ => {
                 let msg = "unrecognized format option.
 Hint: Regex format options must start and end with '/'";
-                return src.slice(start + 1..=start + 1).err(msg);
+                return src.slice(start..=start).err(msg);
             }
         }
     }

@@ -321,7 +321,7 @@ fn to_type(src: &StrLitSlice) -> Result<Type> {
         Ok(Type::Path(TypePath { qself: None, path }))
     };
     catcher().map_err(|err| {
-        let hint =  "The syntax for placeholders is {<type>} or {<type>:<config>}. Make sure <type> is a valid type.";
+        let hint =  "The syntax for placeholders is {<type>} or {<type>:<config>}. Make sure <type> is a valid type or index.";
         let hint2 = "If you want syntax highlighting and better errors, place the type in the arguments after the format string while debugging";
         src.error(
             &format!("Invalid type in placeholder: {}.\nHint: {}\n{}", err, hint, hint2),

@@ -1,0 +1,53 @@
+error: It looks like you are using the old format.
+       config options now require a ':' prefix like so: {:x}.
+       If this is actually a type whose name happens to match the old format, sorry.
+       Please create an UpperCamelCased wrapper type for it.
+ --> tests/fail/nightly/old_formats.rs:2:32
+  |
+2 |     sscanf::scanf!("hi", "asdf{x}asdf", usize);
+  |                                ^
+
+error: It looks like you are using the old format.
+       config options now require a ':' prefix like so: {:b}.
+       If this is actually a type whose name happens to match the old format, sorry.
+       Please create an UpperCamelCased wrapper type for it.
+ --> tests/fail/nightly/old_formats.rs:3:32
+  |
+3 |     sscanf::scanf!("hi", "asdf{b}asdf", usize);
+  |                                ^
+
+error: It looks like you are using the old format.
+       config options now require a ':' prefix like so: {:o}.
+       If this is actually a type whose name happens to match the old format, sorry.
+       Please create an UpperCamelCased wrapper type for it.
+ --> tests/fail/nightly/old_formats.rs:4:32
+  |
+4 |     sscanf::scanf!("hi", "asdf{o}asdf", usize);
+  |                                ^
+
+error: It looks like you are using the old format.
+       config options now require a ':' prefix like so: {:r4}.
+       If this is actually a type whose name happens to match the old format, sorry.
+       Please create an UpperCamelCased wrapper type for it.
+ --> tests/fail/nightly/old_formats.rs:5:32
+  |
+5 |     sscanf::scanf!("hi", "asdf{r4}asdf", usize);
+  |                                ^^
+
+error: It looks like you are using the old format.
+       config options now require a ':' prefix like so: {:r13}.
+       If this is actually a type whose name happens to match the old format, sorry.
+       Please create an UpperCamelCased wrapper type for it.
+ --> tests/fail/nightly/old_formats.rs:6:32
+  |
+6 |     sscanf::scanf!("hi", "asdf{r13}asdf", usize);
+  |                                ^^^
+
+error: It looks like you are using the old format.
+       config options now require a ':' prefix like so: {:/.*/}.
+       If this is actually a type whose name happens to match the old format, sorry.
+       Please create an UpperCamelCased wrapper type for it.
+ --> tests/fail/nightly/old_formats.rs:7:32
+  |
+7 |     sscanf::scanf!("hi", "asdf{/.*/}asdf", usize);
+  |                                ^^^^

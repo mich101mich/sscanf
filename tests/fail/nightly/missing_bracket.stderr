@@ -1,0 +1,11 @@
+error: missing '}' to close a placeholder. If the '{' was intended to be a literal, escape it with '{{'
+ --> tests/fail/nightly/missing_bracket.rs:2:31
+  |
+2 |     sscanf::scanf!("hi", "asdf{asdf");
+  |                               ^^^^^
+
+error: Unexpected standalone '}'. Literal '}' need to be escaped as '}}'
+ --> tests/fail/nightly/missing_bracket.rs:3:31
+  |
+3 |     sscanf::scanf!("hi", "asdf}asdf");
+  |                               ^

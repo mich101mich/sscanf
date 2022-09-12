@@ -155,11 +155,12 @@ impl RegexParts {
                 cap.extend(quote_spanned!(end => ::sscanf::FromScanf>::NUM_CAPTURES));
 
                 let conv = converter.unwrap_or_else(|| {
-                    let mut conv = quote_spanned!(start => <#ty as );
-                    conv.extend(
-                        quote_spanned!(end => ::sscanf::FromScanf>::from_matches(&mut *src)?),
-                    );
-                    conv
+                    let mut conv = quote_spanned!(start => ::sscanf::FromScanf);
+                    conv.extend(quote_spanned!(end => ::from_matches(&mut *src)));
+                    quote!({
+                        let value: #ty = #conv?;
+                        value
+                    })
                 });
 
                 (cap, conv)
@@ -189,10 +190,7 @@ impl RegexParts {
 
         // add the last regex_part
         {
-            let suffix = format
-                .parts
-                .last()
-                .unwrap();
+            let suffix = format.parts.last().unwrap();
             ret.regex_builder.push(quote!(#suffix));
         }
 

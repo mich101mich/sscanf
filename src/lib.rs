@@ -20,6 +20,10 @@
 // TODO: Talk about regex escaping (JavaScript)
 // TODO: Remove chrono
 // TODO: Remove error
+// TODO: from_scanf docs
+// TODO: derive: add docs, add tests, Generics
+// TODO: fail tests for type index, format options, derive
+// TODO: Add more format options
 
 //! A sscanf (inverse of format!()) Macro based on Regex
 //!

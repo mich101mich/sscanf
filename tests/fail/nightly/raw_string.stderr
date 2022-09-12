@@ -1,0 +1,39 @@
+error: more placeholders than types provided
+ --> tests/fail/nightly/raw_string.rs:2:32
+  |
+2 |     sscanf::scanf!("hi", r"asdf{}asdf");
+  |                                ^^
+
+error: invalid character in radix option.
+       Hint: Regex format options must start and end with '/'
+ --> tests/fail/nightly/raw_string.rs:3:35
+  |
+3 |     sscanf::scanf!("hi", r"asdf{:bob}asdf", usize);
+  |                                   ^
+
+error: invalid character in radix option.
+       Hint: Regex format options must start and end with '/'
+ --> tests/fail/nightly/raw_string.rs:4:40
+  |
+4 |     sscanf::scanf!("hi", r"asdf{usize:bob}asdf");
+  |                                        ^
+
+error: more placeholders than types provided
+ --> tests/fail/nightly/raw_string.rs:5:34
+  |
+5 |     sscanf::scanf!("hi", r##"asdf{}asdf"##);
+  |                                  ^^
+
+error: invalid character in radix option.
+       Hint: Regex format options must start and end with '/'
+ --> tests/fail/nightly/raw_string.rs:6:37
+  |
+6 |     sscanf::scanf!("hi", r##"asdf{:bob}asdf"##, usize);
+  |                                     ^
+
+error: invalid character in radix option.
+       Hint: Regex format options must start and end with '/'
+ --> tests/fail/nightly/raw_string.rs:7:42
+  |
+7 |     sscanf::scanf!("hi", r##"asdf{usize:bob}asdf"##);
+  |                                          ^

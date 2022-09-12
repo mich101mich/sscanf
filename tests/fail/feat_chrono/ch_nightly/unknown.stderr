@@ -1,5 +1,0 @@
-error: Unknown chrono format O. See https://docs.rs/chrono/^0.4/chrono/format/strftime/ for a full list
- --> $DIR/unknown.rs:2:30
-  |
-2 |     sscanf::scanf!("hi", "{:%O}", DateTime);
-  |                              ^

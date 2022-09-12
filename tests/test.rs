@@ -314,28 +314,17 @@ fn custom_regex_with_capture_group() {
 
 #[test]
 fn failing_tests() {
+    let root = std::path::PathBuf::from("tests/fail");
+    let mut paths = vec![root.clone()];
+
     // Error Messages are different in nightly => Different .stderr files
     let nightly = rustc_version::version_meta().unwrap().channel == rustc_version::Channel::Nightly;
-    let channel = if nightly { "ch_nightly" } else { "ch_stable" };
-    let os = if cfg!(windows) {
-        "os_windows"
-    } else {
-        "os_linux"
-    };
+    let channel = if nightly { "nightly" } else { "stable" };
+    paths.push(root.join(channel));
 
     let t = trybuild::TestCases::new();
-
-    let path = std::path::PathBuf::from("tests/fail");
-    run_fail_test(&t, &path);
-    run_fail_test(&t, &path.join(channel));
-
-    let os_path = path.join(os);
-    run_fail_test(&t, &os_path);
-    run_fail_test(&t, &os_path.join(channel));
-}
-
-fn run_fail_test(t: &trybuild::TestCases, path: &std::path::Path) {
-    if path.exists() {
-        t.compile_fail(path.join("*.rs").display().to_string());
+    for mut path in paths {
+        path.push("*.rs");
+        t.compile_fail(path.display().to_string());
     }
 }

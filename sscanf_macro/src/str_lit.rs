@@ -4,6 +4,7 @@ use proc_macro2::{Literal, Span};
 use quote::ToTokens;
 use syn::{parse::ParseBuffer, LitStr};
 use unicode_segmentation::UnicodeSegmentation;
+use unicode_width::UnicodeWidthStr;
 
 use crate::{Error, Result};
 
@@ -127,8 +128,11 @@ impl<'a> StrLitSlice<'a> {
 
     /// Generates a crate::Error with the given message for the slice.
     pub fn error(&self, message: &str) -> Error {
+        let byte_start = self.src.grapheme_indices[self.range.start];
+        let byte_end = self.src.grapheme_indices[self.range.end]; // works because of the past-the-end index
+
         // subspan allows pointing at a span that is not the whole string, but it only works in nightly
-        if let Some(span) = self.src.span_provider.subspan(self.range.clone()) {
+        if let Some(span) = self.src.span_provider.subspan(byte_start..byte_end) {
             Error::new(span, message)
         } else {
             // Workaround for stable: print a copy of the entire format string into the error message
@@ -137,16 +141,19 @@ impl<'a> StrLitSlice<'a> {
             writeln!(m, "{}:", message).unwrap();
 
             let text_prefix = "At ";
-            let text_prefix_len = text_prefix.graphemes(true).count();
+            let text_prefix_len = 3; // length of "At "
 
             writeln!(m, "{}{}", text_prefix, self.src.text).unwrap();
 
+            let squiggle_start = UnicodeWidthStr::width(&self.src.text[..byte_start]);
+            let squiggle_len = UnicodeWidthStr::width(&self.src.text[byte_start..byte_end]);
+
             // Add the line with the error squiggles
             // start already includes the string prefix
-            for _ in 0..(text_prefix_len + self.range.start) {
+            for _ in 0..(text_prefix_len + squiggle_start) {
                 m.push(' ');
             }
-            for _ in self.range.clone() {
+            for _ in 0..squiggle_len {
                 m.push('^');
             }
             Error::new_spanned(&self.src.span_provider, m)
