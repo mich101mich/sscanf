@@ -15,7 +15,7 @@ pub struct Placeholder<'a> {
 }
 
 impl<'a> Placeholder<'a> {
-    pub fn new<I: Iterator<Item = (usize, char)>>(
+    pub fn new<'b, I: Iterator<Item = (usize, GraphemeItem<'b>)>>(
         input: &'_ mut std::iter::Peekable<I>,
         src: &'_ StrLitSlice<'a>,
         start: usize,

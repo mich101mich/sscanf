@@ -36,7 +36,7 @@
 ///     type Err = std::num::ParseIntError;
 ///     fn from_str(s: &str) -> Result<Self, Self::Err> {
 ///         let mut iter = s.split('/');
-///         let num = iter.next().unwrap_or_else(|| panic!("a:{}:{}", file!(), line!())).parse::<isize>()?;
+///         let num = iter.next().unwrap().parse::<isize>()?;
 ///         let mut denom = 1;
 ///         if let Some(d) = iter.next() {
 ///             denom = d.parse::<usize>()?;
@@ -56,7 +56,7 @@
 /// #     type Err = std::num::ParseIntError;
 /// #     fn from_str(s: &str) -> Result<Self, Self::Err> {
 /// #         let mut iter = s.split('/');
-/// #         let num = iter.next().unwrap_or_else(|| panic!("a:{}:{}", file!(), line!())).parse::<isize>()?;
+/// #         let num = iter.next().unwrap().parse::<isize>()?;
 /// #         let mut denom = 1;
 /// #         if let Some(d) = iter.next() {
 /// #             denom = d.parse::<usize>()?;

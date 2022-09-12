@@ -1,4 +1,4 @@
-error: Missing Type for given '{}' Placeholder:
+error: more placeholders than types provided:
        At r"asdf{}asdf"
                 ^^
  --> tests/fail/ch_stable/raw_string.rs:2:26
@@ -6,25 +6,25 @@ error: Missing Type for given '{}' Placeholder:
 2 |     sscanf::scanf!("hi", r"asdf{}asdf");
   |                          ^^^^^^^^^^^^^
 
-error: Unknown format option: 'bob'.
+error: invalid character in radix option.
        Hint: Regex format options must start and end with '/':
        At r"asdf{:bob}asdf"
-                  ^^^
+                   ^
  --> tests/fail/ch_stable/raw_string.rs:3:26
   |
 3 |     sscanf::scanf!("hi", r"asdf{:bob}asdf", usize);
   |                          ^^^^^^^^^^^^^^^^^
 
-error: Unknown format option: 'bob'.
+error: invalid character in radix option.
        Hint: Regex format options must start and end with '/':
        At r"asdf{usize:bob}asdf"
-                       ^^^
+                        ^
  --> tests/fail/ch_stable/raw_string.rs:4:26
   |
 4 |     sscanf::scanf!("hi", r"asdf{usize:bob}asdf");
   |                          ^^^^^^^^^^^^^^^^^^^^^^
 
-error: Missing Type for given '{}' Placeholder:
+error: more placeholders than types provided:
        At r##"asdf{}asdf"##
                   ^^
  --> tests/fail/ch_stable/raw_string.rs:5:26
@@ -32,19 +32,19 @@ error: Missing Type for given '{}' Placeholder:
 5 |     sscanf::scanf!("hi", r##"asdf{}asdf"##);
   |                          ^^^^^^^^^^^^^^^^^
 
-error: Unknown format option: 'bob'.
+error: invalid character in radix option.
        Hint: Regex format options must start and end with '/':
        At r##"asdf{:bob}asdf"##
-                    ^^^
+                     ^
  --> tests/fail/ch_stable/raw_string.rs:6:26
   |
 6 |     sscanf::scanf!("hi", r##"asdf{:bob}asdf"##, usize);
   |                          ^^^^^^^^^^^^^^^^^^^^^
 
-error: Unknown format option: 'bob'.
+error: invalid character in radix option.
        Hint: Regex format options must start and end with '/':
        At r##"asdf{usize:bob}asdf"##
-                         ^^^
+                          ^
  --> tests/fail/ch_stable/raw_string.rs:7:26
   |
 7 |     sscanf::scanf!("hi", r##"asdf{usize:bob}asdf"##);

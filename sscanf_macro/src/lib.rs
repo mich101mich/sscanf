@@ -161,7 +161,7 @@ fn scanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
         param.extend(quote_spanned!(end => (#src_str)));
         // wrapping the input in a manual call to str::get ensures that the user
         // gets an appropriate error message if they try to use a non-string input
-        quote!(::std::primitive::str::get(#param, ..).unwrap_or_else(|| panic!("a:{}:{}", file!(), line!())))
+        quote!(::std::primitive::str::get(#param, ..).unwrap())
     };
     quote!(
         {

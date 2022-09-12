@@ -27,7 +27,7 @@ pub fn parse_struct(name: Ident, attrs: Vec<Attribute>, data: DataStruct) -> Res
                 let (name, elem) = configs
                     .into_iter()
                     .next()
-                    .unwrap_or_else(|| panic!("a:{}:{}", file!(), line!()));
+                    .unwrap();
                 let msg = format!("unexpected option: `{}`. Expected `format`", name);
                 return Error::err_spanned(elem.name, msg);
             }

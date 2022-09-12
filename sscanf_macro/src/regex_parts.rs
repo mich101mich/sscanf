@@ -43,6 +43,39 @@ pub enum TypeSource<'a> {
     Inline { ty: Type, src: StrLitSlice<'a> },
     External(usize),
 }
+#[allow(unused)]
+impl<'a> TypeSource<'a> {
+    pub fn ty<'b>(&'b self, types: &'b [Type]) -> &'b Type {
+        match self {
+            TypeSource::Inline { ty, .. } => ty,
+            TypeSource::External(index) => &types[*index],
+        }
+    }
+    pub fn span(&self, types: &[Type]) -> Span {
+        match self {
+            TypeSource::Inline { src, .. } => src.span(),
+            TypeSource::External(index) => types[*index].span(),
+        }
+    }
+    pub fn full_span(&self, types: &[Type]) -> (Span, Span) {
+        match self {
+            TypeSource::Inline { src, .. } => {
+                let span = src.span();
+                (span, span)
+            }
+            TypeSource::External(index) => full_span(&types[*index]),
+        }
+    }
+    pub fn err<T>(&self, types: &[Type], message: &str) -> Result<T> {
+        Err(self.error(types, message))
+    }
+    pub fn error(&self, types: &[Type], message: &str) -> Error {
+        match self {
+            TypeSource::Inline { src, .. } => src.error(message),
+            TypeSource::External(index) => Error::new_spanned(&types[*index], message),
+        }
+    }
+}
 
 pub struct RegexParts {
     pub regex_builder: Vec<TokenStream>,
@@ -78,20 +111,23 @@ impl RegexParts {
             ret.regex_builder.push(quote!(#prefix));
 
             let field = &fields[*index];
-            let (ty, (start, end)) = match &field.ty_source {
-                TypeSource::Inline { ty, src } => {
-                    let span = src.span();
-                    (ty, (span, span))
-                }
-                TypeSource::External(i) => (&types[*i], full_span(&types[*i])),
-            };
+            let ty = field.ty_source.ty(types);
+            let ty_string = ty.to_token_stream().to_string();
+            let (start, end) = field.ty_source.full_span(types);
             let ident = &field.ident;
+
+            let mut converter = None;
 
             let regex = if let Some(config) = ph.config.as_ref() {
                 use FormatOptionKind::*;
                 match config.kind {
                     Regex(ref regex) => quote!(#regex),
-                    Radix(ref _radix) => quote!(".*?"),
+                    Radix(ref radix) => {
+                        let (regex, conv) =
+                            regex_from_radix(*radix, ty, &field.ty_source, &ty_string, types)?;
+                        converter = Some(conv);
+                        regex
+                    }
                 }
             } else {
                 // proc_macros don't have any type information, so we can't check if the type
@@ -109,9 +145,7 @@ impl RegexParts {
             };
             ret.regex_builder.push(regex);
 
-            let (num_captures, converter) = if handle_str
-                && ty.to_token_stream().to_string() == "str"
-            {
+            let (num_captures, converter) = if handle_str && ty_string == "str" {
                 // str is special, because the type is actually &str
                 let cap = quote_spanned!(start => 1);
                 let conv = quote_spanned!(start => src.next().expect("c").expect("d").as_str());
@@ -120,8 +154,13 @@ impl RegexParts {
                 let mut cap = quote_spanned!(start => <#ty as );
                 cap.extend(quote_spanned!(end => ::sscanf::FromScanf>::NUM_CAPTURES));
 
-                let mut conv = quote_spanned!(start => <#ty as );
-                conv.extend(quote_spanned!(end => ::sscanf::FromScanf>::from_matches(&mut *src)?));
+                let conv = converter.unwrap_or_else(|| {
+                    let mut conv = quote_spanned!(start => <#ty as );
+                    conv.extend(
+                        quote_spanned!(end => ::sscanf::FromScanf>::from_matches(&mut *src)?),
+                    );
+                    conv
+                });
 
                 (cap, conv)
             };
@@ -153,7 +192,7 @@ impl RegexParts {
             let suffix = format
                 .parts
                 .last()
-                .unwrap_or_else(|| panic!("a:{}:{}", file!(), line!()));
+                .unwrap();
             ret.regex_builder.push(quote!(#suffix));
         }
 
@@ -173,5 +212,95 @@ impl RegexParts {
         quote!({
             #(#from_matches_builder),*
         })
+    }
+}
+
+fn regex_from_radix(
+    radix: u8,
+    ty: &Type,
+    ty_source: &TypeSource,
+    ty_string: &str,
+    types: &[Type],
+) -> Result<(TokenStream, TokenStream)> {
+    let num_digits_binary = binary_length(&ty_string).ok_or_else(|| {
+        let msg = "Radix options only work on primitive numbers from std with no path or alias";
+        ty_source.error(types, msg)
+    })?;
+
+    let signed = ty_string.starts_with('i');
+    let sign = if signed { "[-+]?" } else { "\\+?" };
+
+    let prefix = match radix {
+        2 => Some("0b"),
+        8 => Some("0o"),
+        16 => Some("0x"),
+        _ => None,
+    };
+    let prefix_string = prefix.map(|s| format!("(?:{})?", s)).unwrap_or_default();
+
+    // possible characters for digits
+    use std::cmp::Ordering::*;
+    let possible_chars = match radix.cmp(&10) {
+        Less => format!("0-{}", radix - 1),
+        Equal => "0-9aA".to_string(),
+        Greater => {
+            let last_letter = (b'a' + radix - 10) as char;
+            format!("0-9a-{}A-{}", last_letter, last_letter.to_uppercase())
+        }
+    };
+
+    // digit conversion:   num_digits_in_base_a = num_digits_in_base_b / log(b) * log(a)
+    // where log can be any type of logarithm. Since binary is base 2 and log_2(2) = 1,
+    // we can use log_2 to simplify the math
+    let num_digits = f32::ceil(num_digits_binary as f32 / f32::log2(radix as f32)) as u8;
+
+    let regex = format!(
+        "{sign}{prefix}[{digits}]{{1,{n}}}",
+        sign = sign,
+        prefix = prefix_string,
+        digits = possible_chars,
+        n = num_digits
+    );
+
+    // we know ty is a primitive type without path, which are always just one token
+    // => no Span voodoo necessary
+    let span = ty_source.span(types);
+
+    let radix = radix as u32;
+    let converter = if let Some(prefix) = prefix {
+        if signed {
+            quote_spanned!(span => {
+                let input = src.next().expect("e").expect("f").as_str();
+                let s = input.strip_prefix(&['+', '-']).unwrap_or(input);
+                let s = s.strip_prefix(#prefix).unwrap_or(s);
+                #ty::from_str_radix(s, #radix).map(|i| if input.starts_with('-') { -i } else { i })?
+            })
+        } else {
+            quote_spanned!(span => {
+                let input = src.next().expect("e").expect("f").as_str();
+                let s = input.strip_prefix('+').unwrap_or(input);
+                let s = s.strip_prefix(#prefix).unwrap_or(s);
+                #ty::from_str_radix(s, #radix)?
+            })
+        }
+    } else {
+        quote_spanned!(span => {
+            let input = src.next().expect("e").expect("f").as_str();
+            #ty::from_str_radix(input, #radix)?
+        })
+    };
+
+    Ok((quote!(#regex), converter))
+}
+
+fn binary_length(ty: &str) -> Option<u32> {
+    match ty {
+        "u8" | "i8" => Some(u8::BITS),
+        "u16" | "i16" => Some(u16::BITS),
+        "u32" | "i32" => Some(u32::BITS),
+        "u64" | "i64" => Some(u64::BITS),
+        "u128" | "i128" => Some(u128::BITS),
+        "usize" | "isize" => Some(usize::BITS),
+        _ => None,
     }
 }

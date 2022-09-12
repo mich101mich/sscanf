@@ -16,7 +16,6 @@
     rustdoc::bare_urls
 )]
 #![cfg_attr(doc_cfg, feature(doc_cfg))]
-
 // TODO: Update format options
 // TODO: Talk about regex escaping (JavaScript)
 // TODO: Remove chrono
@@ -43,7 +42,7 @@
 //!
 //! // alternative syntax:
 //! let parsed2 = scanf!(s, "Hello {str}{usize}!");
-//! assert_eq!(parsed, parsed2);
+//! assert_eq!(parsed2.unwrap(), ("World", 5));
 //! ```
 //! `scanf!()` takes a format String like `format!()`, but doesn't write
 //! the values into the placeholders (`{}`), but extracts the values at those `{}` into the return
@@ -54,10 +53,9 @@
 //! # use sscanf::scanf;
 //! let s = "Text that doesn't match the format string";
 //! let parsed = scanf!(s, "Hello {}_{}!", str, usize);
-//! assert!(matches!(parsed, Err(sscanf::Error::RegexMatchFailed{..})));
+//! let error_message = parsed.unwrap_err().to_string();
+//! assert_eq!(error_message, "scanf: The regex did not match the input");
 //! ```
-//! **IMPORTANT**: The returned Error borrows from the input string to avoid unnecessary allocations.
-//! This means that YOU CANNOT USE '`?`' ON THE RESULT!
 //!
 //! Note that the original C-function and this Crate are called sscanf, which is the technically
 //! correct version in this context. `scanf` (with one `s`) is a similar C-function that reads a
@@ -94,25 +92,25 @@
 //! let input = "A Sentence with Spaces. Another Sentence.";
 //! // str and String do the same, but String clones from the input string
 //! // to take ownership instead of borrowing.
-//! let (a, b) = scanf!(input, "{String}. {String}.").unwrap_or_else(|| panic!("a:{}:{}", file!(), line!()));
+//! let (a, b) = scanf!(input, "{String}. {String}.").unwrap();
 //! assert_eq!(a, "A Sentence with Spaces");
 //! assert_eq!(b, "Another Sentence");
 //!
 //! // Number format options
 //! let input = "0xab01  0o127  101010  1Z";
 //! let parsed = scanf!(input, "{usize:x}  {i32:o}  {u8:b}  {u32:r36}");
-//! let (a, b, c, d) = parsed.unwrap_or_else(|| panic!("a:{}:{}", file!(), line!()));
+//! let (a, b, c, d) = parsed.unwrap();
 //! assert_eq!(a, 0xab01);     // Hexadecimal
 //! assert_eq!(b, 0o127);      // Octal
 //! assert_eq!(c, 0b101010);   // Binary
 //!
 //! assert_eq!(d, 71);         // any radix (r36 = Radix 36)
-//! assert_eq!(d, u32::from_str_radix("1Z", 36).unwrap_or_else(|| panic!("a:{}:{}", file!(), line!())));
+//! assert_eq!(d, u32::from_str_radix("1Z", 36).unwrap());
 //!
 //! let input = "color: #D4AF37";
 //! // Number types take their size into account, and hexadecimal u8 can
 //! // have at most 2 digits => only possible match is 2 digits each.
-//! let (r, g, b) = scanf!(input, "color: #{u8:x}{u8:x}{u8:x}").unwrap_or_else(|| panic!("a:{}:{}", file!(), line!()));
+//! let (r, g, b) = scanf!(input, "color: #{u8:x}{u8:x}{u8:x}").unwrap();
 //! assert_eq!((r, g, b), (0xD4, 0xAF, 0x37));
 //! ```
 //! The input in this case is a `&'static str`, but in can be `String`, `&str`, `&String`, ...
@@ -189,7 +187,7 @@
 //! ```
 //! # use sscanf::scanf;
 //! let input = "Match 4 digits: 123456";
-//! let parsed = scanf!(input, r"Match 4 digits: {usize:/\d\{4\}/}{usize}");
+//! let parsed = scanf!(input, r"Match 4 digits: {usize:/\d{4}/}{usize}");
 //!                            // raw string r"" to write \d instead of \\d
 //!
 //! // regex  \d{4}  matches exactly 4 digits
@@ -242,10 +240,10 @@
 //!
 //! let input = "[1518-10-08 23:51] Guard #751 begins shift";
 //! let parsed = scanf!(input, "{TimeStamp} Guard #{usize} begins shift");
-//! assert_eq!(parsed, Ok((TimeStamp{
+//! assert_eq!(parsed.unwrap(), (TimeStamp{
 //!     year: 1518, month: 10, day: 8,
 //!     hour: 23, minute: 51
-//! }, 751)));
+//! }, 751));
 //! ```
 //!
 //! Implementing `RegexRepresentation` isn't _strictly_ necessary if you **always** supply a custom
@@ -361,22 +359,22 @@ pub use sscanf_macro::scanf;
 ///
 /// let output = regex.captures(input);
 /// assert!(output.is_some());
-/// let output = output.unwrap_or_else(|| panic!("a:{}:{}", file!(), line!()));
+/// let output = output.unwrap();
 ///
 /// let capture_5 = output.get(1);
 /// assert!(capture_5.is_some());
-/// assert_eq!(capture_5.unwrap_or_else(|| panic!("a:{}:{}", file!(), line!())).as_str(), "5");
+/// assert_eq!(capture_5.unwrap().as_str(), "5");
 ///
 /// let capture_negative_2 = output.get(2);
 /// assert!(capture_negative_2.is_some());
-/// assert_eq!(capture_negative_2.unwrap_or_else(|| panic!("a:{}:{}", file!(), line!())).as_str(), "-2");
+/// assert_eq!(capture_negative_2.unwrap().as_str(), "-2");
 /// ```
 pub use sscanf_macro::scanf_get_regex;
 
 /// Same as [`scanf`], but allows use of Regex in the format String.
 ///
 /// Signature and Parameters are the same as [`scanf`].
-/// 
+///
 /// ## Examples
 /// ```
 /// use sscanf::scanf_unescaped;
@@ -395,7 +393,7 @@ pub use sscanf_macro::scanf_get_regex;
 ///
 /// let input2 = "5.0.*3";
 /// let output2 = scanf!(input2, "{f32}.*{usize}"); // regular scanf is unaffected by special characters
-/// assert_eq!(output2, Ok((5.0, 3)));
+/// assert_eq!(output2.unwrap(), (5.0, 3));
 /// ```
 ///
 /// Note that the `{{` and `}}` Escaping for literal `{` and `}` is still in place:
