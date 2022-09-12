@@ -211,7 +211,7 @@ fn generate_regex(
 
     for ph in format.placeholders.iter() {
         let ty_source = if let Some(name) = ph.ident.as_ref() {
-            if let Ok(n) = name.text.parse::<usize>() {
+            if let Ok(n) = name.text().parse::<usize>() {
                 if n < types.len() {
                     visited[n] = true;
                     TypeSource::External(n)
@@ -311,7 +311,7 @@ fn to_type(src: &StrLitSlice) -> Result<Type> {
     // many parts to it with variable stuff and incomplete constructors, that's too
     // much work.
     let catcher = || -> syn::Result<Type> {
-        let tokens = src.text.parse::<TokenStream>()?;
+        let tokens = src.text().parse::<TokenStream>()?;
         let span = src.span();
         let path = syn::parse2::<Path>(quote_spanned!(span => #tokens))?;
         // we don't parse directly to a Type to give better error messages:

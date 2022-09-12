@@ -15,28 +15,31 @@ pub struct Placeholder<'a> {
 }
 
 impl<'a> Placeholder<'a> {
-    pub fn new<'b, I: Iterator<Item = (usize, GraphemeItem<'b>)>>(
+    pub fn new<I: Iterator<Item = (usize, char)>>(
         input: &'_ mut std::iter::Peekable<I>,
         src: &'_ StrLitSlice<'a>,
         start: usize,
     ) -> Result<Self> {
+        let mut ident_start = None;
         let mut ident = None;
         let mut has_colon = false;
         let mut end = None;
         while let Some((i, c)) = input.next() {
             if c == '}' {
-                if i > start + 1 {
-                    ident = Some(src.slice(start + 1..i));
+                if let Some(ident_start) = ident_start {
+                    ident = Some(src.slice(ident_start..i));
                 }
                 end = Some(i);
                 break;
             } else if c == ':' && !input.next_if(|(_, c)| *c == ':').is_some() {
                 // a single ':'
                 has_colon = true;
-                if i > start + 1 {
-                    ident = Some(src.slice(start + 1..i));
+                if let Some(ident_start) = ident_start {
+                    ident = Some(src.slice(ident_start..i));
                 }
                 break;
+            } else if ident_start.is_none() {
+                ident_start = Some(i);
             }
         }
         let mut config = None;
@@ -47,20 +50,20 @@ impl<'a> Placeholder<'a> {
         } else {
             // check if ident looks like the old format
             if let Some(ident) = ident.as_ref() {
-                if ident.text.starts_with('/')
+                if ident.text().starts_with('/')
                     || ident
-                        .text
+                        .text()
                         .strip_prefix('r')
                         .and_then(|s| s.parse::<usize>().ok())
                         .is_some()
-                    || matches!(ident.text, "x" | "o" | "b")
+                    || matches!(ident.text(), "x" | "o" | "b")
                 {
                     let msg = format!(
                         "It looks like you are using the old format.
 config options now require a ':' prefix like so: {{:{}}}.
 If this is actually a type whose name happens to match the old format, sorry.
 Please create an UpperCamelCased wrapper type for it.",
-                        ident.text
+                        ident.text()
                     );
                     return ident.err(&msg);
                 }

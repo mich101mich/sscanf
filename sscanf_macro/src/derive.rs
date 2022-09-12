@@ -83,7 +83,7 @@ pub fn parse_struct(name: Ident, attrs: Vec<Attribute>, data: DataStruct) -> Res
     let mut error = Error::builder();
     for ph in &format.placeholders {
         let index = if let Some(name) = ph.ident.as_ref() {
-            if let Ok(n) = name.text.parse::<usize>() {
+            if let Ok(n) = name.text().parse::<usize>() {
                 if n < fields.len() {
                     n
                 } else {
@@ -91,10 +91,10 @@ pub fn parse_struct(name: Ident, attrs: Vec<Attribute>, data: DataStruct) -> Res
                     error.with_error(name.error(&msg));
                     continue;
                 }
-            } else if let Some(i) = field_map.get(name.text) {
+            } else if let Some(i) = field_map.get(name.text()) {
                 *i
             } else {
-                error.with_error(name.error(&format!("field `{}` not found", name.text)));
+                error.with_error(name.error(&format!("field `{}` not found", name.text())));
                 continue;
             }
         } else {

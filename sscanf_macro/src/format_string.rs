@@ -1,38 +1,9 @@
 use super::*;
 
-use unicode_segmentation::UnicodeSegmentation;
-
 pub struct FormatString<'a> {
     pub src: StrLitSlice<'a>,
     pub placeholders: Vec<Placeholder<'a>>,
     pub parts: Vec<String>, // contains placeholders.len() + 1 escaped parts
-}
-
-pub enum GraphemeItem<'a> {
-    Char(char),
-    Other(&'a str),
-}
-impl GraphemeItem<'_> {
-    pub fn as_char(&self) -> Option<char> {
-        match self {
-            GraphemeItem::Char(c) => Some(*c),
-            GraphemeItem::Other(_) => None,
-        }
-    }
-    pub fn push_to(&self, out: &mut String) {
-        match self {
-            GraphemeItem::Char(c) => out.push(*c),
-            GraphemeItem::Other(s) => out.push_str(s),
-        }
-    }
-}
-impl PartialEq<char> for GraphemeItem<'_> {
-    fn eq(&self, other: &char) -> bool {
-        match self {
-            GraphemeItem::Char(c) => c == other,
-            GraphemeItem::Other(_) => false,
-        }
-    }
 }
 
 impl<'a> FormatString<'a> {
@@ -42,20 +13,7 @@ impl<'a> FormatString<'a> {
         let mut current_part = String::new();
 
         // keep the iterator as a variable to allow peeking and advancing in a sub-function
-        let mut iter = src
-            .text
-            .graphemes(true)
-            .map(|s| {
-                let mut iter = s.chars();
-                let c = iter.next().unwrap();
-                if iter.next().is_none() {
-                    GraphemeItem::Char(c)
-                } else {
-                    GraphemeItem::Other(s)
-                }
-            })
-            .enumerate()
-            .peekable();
+        let mut iter = src.text().char_indices().peekable();
 
         while let Some((i, c)) = iter.next() {
             if c == '{' {
@@ -78,15 +36,11 @@ impl<'a> FormatString<'a> {
                 }
             }
 
-            if escape_input
-                && c.as_char()
-                    .map(regex_syntax::is_meta_character)
-                    .unwrap_or(false)
-            {
+            if escape_input && regex_syntax::is_meta_character(c) {
                 current_part.push('\\');
             }
 
-            c.push_to(&mut current_part);
+            current_part.push(c);
         }
 
         parts.push(current_part);

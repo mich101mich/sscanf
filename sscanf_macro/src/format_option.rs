@@ -13,7 +13,7 @@ pub enum FormatOptionKind {
 }
 
 impl<'a> FormatOption<'a> {
-    pub fn new<'b, I: Iterator<Item = (usize, GraphemeItem<'b>)>>(
+    pub fn new<I: Iterator<Item = (usize, char)>>(
         input: &'_ mut std::iter::Peekable<I>,
         src: &'_ StrLitSlice<'a>,
         outer_start: usize,
@@ -23,16 +23,16 @@ impl<'a> FormatOption<'a> {
             .ok_or_else(|| src.slice(outer_start..).error(MISSING_CLOSE_STRING))?;
 
         match c {
-            GraphemeItem::Char('x' | 'o' | 'b' | 'r') => {
+            'x' | 'o' | 'b' | 'r' => {
                 let (radix, slice, end) =
-                    FormatOption::get_radix(input, src, c.as_char().unwrap(), start, outer_start)?;
+                    FormatOption::get_radix(input, src, c, start, outer_start)?;
                 let ret = Self {
                     src: slice,
                     kind: FormatOptionKind::Radix(radix),
                 };
                 Ok((ret, end))
             }
-            GraphemeItem::Char('/') => {
+            '/' => {
                 let mut end = None;
                 let mut regex = String::new();
                 while let Some((i, c)) = input.next() {
@@ -46,20 +46,26 @@ impl<'a> FormatOption<'a> {
                         if next != '/' {
                             regex.push('\\');
                         }
-                        next.push_to(&mut regex);
+                        regex.push(next);
                     } else {
-                        c.push_to(&mut regex);
+                        regex.push(c);
                     }
                 }
 
                 let end =
-                    end.ok_or_else(|| src.slice(start + 1..).error("missing '/' to end regex"))?;
+                    end.ok_or_else(|| src.slice(start..).error("missing '/' to end regex"))?;
 
                 // take } from input
-                if !input.next().map(|(_, c)| c == '}').unwrap_or(false) {
-                    let msg = "closing '/' has to be followed by '}'";
-                    return src.slice(end..=end + 1).err(msg);
-                }
+                let close_bracket_index = if let Some((i, c)) = input.next() {
+                    if c != '}' {
+                        return src
+                            .slice(i..=i)
+                            .err("end of regex '/' has to be followed by end of placeholder '}'");
+                    }
+                    i
+                } else {
+                    return src.slice(outer_start..).err(MISSING_CLOSE_STRING);
+                };
 
                 let src = src.slice(start..=end);
                 if let Err(err) = regex_syntax::Parser::new().parse(&regex) {
@@ -67,11 +73,11 @@ impl<'a> FormatOption<'a> {
                     return src.err(&msg);
                 }
                 let kind = FormatOptionKind::Regex(regex);
-                return Ok((Self { src, kind }, end + 1));
+                return Ok((Self { src, kind }, close_bracket_index));
             }
-            GraphemeItem::Char('}') => {
+            '}' => {
                 let msg = "format options cannot be empty. Consider removing the ':'";
-                return src.slice(start..=start + 1).err(msg);
+                return src.slice(start..=start).err(msg);
             }
             _ => {
                 let msg = "unrecognized format option.
@@ -81,41 +87,45 @@ Hint: Regex format options must start and end with '/'";
         }
     }
 
-    fn get_radix<'b, I: Iterator<Item = (usize, GraphemeItem<'b>)>>(
+    fn get_radix<I: Iterator<Item = (usize, char)>>(
         input: &'_ mut std::iter::Peekable<I>,
         src: &'_ StrLitSlice<'a>,
         c: char,
         start: usize,
         outer_start: usize,
     ) -> Result<(u8, StrLitSlice<'a>, usize)> {
+        let mut number_offset = None;
         let mut end = None;
+
         while let Some((i, c)) = input.next() {
             if c == '}' {
                 end = Some(i);
                 break;
-            } else if !c.as_char().map(|c| c.is_numeric()).unwrap_or(false) {
-                return src.slice(i..=i).err(
-                    "invalid character in radix option.
-Hint: Regex format options must start and end with '/'",
-                );
+            } else if number_offset.is_none() {
+                number_offset = Some(i - start);
             }
         }
+
         let end = end.ok_or_else(|| src.slice(outer_start..).error(MISSING_CLOSE_STRING))?;
         let slice = src.slice(start..end);
 
         let radix: u8 = if c == 'r' {
-            src.slice(start + 1..end).text.parse().map_err(|_| {
-                slice.error(
-                    "invalid radix option.
-Hint: Regex format options must start and end with '/'",
-                )
+            let number_offset = number_offset.ok_or_else(|| {
+                slice.error("radix option 'r' must be followed by the radix number")
+            })?;
+
+            let number = slice.slice(number_offset..);
+
+            number.text().parse().map_err(|_| {
+                let msg = "invalid number after radix option 'r'.
+Hint: If this was meant to be a regex option, surround it with '/'";
+                number.error(msg)
             })?
         } else {
-            if end != start + 1 {
-                return slice.err(
-                    "unrecognized radix option.
-Hint: Regex format options must start and end with '/'",
-                );
+            if let Some(number_offset) = number_offset {
+                let msg = "radix options 'x', 'o', 'b' cannot be followed by anything.
+Hint: If this was meant to be a regex option, surround it with '/'";
+                return slice.slice(number_offset..).err(msg);
             }
             match c {
                 'x' => 16,
