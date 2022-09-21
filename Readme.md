@@ -30,7 +30,7 @@ If matching the format string failed, an Error is returned:
 ```rust
 let s = "Text that doesn't match the format string";
 let parsed = scanf!(s, "Hello {}{}!", str, usize);
-assert!(matches!(parsed, sscanf::Error::RegexMatchFailed{..}));
+assert!(matches!(parsed, sscanf::Error::RegexMatchFailed));
 ```
 **IMPORTANT**: The returned Error borrows from the input string to avoid unnecessary allocations.
 This means that YOU CANNOT USE '`?`' ON THE RESULT!

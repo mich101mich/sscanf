@@ -170,7 +170,7 @@ fn scanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
             let input: &str = #src_str;
             #[allow(clippy::needless_question_mark)]
             REGEX.captures(input)
-                .ok_or_else::<Box<dyn ::std::error::Error>, _>(|| ::std::boxed::Box::new(::sscanf::RegexMatchFailed))
+                .ok_or_else::<Box<dyn ::std::error::Error>, _>(|| ::std::boxed::Box::new(::sscanf::ScanfMatchFailed))
                 .and_then(|cap| {
                     let mut src = cap.iter();
                     let src = &mut src;

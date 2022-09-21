@@ -68,9 +68,18 @@ impl<'a> FormatOption<'a> {
                 };
 
                 let src = src.slice(start..=end);
-                if let Err(err) = regex_syntax::Parser::new().parse(&regex) {
-                    let msg = format!("{}\n\nIn custom Regex format option", err);
-                    return src.err(&msg);
+                match regex_syntax::Parser::new().parse(&regex) {
+                    Ok(hir) => {
+                        if contains_capture_group(&hir) {
+                            let msg = "custom regex can't contain capture groups.
+Either make them non-capturing by adding '?:' after the '(' or remove/escape the '(' and ')'";
+                            return src.err(msg);
+                        }
+                    }
+                    Err(err) => {
+                        let msg = format!("{}\n\nIn custom Regex format option", err);
+                        return src.err(&msg);
+                    }
                 }
                 let kind = FormatOptionKind::Regex(regex);
                 return Ok((Self { src, kind }, close_bracket_index));
@@ -139,5 +148,20 @@ Hint: If this was meant to be a regex option, surround it with '/'";
             return slice.err("radix must be between 2 and 36");
         }
         Ok((radix, slice, end))
+    }
+}
+
+fn contains_capture_group(hir: &regex_syntax::hir::Hir) -> bool {
+    use regex_syntax::hir::HirKind::*;
+    match hir.kind() {
+        Group(g) => {
+            if g.kind != regex_syntax::hir::GroupKind::NonCapturing {
+                return true;
+            }
+            contains_capture_group(g.hir.as_ref())
+        }
+        Concat(c) | Alternation(c) => c.iter().any(contains_capture_group),
+        Repetition(r) => contains_capture_group(r.hir.as_ref()),
+        _ => false,
     }
 }

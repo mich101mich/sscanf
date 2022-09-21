@@ -1,6 +1,6 @@
-if "%RUSTDOCFLAGS%"=="" (
-    set RUSTDOCFLAGS=--cfg doc_cfg
-    cargo +nightly doc --all-features --open
+if "%DOC_OPEN%"=="" (
+    set DOC_OPEN="yes"
+    cargo +nightly doc --open
 ) else (
-    cargo +nightly doc --all-features
+    cargo +nightly doc
 )

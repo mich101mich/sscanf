@@ -149,7 +149,7 @@ pub fn parse_struct(name: Ident, attrs: Vec<Attribute>, data: DataStruct) -> Res
     let from_matches = regex_parts.from_matches();
     let from_scanf_impl = quote!(
         impl ::sscanf::FromScanf for #name {
-            type Err = FromScanfFailedError;
+            type Err = ::sscanf::FromScanfFailedError;
             const NUM_CAPTURES: usize = #num_captures;
             fn from_matches(src: &mut ::sscanf::regex::SubCaptureMatches) -> ::std::result::Result<Self, Self::Err> {
                 let start_len = src.len();
@@ -159,7 +159,7 @@ pub fn parse_struct(name: Ident, attrs: Vec<Attribute>, data: DataStruct) -> Res
                 let mut catcher = || -> ::std::result::Result<Self, ::std::boxed::Box<dyn ::std::error::Error>> {
                     Ok(#name #from_matches)
                 };
-                let res = catcher().map_err(|error| FromScanfFailedError {
+                let res = catcher().map_err(|error| ::sscanf::FromScanfFailedError {
                     type_name: stringify!(#name),
                     error,
                 })?;

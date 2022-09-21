@@ -50,6 +50,10 @@ macro_rules! impl_wrapper_ops {
 /// See [FromStr on f32](https://doc.rust-lang.org/std/primitive.f32.html#impl-FromStr) for the
 /// full syntax
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[deprecated(
+    since = "0.4.0",
+    note = "use \"{f32:#}\" instead"
+)]
 pub struct FullF32(pub f32);
 
 impl std::str::FromStr for FullF32 {
@@ -76,6 +80,10 @@ impl_wrapper_ops!(FullF32, f32);
 ///
 /// See [`FullF32`] for Details
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[deprecated(
+    since = "0.4.0",
+    note = "use \"{f64:#}\" instead"
+)]
 pub struct FullF64(pub f64);
 
 impl std::str::FromStr for FullF64 {

@@ -10,10 +10,36 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
-
+  stable:
     runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Rust Cache
+      uses: Swatinem/rust-cache@v1.2.0
+    - name: rust-toolchain
+      uses: actions-rs/toolchain@v1.0.6
+      with:
+        toolchain: stable
+    - name: Run tests
+      run: cargo +stable test
 
+  nightly:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Rust Cache
+      uses: Swatinem/rust-cache@v1.2.0
+    - name: rust-toolchain
+      uses: actions-rs/toolchain@v1.0.6
+      with:
+        toolchain: nightly
+    - name: Run tests
+      run: cargo +nightly test
+    - name: Run docs
+      run: cargo +nightly doc
+
+  minimal-versions:
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
     - name: Rust Cache
@@ -26,13 +52,7 @@ jobs:
       uses: actions-rs/toolchain@v1.0.6
       with:
         toolchain: nightly
-    - name: Run tests
-      run: cargo +stable test
-    - name: Run feature tests
-      run: cargo +stable test --all-features
-    - name: Run nightly tests
-      run: cargo +nightly test
-    - name: Run nightly feature tests
-      run: cargo +nightly test --all-features
-    - name: Run docs
-      run: export RUSTDOCFLAGS="--cfg doc_cfg" && cargo +nightly doc --all-features
+    - name: Run minimal version tests
+      run: cargo +nightly update -Z minimal-versions && cargo +stable test
+    - name: Run minimal version nightly tests
+      run: cargo +nightly update -Z minimal-versions && cargo +nightly test

@@ -9,7 +9,7 @@
 /// unexpected parsing failures.
 ///
 /// TODO: Talk abound concatcp!() and formatcp!()
-/// 
+///
 /// **Note:** The parser uses indexing to access capture groups. To avoid messing with the
 /// indexing, the regex should not contain any capture groups by using the `(?:)` syntax
 /// on any round brackets:
@@ -19,69 +19,35 @@
 /// ## Example
 /// Let's say we want to add a Fraction parser
 /// ```
+/// use sscanf::FromScanf;
+/// #[derive(FromScanf)]
 /// # #[derive(Debug, PartialEq)]
+/// #[scanf(format = "{}/{}")] // placeholders are automatically indexed in order
 /// struct Fraction(isize, usize);
 /// ```
-/// Which can be obtained from any string of the kind `±X/Y` or just `X`
-/// ```
-/// # #[derive(Debug, PartialEq)]
-/// # struct Fraction(isize, usize);
-/// impl sscanf::RegexRepresentation for Fraction {
-///     /// matches an optional '-' or '+' followed by a number.
-///     /// possibly with a '/' and another Number
-///     const REGEX: &'static str = r"[-+]?\d+(?:/\d+)?";
-///     //                                     ^^ escapes the group. Has to be used on any ( ) in a regex.
-/// }
-/// impl std::str::FromStr for Fraction {
-///     type Err = std::num::ParseIntError;
-///     fn from_str(s: &str) -> Result<Self, Self::Err> {
-///         let mut iter = s.split('/');
-///         let num = iter.next().unwrap().parse::<isize>()?;
-///         let mut denom = 1;
-///         if let Some(d) = iter.next() {
-///             denom = d.parse::<usize>()?;
-///         }
-///         Ok(Fraction(num, denom))
-///     }
-/// }
-/// ```
+/// Which can be obtained from any string of the kind `±X/Y`
+///
 /// Now we can use this `Fraction` struct in `scanf`:
 /// ```
-/// # #[derive(Debug, PartialEq)]
+/// # use sscanf::FromScanf;
+/// # #[derive(Debug, PartialEq, FromScanf)]
+/// #[scanf(format = "{}/{}")]
 /// # struct Fraction(isize, usize);
-/// # impl sscanf::RegexRepresentation for Fraction {
-/// #     const REGEX: &'static str = r"[-+]?\d+(?:/\d+)?";
-/// # }
-/// # impl std::str::FromStr for Fraction {
-/// #     type Err = std::num::ParseIntError;
-/// #     fn from_str(s: &str) -> Result<Self, Self::Err> {
-/// #         let mut iter = s.split('/');
-/// #         let num = iter.next().unwrap().parse::<isize>()?;
-/// #         let mut denom = 1;
-/// #         if let Some(d) = iter.next() {
-/// #             denom = d.parse::<usize>()?;
-/// #         }
-/// #         Ok(Fraction(num, denom))
-/// #     }
-/// # }
 /// use sscanf::scanf;
 ///
-/// let output = scanf!("2/5", "{}", Fraction);
+/// let output = scanf!("2/5", "{Fraction}");
 /// assert_eq!(output.unwrap(), Fraction(2, 5));
 ///
-/// let output = scanf!("-25/3", "{}", Fraction);
+/// let output = scanf!("-25/3", "{Fraction}");
 /// assert_eq!(output.unwrap(), Fraction(-25, 3));
 ///
-/// let output = scanf!("8", "{}", Fraction);
-/// assert_eq!(output.unwrap(), Fraction(8, 1));
-///
-/// let output = scanf!("6e/3", "{}", Fraction);
+/// let output = scanf!("6e/3", "{Fraction}");
 /// assert!(output.is_err());
 ///
-/// let output = scanf!("6/-3", "{}", Fraction);
+/// let output = scanf!("6/-3", "{Fraction}");
 /// assert!(output.is_err()); // only first number can be negative
 ///
-/// let output = scanf!("6/3", "{}", Fraction);
+/// let output = scanf!("6/3", "{Fraction}");
 /// assert_eq!(output.unwrap(), Fraction(6, 3));
 /// ```
 pub trait RegexRepresentation {

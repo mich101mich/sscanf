@@ -1,14 +1,14 @@
 use std::error::Error;
 
-/// The Error returned by scanf if the regex doesn't match the input.
+/// The Error returned by scanf if the input does not match the format string.
 #[derive(Debug, Clone, Copy)]
-pub struct RegexMatchFailed;
+pub struct ScanfMatchFailed;
 
-impl Error for RegexMatchFailed {}
+impl Error for ScanfMatchFailed {}
 
-impl std::fmt::Display for RegexMatchFailed {
+impl std::fmt::Display for ScanfMatchFailed {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "scanf: The regex did not match the input")
+        write!(f, "scanf: The input did not match the format string")
     }
 }
 

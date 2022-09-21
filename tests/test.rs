@@ -237,7 +237,7 @@ fn custom_regex() {
 }
 
 #[test]
-#[should_panic(expected = "RegexMatchFailed")]
+#[should_panic(expected = "ScanfMatchFailed")]
 fn check_error_regex() {
     scanf!("hi", "bob").unwrap();
 }

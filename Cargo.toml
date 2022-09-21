@@ -13,14 +13,10 @@ exclude = ["/.vscode/*", "/sscanf_macro/", "/.gitignore", "/.github/*", "/*.bat"
 
 [dependencies]
 sscanf_macro = { path = "sscanf_macro", version = "=0.4.0"}
-regex = "1.6"
-const_format = "0.2.25"
-lazy_static = "1.4"
+regex = "1.6.0"
+const_format = "0.2.26"
+lazy_static = "1.4.0"
 
 [dev-dependencies]
-trybuild = "1.0"
-rustc_version = "0.4"
-
-[package.metadata.docs.rs]
-all-features = true
-rustdoc-args = ["--cfg", "doc_cfg"]
+trybuild = "1.0.64"
+rustc_version = "0.4.0"

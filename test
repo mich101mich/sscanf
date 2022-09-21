@@ -1,0 +1,25 @@
+#!/bin/bash
+
+function try_silent {
+    echo "Running $@"
+    unbuffer "$@" > target/out.txt || (cat target/out.txt && return 1)
+}
+
+try_silent cargo update || exit 1
+try_silent cargo +stable test || exit 1
+try_silent cargo +nightly test || exit 1
+try_silent cargo +nightly doc || exit 1
+
+mv Cargo.lock Cargo.latest.lock
+mv Cargo.minimal.lock Cargo.lock
+
+function min_version {
+    local CARGO_TARGET_DIR=target/min_version
+    try_silent cargo +nightly -Z minimal-versions update || exit 1
+    try_silent cargo +stable test || break
+    try_silent cargo +nightly test || break
+}
+min_version
+
+mv Cargo.lock Cargo.minimal.lock
+mv Cargo.latest.lock Cargo.lock
