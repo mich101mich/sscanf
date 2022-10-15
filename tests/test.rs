@@ -89,27 +89,9 @@ fn basic() {
 #[test]
 fn no_types() {
     let result = scanf!("hi", "hi");
-    assert_eq!(result.unwrap(), ());
+    assert!(result.is_ok());
     let result = scanf!("hi", "no");
     assert!(result.is_err());
-}
-
-#[test]
-fn alternate_inputs() {
-    assert_eq!(scanf!("5", "{usize}").unwrap(), 5);
-
-    let input = "5";
-    assert_eq!(scanf!(input, "{usize}").unwrap(), 5);
-
-    let input = String::from("5");
-    assert_eq!(scanf!(input, "{usize}").unwrap(), 5);
-
-    // These don't work because of the lifetime
-    // let input = String::from("5");
-    // assert_eq!(scanf!(input.as_str(), "{usize}"), Ok(5));
-
-    // let input = ['5'];
-    // assert_eq!(scanf!(input.iter().collect::<String>(), "{usize}"), Ok(5));
 }
 
 #[test]
@@ -237,7 +219,7 @@ fn custom_regex() {
 }
 
 #[test]
-#[should_panic(expected = "ScanfMatchFailed")]
+#[should_panic(expected = "MatchFailed")]
 fn check_error_regex() {
     scanf!("hi", "bob").unwrap();
 }
@@ -293,11 +275,10 @@ fn error_lifetime() {
 }
 
 #[test]
-#[should_panic(expected = "scanf: Regex has 3 capture groups, but 2 were expected.
-If you use ( ) in a custom Regex, please add a '?:' at the beginning to avoid
-forming a capture group like this:
-    ...(...)...  =>  ...(?:...)...
-")]
+#[should_panic(expected = r#"scanf: Regex has 3 capture groups, but 2 were expected.
+If you use ( ) in a custom Regex, please add a '?:' at the beginning to avoid forming a capture group like this:
+    "  (  )  "  =>  "  (?:  )  "
+"#)]
 fn custom_regex_with_capture_group() {
     struct Test(usize);
     impl FromStr for Test {

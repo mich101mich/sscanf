@@ -8,8 +8,15 @@ pub struct FormatOption<'a> {
 }
 
 pub enum FormatOptionKind {
-    Radix(u8),
+    Radix { radix: u8, prefix: PrefixPolicy },
     Regex(String),
+    Hashtag,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PrefixPolicy {
+    Forced,   // '#' + 'x', 'o', 'b'
+    Optional, // just 'x', 'o', 'b'
+    Never,    // custom radix 'r'
 }
 
 impl<'a> FormatOption<'a> {
@@ -23,15 +30,6 @@ impl<'a> FormatOption<'a> {
             .ok_or_else(|| src.slice(outer_start..).error(MISSING_CLOSE_STRING))?;
 
         match c {
-            'x' | 'o' | 'b' | 'r' => {
-                let (radix, slice, end) =
-                    FormatOption::get_radix(input, src, c, start, outer_start)?;
-                let ret = Self {
-                    src: slice,
-                    kind: FormatOptionKind::Radix(radix),
-                };
-                Ok((ret, end))
-            }
             '/' => {
                 let mut end = None;
                 let mut regex = String::new();
@@ -51,7 +49,6 @@ impl<'a> FormatOption<'a> {
                         regex.push(c);
                     }
                 }
-
                 let end =
                     end.ok_or_else(|| src.slice(start..).error("missing '/' to end regex"))?;
 
@@ -68,6 +65,7 @@ impl<'a> FormatOption<'a> {
                 };
 
                 let src = src.slice(start..=end);
+
                 match regex_syntax::Parser::new().parse(&regex) {
                     Ok(hir) => {
                         if contains_capture_group(&hir) {
@@ -81,73 +79,70 @@ Either make them non-capturing by adding '?:' after the '(' or remove/escape the
                         return src.err(&msg);
                     }
                 }
+
                 let kind = FormatOptionKind::Regex(regex);
-                return Ok((Self { src, kind }, close_bracket_index));
+                Ok((Self { src, kind }, close_bracket_index))
             }
             '}' => {
                 let msg = "format options cannot be empty. Consider removing the ':'";
-                return src.slice(start..=start).err(msg);
+                src.slice(start..=start).err(msg)
             }
-            _ => {
-                let msg = "unrecognized format option.
-Hint: Regex format options must start and end with '/'";
-                return src.slice(start..=start).err(msg);
-            }
+            _ => Self::from_radix(input, src, start, outer_start),
         }
     }
 
-    fn get_radix<I: Iterator<Item = (usize, char)>>(
-        input: &'_ mut std::iter::Peekable<I>,
-        src: &'_ StrLitSlice<'a>,
-        c: char,
+    fn from_radix<I: Iterator<Item = (usize, char)>>(
+        input: &mut std::iter::Peekable<I>,
+        src: &StrLitSlice<'a>,
         start: usize,
         outer_start: usize,
-    ) -> Result<(u8, StrLitSlice<'a>, usize)> {
-        let mut number_offset = None;
-        let mut end = None;
+    ) -> Result<(Self, usize)> {
+        let (close_bracket_index, _) = input
+            .find(|(_, c)| *c == '}')
+            .ok_or_else(|| src.slice(outer_start..).error(MISSING_CLOSE_STRING))?;
 
-        while let Some((i, c)) = input.next() {
-            if c == '}' {
-                end = Some(i);
-                break;
-            } else if number_offset.is_none() {
-                number_offset = Some(i - start);
+        let src = src.slice(start..close_bracket_index);
+
+        let (radix, prefix) = match src.text() {
+            "#" => {
+                let kind = FormatOptionKind::Hashtag;
+                return Ok((Self { src, kind }, close_bracket_index));
             }
-        }
+            "x" => (16, PrefixPolicy::Optional),
+            "o" => (8, PrefixPolicy::Optional),
+            "b" => (2, PrefixPolicy::Optional),
+            "#x" | "x#" => (16, PrefixPolicy::Forced),
+            "#o" | "o#" => (8, PrefixPolicy::Forced),
+            "#b" | "b#" => (2, PrefixPolicy::Forced),
+            mut s => {
+                let mut prefix = PrefixPolicy::Never;
+                if let Some(inner) = s.strip_prefix('#').or_else(|| s.strip_suffix('#')) {
+                    prefix = PrefixPolicy::Forced;
+                    s = inner;
+                }
 
-        let end = end.ok_or_else(|| src.slice(outer_start..).error(MISSING_CLOSE_STRING))?;
-        let slice = src.slice(start..end);
-
-        let radix: u8 = if c == 'r' {
-            let number_offset = number_offset.ok_or_else(|| {
-                slice.error("radix option 'r' must be followed by the radix number")
-            })?;
-
-            let number = slice.slice(number_offset..);
-
-            number.text().parse().map_err(|_| {
-                let msg = "invalid number after radix option 'r'.
-Hint: If this was meant to be a regex option, surround it with '/'";
-                number.error(msg)
-            })?
-        } else {
-            if let Some(number_offset) = number_offset {
-                let msg = "radix options 'x', 'o', 'b' cannot be followed by anything.
-Hint: If this was meant to be a regex option, surround it with '/'";
-                return slice.slice(number_offset..).err(msg);
-            }
-            match c {
-                'x' => 16,
-                'o' => 8,
-                'b' => 2,
-                _ => unreachable!(),
+                if let Some(n) = s.strip_prefix('r') {
+                    let radix = n.parse::<u8>().map_err(|_| {
+                        src.error("radix option 'r' has to be followed by a number")
+                    })?;
+                    if radix < 2 || radix > 36 {
+                        // Range taken from: https://doc.rust-lang.org/std/primitive.usize.html#panics
+                        return src.err("radix has to be a number between 2 and 36");
+                    }
+                    if prefix == PrefixPolicy::Forced && !matches!(radix, 2 | 8 | 16) {
+                        return src.err("radix option '#' can only be used with base 2, 8 or 16");
+                    }
+                    (radix, prefix)
+                } else {
+                    let msg = "unrecognized format option.
+Hint: Regex format options must start and end with '/'";
+                    return src.err(msg);
+                }
             }
         };
-        if radix < 2 || radix > 36 {
-            // Range taken from: https://doc.rust-lang.org/std/primitive.usize.html#panics
-            return slice.err("radix must be between 2 and 36");
-        }
-        Ok((radix, slice, end))
+
+        let kind = FormatOptionKind::Radix { radix, prefix };
+        Ok((Self { src, kind }, close_bracket_index))
     }
 }
 

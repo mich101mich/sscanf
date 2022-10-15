@@ -56,8 +56,7 @@
 //! # use sscanf::scanf;
 //! let msg = "Text that doesn't match the format string";
 //! let parsed = scanf!(msg, "Hello {str}{usize}!");
-//! let error = parsed.unwrap_err();
-//! assert_eq!(error.to_string(), "scanf: The input did not match the format string");
+//! assert!(matches!(parsed, Err(sscanf::Error::MatchFailed)));
 //! ```
 //!
 //! Note that the original C-function and this Crate are called sscanf, which is the technically
@@ -315,25 +314,31 @@
 //! Compiler Errors on nightly currently look like this:
 //! ```compile_fail
 //! # use sscanf::scanf;
-//! scanf!("", "Some Text {}{}{} and stuff", usize);
+//! scanf!("", "Too many placeholders: {}{}{}", usize);
 //! ```
 //! ```text
 //! error: more placeholders than types provided
 //!   |
-//! 4 | scanf!("", "Some Text {}{}{} and stuff", usize);
-//!   |                         ^^
+//! 4 | scanf!("", "Too many placeholders: {}{}{}", usize);
+//!   |                                      ^^
 //! ```
 //! But on stable, you are limited to only pointing at the entire format string:
 //! ```text
-//! error: more placeholders than types provided:
-//!        At "Some Text {}{}{} and stuff"
-//!                        ^^
-//!   |
-//! 4 | scanf!("", "Some Text {}{}{} and stuff", usize);
-//!   |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+//! 4 | scanf!("", "Too many placeholders: {}{}{}", usize);
+//!   |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 //! ```
 //! The current workaround is to replicate that behavior in the error message
-//! itself. The alternative is to use `cargo +nightly check` to see the better errors
+//! itself:
+//! ```text
+//! error: more placeholders than types provided:
+//!        At "Too many placeholders: {}{}{}"
+//!                                     ^^
+//!   |
+//! 4 | scanf!("", "Too many placeholders: {}{}{}", usize);
+//!   |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+//! ```
+//!
+//! The alternative is to use `cargo +nightly check` to see the better errors
 //! whenever something goes wrong, or setting your Editor plugin to check with nightly.
 //!
 //! This does _**not**_ influence the functionality in any way. This Crate works entirely on stable
@@ -344,32 +349,65 @@
 ///
 /// ## Signature
 /// ```ignore
-/// scanf!(input: impl Deref<Target=str>, format: <literal>, Type...) -> Result<(Type...), Box<dyn Error>>
+/// scanf!(input: impl Deref<Target=str>, format: <literal>, Type...) -> Result<(Type...), sscanf::Error>
 /// ```
 ///
 /// ## Parameters
 /// * `input`: The string to parse. Can be anything that implements [`Deref<Target=str>`](std::ops::Deref)
+///   (e.g. `&str`, `String`, `Cow<str>`, etc. See examples below). Note that `scanf` does not take
+///   ownership of the input.
 /// * `format`: A literal string. No const or static allowed, just like with [`format!()`](std::format).
 /// * `Type...`: The types to parse. See [Custom Types](index.html#custom-types) for more information.
 ///
-/// Returns: A [`Result`](std::result::Result) with the parsed types or a [`Box`](std::boxed::Box)ed [`Error`](std::error::Error).
-/// Parsing might fail because the input string doesn't match the format string (returns [`ScanfMatchFailed`])
-/// or a types [`FromStr`] failed (returns [`<Type as FromStr>::Err`](FromStr::Err) in a [`Box`](std::boxed::Box)).
+/// ## Return Value
+/// A [`Result`](std::result::Result) with a tuple of the parsed types or a [`sscanf::Error`](crate::Error).
+/// Note that an error usually indicates that the input didn't match the format string, making the
+/// returned [`Result`](std::result::Result) functionally equivalent to an [`Option`](std::option::Option),
+/// and most applications should treat it that way. An error is only useful when debugging
+/// custom implementations of [`FromStr`](std::str::FromStr) or [`FromScanf`](crate::FromScanf).
+/// See [`sscanf::Error`](crate::Error) for more information.
 ///
+/// ## Details
 /// The format string _has_ to be a string literal (with some form of `"` on either side),
 /// because it is parsed by the procedural macro at compile time and checks if all the types
 /// and placeholders are matched. This is not possible from inside a variable or even a `const
 /// &str` somewhere else.
 ///
-/// Placeholders within the format string are marked with `{}`. Any `{` or `}` that should not be
-/// treated as placeholders need to be escaped by writing `{{` or `}}`. For every placeholder there
+/// Placeholders within the format string are marked with `{}`. Any `'{'` or `'}'` that should not be
+/// treated as placeholders need to be escaped by writing `'{{'` or `'}}'`. For every placeholder there
 /// has to be a type name inside the `{}` or exactly one type in the parameters after the format
 /// string. Types can be referenced by indices in the placeholder, similar to [`format!()`](std::fmt).
 ///
 /// Any additional formatting options are placed behind a `:`. For a list of options, see
 /// the [crate root documentation](index.html#format-options).
 ///
-/// Examples can be seen in the crate root documentation.
+/// ## Examples
+/// A few examples for possible inputs:
+/// ```
+/// # use sscanf::scanf;
+/// let input = "5"; // &str
+/// assert_eq!(scanf!(input, "{usize}").unwrap(), 5);
+///
+/// let input = String::from("5"); // String
+/// assert_eq!(scanf!(input, "{usize}").unwrap(), 5);
+///
+/// // does not work because it creates a temporary value
+/// // assert_eq!(scanf!(String::from("5"), "{usize}").unwrap(), 5);
+///
+/// let input = &input; // &String
+/// assert_eq!(scanf!(input, "{usize}").unwrap(), 5);
+/// assert_eq!(scanf!(input.as_str(), "{usize}").unwrap(), 5);
+///
+/// let input = std::borrow::Cow::from("5"); // Cow<str>
+/// assert_eq!(scanf!(input, "{usize}").unwrap(), 5);
+///
+/// let input = std::rc::Rc::from("5"); // Rc<str>
+/// assert_eq!(scanf!(input, "{usize}").unwrap(), 5);
+///
+/// // and many more
+/// ```
+///
+/// More Examples can be seen in the crate root documentation.
 pub use sscanf_macro::scanf;
 
 /// Same as [`scanf`], but returns the regex without running it. Useful for debugging or efficiency.

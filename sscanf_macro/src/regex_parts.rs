@@ -4,11 +4,10 @@ use syn::{Ident, Type};
 
 use crate::*;
 
-pub const WRONG_CAPTURES_HINT: &str = "
-If you use ( ) in a custom Regex, please add a '?:' at the beginning to avoid
-forming a capture group like this:
-    ...(...)...  =>  ...(?:...)...
-";
+pub const WRONG_CAPTURES_HINT: &str = r#"
+If you use ( ) in a custom Regex, please add a '?:' at the beginning to avoid forming a capture group like this:
+    "  (  )  "  =>  "  (?:  )  "
+"#;
 
 pub struct Field<'a> {
     pub ident: FieldIdent,
@@ -120,13 +119,23 @@ impl RegexParts {
 
             let regex = if let Some(config) = ph.config.as_ref() {
                 use FormatOptionKind::*;
-                match config.kind {
-                    Regex(ref regex) => quote!(#regex),
-                    Radix(ref radix) => {
-                        let (regex, conv) =
-                            regex_from_radix(*radix, ty, &field.ty_source, &ty_string, types)?;
+                match &config.kind {
+                    Regex(regex) => quote!(#regex),
+                    Radix { radix, prefix } => {
+                        let (regex, conv) = regex_from_radix(
+                            *radix,
+                            *prefix,
+                            ty,
+                            &field.ty_source,
+                            &ty_string,
+                            types,
+                        )?;
                         converter = Some(conv);
                         regex
+                    }
+                    Hashtag => {
+                        // TODO: if f32 or f64, use alt matcher
+                        unimplemented!()
                     }
                 }
             } else {
@@ -148,7 +157,11 @@ impl RegexParts {
             let (num_captures, converter) = if handle_str && ty_string == "str" {
                 // str is special, because the type is actually &str
                 let cap = quote_spanned!(start => 1);
-                let conv = quote_spanned!(start => src.next().expect("c").expect("d").as_str());
+                let conv = quote_spanned!(start =>
+                    src.next()
+                       .expect(::sscanf::EXPECT_NEXT_HINT)
+                       .expect(::sscanf::EXPECT_CAPTURE_HINT)
+                       .as_str());
                 (cap, conv)
             } else {
                 let mut cap = quote_spanned!(start => <#ty as );
@@ -215,6 +228,7 @@ impl RegexParts {
 
 fn regex_from_radix(
     radix: u8,
+    prefix_policy: PrefixPolicy,
     ty: &Type,
     ty_source: &TypeSource,
     ty_string: &str,
@@ -234,7 +248,12 @@ fn regex_from_radix(
         16 => Some("0x"),
         _ => None,
     };
-    let prefix_string = prefix.map(|s| format!("(?:{})?", s)).unwrap_or_default();
+    let prefix_string = match (prefix_policy, prefix) {
+        (PrefixPolicy::Optional, Some(prefix)) => format!("(?:{})?", prefix),
+        (PrefixPolicy::Forced, Some(prefix)) => prefix.to_owned(),
+        (PrefixPolicy::Never, None) => String::new(),
+        _ => panic!("Invalid internal prefix configuration"),
+    };
 
     // possible characters for digits
     use std::cmp::Ordering::*;
@@ -264,28 +283,55 @@ fn regex_from_radix(
     // => no Span voodoo necessary
     let span = ty_source.span(types);
 
+    let get_input = quote!(src
+        .next()
+        .expect(::sscanf::EXPECT_NEXT_HINT)
+        .expect(::sscanf::EXPECT_CAPTURE_HINT)
+        .as_str());
+
     let radix = radix as u32;
-    let converter = if let Some(prefix) = prefix {
-        if signed {
+    let converter = match (prefix_policy, prefix) {
+        (PrefixPolicy::Optional, Some(prefix)) => {
+            if signed {
+                quote_spanned!(span => {
+                    let input = #get_input;
+                    let s = input.strip_prefix(&['+', '-']).unwrap_or(input);
+                    let s = s.strip_prefix(#prefix).unwrap_or(s);
+                    #ty::from_str_radix(s, #radix).map(|i| if input.starts_with('-') { -i } else { i })?
+                })
+            } else {
+                quote_spanned!(span => {
+                    let input = #get_input;
+                    let s = input.strip_prefix('+').unwrap_or(input);
+                    let s = s.strip_prefix(#prefix).unwrap_or(s);
+                    #ty::from_str_radix(s, #radix)?
+                })
+            }
+        }
+        (PrefixPolicy::Forced, Some(prefix)) => {
+            if signed {
+                quote_spanned!(span => {
+                    let input = #get_input;
+                    let s = input.strip_prefix(&['+', '-']).unwrap_or(input);
+                    let s = s.strip_prefix(#prefix).ok_or(::sscanf::PrefixError)?;
+                    #ty::from_str_radix(s, #radix).map(|i| if input.starts_with('-') { -i } else { i })?
+                })
+            } else {
+                quote_spanned!(span => {
+                    let input = #get_input;
+                    let s = input.strip_prefix('+').unwrap_or(input);
+                    let s = s.strip_prefix(#prefix).ok_or(::sscanf::PrefixError)?;
+                    #ty::from_str_radix(s, #radix)?
+                })
+            }
+        }
+        (PrefixPolicy::Never, None) => {
             quote_spanned!(span => {
-                let input = src.next().expect("e").expect("f").as_str();
-                let s = input.strip_prefix(&['+', '-']).unwrap_or(input);
-                let s = s.strip_prefix(#prefix).unwrap_or(s);
-                #ty::from_str_radix(s, #radix).map(|i| if input.starts_with('-') { -i } else { i })?
-            })
-        } else {
-            quote_spanned!(span => {
-                let input = src.next().expect("e").expect("f").as_str();
-                let s = input.strip_prefix('+').unwrap_or(input);
-                let s = s.strip_prefix(#prefix).unwrap_or(s);
-                #ty::from_str_radix(s, #radix)?
+                let input = #get_input;
+                #ty::from_str_radix(input, #radix)?
             })
         }
-    } else {
-        quote_spanned!(span => {
-            let input = src.next().expect("e").expect("f").as_str();
-            #ty::from_str_radix(input, #radix)?
-        })
+        _ => panic!("Invalid internal prefix configuration"),
     };
 
     Ok((quote!(#regex), converter))

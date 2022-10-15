@@ -4,19 +4,19 @@ error: more placeholders than types provided
 2 |     sscanf::scanf!("hi", r"asdf{}asdf");
   |                                ^^
 
-error: radix options 'x', 'o', 'b' cannot be followed by anything.
-       Hint: If this was meant to be a regex option, surround it with '/'
- --> tests/fail/nightly/raw_string.rs:3:35
+error: unrecognized format option.
+       Hint: Regex format options must start and end with '/'
+ --> tests/fail/nightly/raw_string.rs:3:34
   |
 3 |     sscanf::scanf!("hi", r"asdf{:bob}asdf", usize);
-  |                                   ^^
+  |                                  ^^^
 
-error: radix options 'x', 'o', 'b' cannot be followed by anything.
-       Hint: If this was meant to be a regex option, surround it with '/'
- --> tests/fail/nightly/raw_string.rs:4:40
+error: unrecognized format option.
+       Hint: Regex format options must start and end with '/'
+ --> tests/fail/nightly/raw_string.rs:4:39
   |
 4 |     sscanf::scanf!("hi", r"asdf{usize:bob}asdf");
-  |                                        ^^
+  |                                       ^^^
 
 error: more placeholders than types provided
  --> tests/fail/nightly/raw_string.rs:5:34
@@ -24,16 +24,16 @@ error: more placeholders than types provided
 5 |     sscanf::scanf!("hi", r##"asdf{}asdf"##);
   |                                  ^^
 
-error: radix options 'x', 'o', 'b' cannot be followed by anything.
-       Hint: If this was meant to be a regex option, surround it with '/'
- --> tests/fail/nightly/raw_string.rs:6:37
+error: unrecognized format option.
+       Hint: Regex format options must start and end with '/'
+ --> tests/fail/nightly/raw_string.rs:6:36
   |
 6 |     sscanf::scanf!("hi", r##"asdf{:bob}asdf"##, usize);
-  |                                     ^^
+  |                                    ^^^
 
-error: radix options 'x', 'o', 'b' cannot be followed by anything.
-       Hint: If this was meant to be a regex option, surround it with '/'
- --> tests/fail/nightly/raw_string.rs:7:42
+error: unrecognized format option.
+       Hint: Regex format options must start and end with '/'
+ --> tests/fail/nightly/raw_string.rs:7:41
   |
 7 |     sscanf::scanf!("hi", r##"asdf{usize:bob}asdf"##);
-  |                                          ^^
+  |                                         ^^^

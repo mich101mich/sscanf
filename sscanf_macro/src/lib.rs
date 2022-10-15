@@ -170,16 +170,18 @@ fn scanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
             let input: &str = #src_str;
             #[allow(clippy::needless_question_mark)]
             REGEX.captures(input)
-                .ok_or_else::<Box<dyn ::std::error::Error>, _>(|| ::std::boxed::Box::new(::sscanf::ScanfMatchFailed))
+                .ok_or_else(|| ::sscanf::Error::MatchFailed)
                 .and_then(|cap| {
                     let mut src = cap.iter();
                     let src = &mut src;
                     src.next().unwrap(); // skip the full match
                     let mut len = src.len();
-                    let res = ::std::result::Result::Ok(( #(#matcher),* ));
+                    let mut matcher = || -> ::std::result::Result<_, ::std::boxed::Box<dyn ::std::error::Error>> {
+                        ::std::result::Result::Ok(( #(#matcher),* ))
+                    };
+                    let res = matcher().map_err(|e| ::sscanf::Error::ParsingFailed(e));
                     if src.len() != 0 {
-                        panic!("{} captures generated, but {} were taken
-",
+                        panic!("{} captures generated, but {} were taken",
                             REGEX.captures_len(), len
                         );
                     }
