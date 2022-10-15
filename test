@@ -15,9 +15,9 @@ mv Cargo.minimal.lock Cargo.lock
 
 function min_version {
     local CARGO_TARGET_DIR=target/min_version
-    try_silent cargo +nightly -Z minimal-versions update || exit 1
-    try_silent cargo +stable test || break
-    try_silent cargo +nightly test || break
+    try_silent cargo +nightly -Z minimal-versions update || return 1
+    try_silent cargo +stable test || return 1
+    try_silent cargo +nightly test || return 1
 }
 min_version
 
