@@ -258,9 +258,8 @@ fn generate_regex(
             error.with_spanned(ty, "unused type");
         }
     }
-    if !error.is_empty() {
-        return error.build_err();
-    }
+
+    error.ok_or_build()?;
 
     let ph_indices = (0..fields.len()).collect::<Vec<_>>();
     let regex_parts = RegexParts::new(&format, &ph_indices, &fields, &types, true)?;

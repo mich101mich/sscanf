@@ -19,6 +19,13 @@ pub enum FieldIdent {
     Index(Literal),
     None,
 }
+impl FieldIdent {
+    pub fn from_index(i: usize, span: Span) -> FieldIdent {
+        let mut literal = Literal::usize_unsuffixed(i);
+        literal.set_span(span);
+        FieldIdent::Index(literal)
+    }
+}
 impl ToTokens for FieldIdent {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match self {
@@ -197,9 +204,7 @@ impl RegexParts {
             ret.from_matches_builder.push(from_matches);
         }
 
-        if !error.is_empty() {
-            return error.build_err();
-        }
+        error.ok_or_build()?;
 
         // add the last regex_part
         {

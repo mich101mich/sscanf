@@ -1,48 +1,31 @@
 use std::collections::HashMap;
 
-use proc_macro2::{Literal, Span, TokenStream};
+use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{parse2, Attribute, DataEnum, DataStruct, DataUnion, Ident};
 
 use crate::*;
 
 pub fn parse_struct(name: Ident, attrs: Vec<Attribute>, data: DataStruct) -> Result<TokenStream> {
-    let attr = if let Some(attr) = attrs.iter().find(|a| a.path.is_ident("scanf")) {
-        attr
-    } else {
-        let msg = "structs must have a #[scanf(format=\"...\")] attribute";
-        return Error::err(Span::call_site(), msg);
-    };
+    let attr = attrs
+        .iter()
+        .find(|a| a.path.is_ident("scanf"))
+        .ok_or_else(|| {
+            let msg = "FromScanf: structs must have a #[scanf(format=\"...\")] attribute";
+            Error::new_spanned(&name, msg)
+        })?;
 
     let mut configs = FormatAttribute::from_attrs(attr)?;
-    let format_src = if let Some(format) = configs.remove("format") {
-        format
-    } else {
-        match configs.len() {
-            0 => {
-                let msg = "structs require a format=\"...\" option";
-                return Error::err(Span::call_site(), msg);
-            }
-            1 => {
-                let (name, elem) = configs
-                    .into_iter()
-                    .next()
-                    .unwrap();
-                let msg = format!("unexpected option: `{}`. Expected `format`", name);
-                return Error::err_spanned(elem.name, msg);
-            }
-            _ => {
-                let mut error = Error::builder();
-                for (name, option) in configs {
-                    error.with_spanned(option.src, format!("unexpected option: `{}`", name));
-                }
-                return error.build_err();
-            }
-        }
-    };
+    let format_src = configs
+        .remove("format")
+        .ok_or_else(|| Error::new_spanned(attr, "FromScanf: missing `format` attribute"))?;
 
     if !configs.is_empty() {
-        return Error::err_spanned(attr, "structs may only have a single `format` option");
+        let mut error = Error::builder();
+        for (name, attr) in configs {
+            error.with_spanned(attr.src, format!("FromScanf: unknown attribute: {}", name));
+        }
+        return error.build_err();
     }
 
     let format = FormatString::new(format_src.value.to_slice(), true)?;
@@ -53,11 +36,10 @@ pub fn parse_struct(name: Ident, attrs: Vec<Attribute>, data: DataStruct) -> Res
     let mut types = vec![];
     for (i, field) in data.fields.into_iter().enumerate() {
         let ty = field.ty;
-        let ident = field.ident.map(FieldIdent::Named).unwrap_or_else(|| {
-            let mut literal = Literal::usize_unsuffixed(i);
-            literal.set_span(ty.span());
-            FieldIdent::Index(literal)
-        });
+        let ident = field
+            .ident
+            .map(FieldIdent::Named)
+            .unwrap_or_else(|| FieldIdent::from_index(i, ty.span()));
 
         field_map.insert(ident.to_string(), i);
 
@@ -75,6 +57,15 @@ pub fn parse_struct(name: Ident, attrs: Vec<Attribute>, data: DataStruct) -> Res
             ty_source: TypeSource::External(i),
         });
         defaults.push(default);
+    }
+
+    if format.placeholders.len() != fields.len() {
+        let msg = format!(
+            "FromScanf: format string has {} placeholders, but struct has {} fields",
+            format.placeholders.len(),
+            fields.len()
+        );
+        return Error::err_spanned(format_src.src, msg);
     }
 
     let mut ph_indices = vec![];
@@ -113,9 +104,7 @@ pub fn parse_struct(name: Ident, attrs: Vec<Attribute>, data: DataStruct) -> Res
         visited[index] = true;
     }
 
-    if !error.is_empty() {
-        return error.build_err();
-    }
+    error.ok_or_build()?;
 
     let mut regex_parts = RegexParts::new(&format, &ph_indices, &fields, &types, false)?;
 
@@ -130,18 +119,19 @@ pub fn parse_struct(name: Ident, attrs: Vec<Attribute>, data: DataStruct) -> Res
                 .from_matches_builder
                 .push(quote!(#ident: #default));
         } else {
-            let msg = format!("field `{}` has no format or default value", field.ident);
+            let msg = format!(
+                "FromScanf: field `{}` has no format or default value",
+                field.ident
+            );
             error.with_spanned(field.ident, msg);
         }
     }
-    if !error.is_empty() {
-        return error.build_err();
-    }
+    error.ok_or_build()?;
 
     let regex = regex_parts.regex();
     let regex_impl = quote!(
         impl ::sscanf::RegexRepresentation for #name {
-            const REGEX: &'static str = #regex;
+            const REGEX: &'static ::std::primitive::str = #regex;
         }
     );
 
@@ -181,10 +171,25 @@ pub fn parse_struct(name: Ident, attrs: Vec<Attribute>, data: DataStruct) -> Res
     ))
 }
 
-pub fn parse_enum(name: Ident, _attrs: Vec<Attribute>, _data: DataEnum) -> Result<TokenStream> {
-    return Err(Error::new_spanned(name, "todo"));
+pub fn parse_enum(name: Ident, attrs: Vec<Attribute>, data: DataEnum) -> Result<TokenStream> {
+    if let Some(attr) = attrs.iter().find(|a| a.path.is_ident("scanf")) {
+        let msg = "FromScanf: enum formats have to be specified per-variant";
+        return Error::err_spanned(attr, msg);
+    }
+
+    let mut variants = vec![];
+    let mut error = Error::builder();
+    for variant in data.variants.iter() {
+        if let Some(attr) = variant.attrs.iter().find(|a| a.path.is_ident("scanf")) {
+            variants.push((attr, variant));
+        }
+    }
+    error.ok_or_build()?;
+
+    Error::err_spanned(name, "FromScanf: unimplemented")
 }
 
 pub fn parse_union(name: Ident, _attrs: Vec<Attribute>, _data: DataUnion) -> Result<TokenStream> {
-    return Err(Error::new_spanned(name, "union is yet not supported"));
+    let msg = "FromScanf: unions not supported yet";
+    return Err(Error::new_spanned(name, msg));
 }

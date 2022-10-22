@@ -40,16 +40,14 @@ impl ErrorBuilder {
         }
     }
     pub fn with<T: Display>(&mut self, span: proc_macro2::Span, message: T) -> &mut Self {
-        self.tokens.extend(Error::new(span, message));
-        self
+        self.with_error(Error::new(span, message))
     }
     pub fn with_spanned<T: quote::ToTokens, U: Display>(
         &mut self,
         tokens: T,
         message: U,
     ) -> &mut Self {
-        self.tokens.extend(Error::new_spanned(tokens, message));
-        self
+        self.with_error(Error::new_spanned(tokens, message))
     }
     pub fn with_error(&mut self, error: Error) -> &mut Self {
         self.tokens.extend(error.to_compile_error());
@@ -69,6 +67,13 @@ impl ErrorBuilder {
     pub fn build_err<R>(&mut self) -> Result<R> {
         Err(self.build())
     }
+    pub fn ok_or_build(&mut self) -> Result<()> {
+        if self.is_empty() {
+            Ok(())
+        } else {
+            Err(self.build())
+        }
+    }
 }
 
 impl From<syn::Error> for Error {
@@ -85,22 +90,11 @@ impl From<proc_macro2::TokenStream> for Error {
 
 impl From<Error> for proc_macro2::TokenStream {
     fn from(err: Error) -> Self {
-        match err {
-            Error::Basic(err) => err.to_compile_error(),
-            Error::Custom(err) => err,
-        }
+        err.to_compile_error()
     }
 }
 impl From<Error> for proc_macro::TokenStream {
     fn from(err: Error) -> Self {
-        proc_macro2::TokenStream::from(err).into()
-    }
-}
-
-impl IntoIterator for Error {
-    type Item = proc_macro2::TokenTree;
-    type IntoIter = <proc_macro2::TokenStream as IntoIterator>::IntoIter;
-    fn into_iter(self) -> Self::IntoIter {
-        self.to_compile_error().into_iter()
+        err.to_compile_error().into()
     }
 }
