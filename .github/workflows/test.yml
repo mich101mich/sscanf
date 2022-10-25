@@ -44,7 +44,7 @@ jobs:
     - name: Run minimal version nightly tests
       run: cargo +nightly update -Z minimal-versions && cargo +nightly test
 
-  rust-version-1.56.0:
+  minimum-rust-version:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
