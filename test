@@ -1,14 +1,20 @@
 #!/bin/bash
 
+mkdir -p target
+
 function try_silent {
     echo "Running $@"
     unbuffer "$@" > target/out.txt || (cat target/out.txt && return 1)
 }
 
+# main tests
+
 try_silent cargo update || exit 1
 try_silent cargo +stable test || exit 1
 try_silent cargo +nightly test || exit 1
-try_silent cargo +nightly doc || exit 1
+try_silent cargo +nightly doc --no-deps || exit 1
+
+# minimum version
 
 mv Cargo.lock Cargo.latest.lock
 mv Cargo.minimal.lock Cargo.lock
@@ -23,3 +29,6 @@ min_version
 
 mv Cargo.lock Cargo.minimal.lock
 mv Cargo.latest.lock Cargo.lock
+
+# old rustc version
+try_silent cargo +1.56.0 test --target-dir target/old_rustc -- --skip failing_tests || exit 1

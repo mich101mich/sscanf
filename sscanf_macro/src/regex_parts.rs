@@ -90,6 +90,14 @@ pub struct RegexParts {
 }
 
 impl RegexParts {
+    pub fn empty() -> Self {
+        Self {
+            regex_builder: vec![],
+            num_captures_builder: vec![],
+            from_matches_builder: vec![],
+        }
+    }
+
     pub fn new(
         format: &FormatString,
         ph_indices: &[usize],
@@ -300,7 +308,7 @@ fn regex_from_radix(
             if signed {
                 quote_spanned!(span => {
                     let input = #get_input;
-                    let s = input.strip_prefix(&['+', '-']).unwrap_or(input);
+                    let s = input.strip_prefix(&['+', '-'] as &[_]).unwrap_or(input);
                     let s = s.strip_prefix(#prefix).unwrap_or(s);
                     #ty::from_str_radix(s, #radix).map(|i| if input.starts_with('-') { -i } else { i })?
                 })
@@ -317,15 +325,15 @@ fn regex_from_radix(
             if signed {
                 quote_spanned!(span => {
                     let input = #get_input;
-                    let s = input.strip_prefix(&['+', '-']).unwrap_or(input);
-                    let s = s.strip_prefix(#prefix).ok_or(::sscanf::PrefixError)?;
+                    let s = input.strip_prefix(&['+', '-'] as &[_]).unwrap_or(input);
+                    let s = s.strip_prefix(#prefix).ok_or(::sscanf::MissingPrefixError)?;
                     #ty::from_str_radix(s, #radix).map(|i| if input.starts_with('-') { -i } else { i })?
                 })
             } else {
                 quote_spanned!(span => {
                     let input = #get_input;
                     let s = input.strip_prefix('+').unwrap_or(input);
-                    let s = s.strip_prefix(#prefix).ok_or(::sscanf::PrefixError)?;
+                    let s = s.strip_prefix(#prefix).ok_or(::sscanf::MissingPrefixError)?;
                     #ty::from_str_radix(s, #radix)?
                 })
             }

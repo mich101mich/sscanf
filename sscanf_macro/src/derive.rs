@@ -2,39 +2,57 @@ use std::collections::HashMap;
 
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{parse2, Attribute, DataEnum, DataStruct, DataUnion, Ident};
+use syn::{parse2, Attribute, DataEnum, DataStruct, DataUnion, Generics, Ident};
 
 use crate::*;
 
-pub fn parse_struct(name: Ident, attrs: Vec<Attribute>, data: DataStruct) -> Result<TokenStream> {
-    let attr = attrs
-        .iter()
-        .find(|a| a.path.is_ident("scanf"))
-        .ok_or_else(|| {
-            let msg = "FromScanf: structs must have a #[scanf(format=\"...\")] attribute";
-            Error::new_spanned(&name, msg)
-        })?;
+pub fn find_attr(attrs: Vec<Attribute>) -> Option<Attribute> {
+    attrs.into_iter().find(|a| a.path.is_ident("scanf"))
+}
 
-    let mut configs = FormatAttribute::from_attrs(attr)?;
-    let format_src = configs
-        .remove("format")
-        .ok_or_else(|| Error::new_spanned(attr, "FromScanf: missing `format` attribute"))?;
+fn parse_format(
+    configs: &mut HashMap<String, FormatAttribute>,
+    configs_src: Attribute,
+    raw_fields: syn::Fields,
+) -> Result<RegexParts> {
+    let found = [
+        ("format", true),
+        ("format_unescaped", false),
+        ("format_x", false),
+    ]
+    .iter()
+    .filter_map(|(name, escape)| configs.remove(*name).map(|a| (a, *escape)))
+    .collect::<Vec<_>>();
+
+    let (format_src, escape) = match found.len() {
+        0 => {
+            return Error::err_spanned(configs_src, "FromScanf: missing `format` attribute");
+        }
+        1 => found.into_iter().next().unwrap(),
+        _ => {
+            let mut error = Error::builder();
+            for (a, _) in found {
+                error.with_spanned(a.name, "FromScanf: only one format attribute allowed");
+            }
+            return error.build_err();
+        }
+    };
 
     if !configs.is_empty() {
         let mut error = Error::builder();
         for (name, attr) in configs {
-            error.with_spanned(attr.src, format!("FromScanf: unknown attribute: {}", name));
+            error.with_spanned(&attr.src, format!("FromScanf: unknown attribute: {}", name));
         }
         return error.build_err();
     }
 
-    let format = FormatString::new(format_src.value.to_slice(), true)?;
+    let format = FormatString::new(format_src.value.to_slice(), escape)?;
 
     let mut fields = vec![];
     let mut field_map = HashMap::new();
     let mut defaults = vec![];
     let mut types = vec![];
-    for (i, field) in data.fields.into_iter().enumerate() {
+    for (i, field) in raw_fields.into_iter().enumerate() {
         let ty = field.ty;
         let ident = field
             .ident
@@ -45,7 +63,7 @@ pub fn parse_struct(name: Ident, attrs: Vec<Attribute>, data: DataStruct) -> Res
 
         let mut default = None;
 
-        if let Some(attr) = field.attrs.into_iter().find(|a| a.path.is_ident("scanf")) {
+        if let Some(attr) = find_attr(field.attrs) {
             if !attr.tokens.is_empty() {
                 default = Some(parse2::<DefaultAttribute>(attr.tokens)?.0);
             }
@@ -128,9 +146,29 @@ pub fn parse_struct(name: Ident, attrs: Vec<Attribute>, data: DataStruct) -> Res
     }
     error.ok_or_build()?;
 
+    Ok(regex_parts)
+}
+
+pub fn parse_struct(
+    name: Ident,
+    generics: Generics,
+    attr: Option<Attribute>,
+    data: DataStruct,
+) -> Result<TokenStream> {
+    let attr = attr.ok_or_else(|| {
+        let msg = "FromScanf: structs must have a #[scanf(format=\"...\")] attribute";
+        Error::new_spanned(&name, msg)
+    })?;
+
+    let mut configs = FormatAttribute::from_attrs(&attr)?;
+
+    let regex_parts = parse_format(&mut configs, attr, data.fields)?;
+
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+
     let regex = regex_parts.regex();
     let regex_impl = quote!(
-        impl ::sscanf::RegexRepresentation for #name {
+        impl #impl_generics ::sscanf::RegexRepresentation for #name #ty_generics #where_clause {
             const REGEX: &'static ::std::primitive::str = #regex;
         }
     );
@@ -138,7 +176,7 @@ pub fn parse_struct(name: Ident, attrs: Vec<Attribute>, data: DataStruct) -> Res
     let num_captures = regex_parts.num_captures();
     let from_matches = regex_parts.from_matches();
     let from_scanf_impl = quote!(
-        impl ::sscanf::FromScanf for #name {
+        impl #impl_generics ::sscanf::FromScanf for #name #ty_generics #where_clause {
             type Err = ::sscanf::FromScanfFailedError;
             const NUM_CAPTURES: usize = #num_captures;
             fn from_matches(src: &mut ::sscanf::regex::SubCaptureMatches) -> ::std::result::Result<Self, Self::Err> {
@@ -171,25 +209,81 @@ pub fn parse_struct(name: Ident, attrs: Vec<Attribute>, data: DataStruct) -> Res
     ))
 }
 
-pub fn parse_enum(name: Ident, attrs: Vec<Attribute>, data: DataEnum) -> Result<TokenStream> {
-    if let Some(attr) = attrs.iter().find(|a| a.path.is_ident("scanf")) {
+pub fn parse_enum(
+    name: Ident,
+    generics: Generics,
+    attr: Option<Attribute>,
+    data: DataEnum,
+) -> Result<TokenStream> {
+    if let Some(attr) = attr {
         let msg = "FromScanf: enum formats have to be specified per-variant";
         return Error::err_spanned(attr, msg);
     }
 
     let mut variants = vec![];
     let mut error = Error::builder();
-    for variant in data.variants.iter() {
-        if let Some(attr) = variant.attrs.iter().find(|a| a.path.is_ident("scanf")) {
-            variants.push((attr, variant));
+    for variant in data.variants.into_iter() {
+        if let Some(attr) = find_attr(variant.attrs) {
+            variants.push((variant.ident, variant.fields, attr));
         }
     }
     error.ok_or_build()?;
 
-    Error::err_spanned(name, "FromScanf: unimplemented")
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+
+    let regex_parts = RegexParts::empty();
+
+    // TODO: fill regex_parts
+
+    let regex = regex_parts.regex();
+    let regex_impl = quote!(
+        impl #impl_generics ::sscanf::RegexRepresentation for #name #ty_generics #where_clause {
+            const REGEX: &'static ::std::primitive::str = #regex;
+        }
+    );
+
+    let num_captures = regex_parts.num_captures();
+    let from_matches = regex_parts.from_matches();
+    let from_scanf_impl = quote!(
+        impl #impl_generics ::sscanf::FromScanf for #name #ty_generics #where_clause {
+            type Err = ::sscanf::FromScanfFailedError;
+            const NUM_CAPTURES: usize = #num_captures;
+            fn from_matches(src: &mut ::sscanf::regex::SubCaptureMatches) -> ::std::result::Result<Self, Self::Err> {
+                let start_len = src.len();
+                src.next().unwrap(); // skip the full match
+                let mut len = src.len();
+
+                let mut catcher = || -> ::std::result::Result<Self, ::std::boxed::Box<dyn ::std::error::Error>> {
+                    Ok(#name #from_matches)
+                };
+                let res = catcher().map_err(|error| ::sscanf::FromScanfFailedError {
+                    type_name: stringify!(#name),
+                    error,
+                })?;
+                let n = start_len - src.len();
+                if n != Self::NUM_CAPTURES {
+                    panic!(
+                        "{}::NUM_CAPTURES = {} but {} were taken{}",
+                        stringify!(#name), Self::NUM_CAPTURES, n, #WRONG_CAPTURES_HINT
+                    );
+                }
+                Ok(res)
+            }
+        }
+    );
+
+    Ok(quote!(
+        #regex_impl
+        #from_scanf_impl
+    ))
 }
 
-pub fn parse_union(name: Ident, _attrs: Vec<Attribute>, _data: DataUnion) -> Result<TokenStream> {
+pub fn parse_union(
+    name: Ident,
+    _generics: Generics,
+    _attr: Option<Attribute>,
+    _data: DataUnion,
+) -> Result<TokenStream> {
     let msg = "FromScanf: unions not supported yet";
     return Err(Error::new_spanned(name, msg));
 }

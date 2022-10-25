@@ -123,3 +123,15 @@ impl error::Error for FromScanfFailedError {
         Some(self.error.as_ref())
     }
 }
+
+#[doc(hidden)]
+#[derive(Debug, Clone, Copy)]
+pub struct MissingPrefixError(&'static str);
+
+impl std::fmt::Display for MissingPrefixError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Missing prefix: {}", self.0)
+    }
+}
+
+impl error::Error for MissingPrefixError {}

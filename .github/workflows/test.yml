@@ -1,10 +1,8 @@
 name: Tests
 
 on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+  push: { branches: [ master ] }
+  pull_request: { branches: [ master ] }
 
 env:
   CARGO_TERM_COLOR: always
@@ -13,46 +11,45 @@ jobs:
   stable:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - name: Rust Cache
-      uses: Swatinem/rust-cache@v1.2.0
-    - name: rust-toolchain
-      uses: actions-rs/toolchain@v1.0.6
-      with:
-        toolchain: stable
+    - uses: actions/checkout@v3
+    - uses: Swatinem/rust-cache@v2
+    - uses: actions-rs/toolchain@v1.0.6
+      with: { toolchain: stable }
     - name: Run tests
       run: cargo +stable test
 
   nightly:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - name: Rust Cache
-      uses: Swatinem/rust-cache@v1.2.0
-    - name: rust-toolchain
-      uses: actions-rs/toolchain@v1.0.6
-      with:
-        toolchain: nightly
+    - uses: actions/checkout@v3
+    - uses: Swatinem/rust-cache@v2
+    - uses: actions-rs/toolchain@v1.0.6
+      with: { toolchain: nightly }
     - name: Run tests
       run: cargo +nightly test
     - name: Run docs
-      run: cargo +nightly doc
+      run: cargo +nightly doc --no-deps
 
   minimal-versions:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - name: Rust Cache
-      uses: Swatinem/rust-cache@v1.2.0
-    - name: rust-toolchain
-      uses: actions-rs/toolchain@v1.0.6
-      with:
-        toolchain: stable
-    - name: rust-toolchain
-      uses: actions-rs/toolchain@v1.0.6
-      with:
-        toolchain: nightly
+    - uses: actions/checkout@v3
+    - uses: Swatinem/rust-cache@v2
+    - uses: actions-rs/toolchain@v1.0.6
+      with: { toolchain: stable }
+    - uses: actions-rs/toolchain@v1.0.6
+      with: { toolchain: nightly }
     - name: Run minimal version tests
       run: cargo +nightly update -Z minimal-versions && cargo +stable test
     - name: Run minimal version nightly tests
       run: cargo +nightly update -Z minimal-versions && cargo +nightly test
+
+  rust-version-1.56.0:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: Swatinem/rust-cache@v2
+    - uses: actions-rs/toolchain@v1.0.6
+      with: { toolchain: 1.56.0 }
+    - name: Run tests
+      run: cargo +1.56.0 test -- --skip failing_tests

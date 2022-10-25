@@ -138,10 +138,14 @@ pub fn scanf_get_regex(input: TokenStream1) -> TokenStream1 {
 pub fn derive_from_scanf(input: TokenStream1) -> TokenStream1 {
     let input = parse_macro_input!(input as DeriveInput);
 
+    let ident = input.ident;
+    let generics = input.generics;
+    let attr = derive::find_attr(input.attrs);
+
     let res = match input.data {
-        syn::Data::Struct(data) => derive::parse_struct(input.ident, input.attrs, data),
-        syn::Data::Enum(data) => derive::parse_enum(input.ident, input.attrs, data),
-        syn::Data::Union(data) => derive::parse_union(input.ident, input.attrs, data),
+        syn::Data::Struct(data) => derive::parse_struct(ident, generics, attr, data),
+        syn::Data::Enum(data) => derive::parse_enum(ident, generics, attr, data),
+        syn::Data::Union(data) => derive::parse_union(ident, generics, attr, data),
     };
     match res {
         Ok(res) => res.into(),
@@ -272,7 +276,7 @@ fn generate_regex(
             let regex = ::sscanf::regex::Regex::new(regex_str)
                 .expect("scanf: Cannot generate Regex");
 
-            const NUM_CAPTURES: usize = #num_captures;
+            const NUM_CAPTURES: ::std::primitive::usize = #num_captures;
 
             if regex.captures_len() != NUM_CAPTURES {
                 panic!(
