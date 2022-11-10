@@ -149,8 +149,7 @@ impl RegexParts {
                         regex
                     }
                     Hashtag => {
-                        // TODO: if f32 or f64, use alt matcher
-                        unimplemented!()
+                        return config.src.err("unsupported use of '#'");
                     }
                 }
             } else {
@@ -272,10 +271,10 @@ fn regex_from_radix(
     use std::cmp::Ordering::*;
     let possible_chars = match radix.cmp(&10) {
         Less => format!("0-{}", radix - 1),
-        Equal => "0-9aA".to_string(),
+        Equal => "0-9a".to_string(),
         Greater => {
             let last_letter = (b'a' + radix - 10) as char;
-            format!("0-9a-{}A-{}", last_letter, last_letter.to_uppercase())
+            format!("0-9a-{}", last_letter)
         }
     };
 
@@ -285,7 +284,7 @@ fn regex_from_radix(
     let num_digits = f32::ceil(num_digits_binary as f32 / f32::log2(radix as f32)) as u8;
 
     let regex = format!(
-        "{sign}{prefix}[{digits}]{{1,{n}}}",
+        "(?i:{sign}{prefix}[{digits}]{{1,{n}}})",
         sign = sign,
         prefix = prefix_string,
         digits = possible_chars,
@@ -303,48 +302,41 @@ fn regex_from_radix(
         .as_str());
 
     let radix = radix as u32;
-    let converter = match (prefix_policy, prefix) {
-        (PrefixPolicy::Optional, Some(prefix)) => {
-            if signed {
-                quote_spanned!(span => {
-                    let input = #get_input;
-                    let s = input.strip_prefix(&['+', '-'] as &[_]).unwrap_or(input);
-                    let s = s.strip_prefix(#prefix).unwrap_or(s);
-                    #ty::from_str_radix(s, #radix).map(|i| if input.starts_with('-') { -i } else { i })?
-                })
-            } else {
-                quote_spanned!(span => {
-                    let input = #get_input;
-                    let s = input.strip_prefix('+').unwrap_or(input);
-                    let s = s.strip_prefix(#prefix).unwrap_or(s);
-                    #ty::from_str_radix(s, #radix)?
-                })
-            }
-        }
-        (PrefixPolicy::Forced, Some(prefix)) => {
-            if signed {
-                quote_spanned!(span => {
-                    let input = #get_input;
-                    let s = input.strip_prefix(&['+', '-'] as &[_]).unwrap_or(input);
-                    let s = s.strip_prefix(#prefix).ok_or(::sscanf::MissingPrefixError)?;
-                    #ty::from_str_radix(s, #radix).map(|i| if input.starts_with('-') { -i } else { i })?
-                })
-            } else {
-                quote_spanned!(span => {
-                    let input = #get_input;
-                    let s = input.strip_prefix('+').unwrap_or(input);
-                    let s = s.strip_prefix(#prefix).ok_or(::sscanf::MissingPrefixError)?;
-                    #ty::from_str_radix(s, #radix)?
-                })
-            }
-        }
-        (PrefixPolicy::Never, None) => {
+    let converter = if prefix_policy == PrefixPolicy::Never {
+        quote_spanned!(span => {
+            let input = #get_input;
+            #ty::from_str_radix(input, #radix)?
+        })
+    } else {
+        let no_prefix_handler = match prefix_policy {
+            PrefixPolicy::Optional => quote!(unwrap_or(s)),
+            PrefixPolicy::Forced => quote!(ok_or(::sscanf::MissingPrefixError)?),
+            PrefixPolicy::Never => unreachable!(),
+        };
+        let prefix_lowercase = prefix.expect("Invalid internal prefix configuration");
+        let prefix_uppercase = prefix_lowercase.to_uppercase();
+        let prefix_matcher = quote!(
+            s.strip_prefix(#prefix_lowercase).or_else(|| s.strip_prefix(#prefix_uppercase))
+        );
+
+        if signed {
             quote_spanned!(span => {
                 let input = #get_input;
-                #ty::from_str_radix(input, #radix)?
+                let (negative, s) = match input.strip_prefix('-') {
+                    Some(s) => (true, s),
+                    None => (false, input.strip_prefix('+').unwrap_or(input)),
+                };
+                let s = #prefix_matcher.#no_prefix_handler;
+                #ty::from_str_radix(s, #radix).map(|i| if negative { -i } else { i })?
+            })
+        } else {
+            quote_spanned!(span => {
+                let input = #get_input;
+                let s = input.strip_prefix('+').unwrap_or(input);
+                let s = #prefix_matcher.#no_prefix_handler;
+                #ty::from_str_radix(s, #radix)?
             })
         }
-        _ => panic!("Invalid internal prefix configuration"),
     };
 
     Ok((quote!(#regex), converter))

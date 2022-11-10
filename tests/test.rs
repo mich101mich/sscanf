@@ -31,9 +31,10 @@ fn test_from_regex() {
 }
 
 // #[derive(FromScanf, Debug, PartialEq)]
-// #[scanf(Whole = "{0}", Fraction = "{numerator}/{denominator}")]
 // enum Number {
+//     #[scanf(format = "{}")]
 //     Whole(isize),
+//     #[scanf(format = "{numerator}/{denominator}")]
 //     Fraction {
 //         numerator: isize,
 //         denominator: isize,
@@ -66,14 +67,13 @@ fn test_from_regex() {
 fn basic() {
     let input = "Test 5 1.4 {} bob!";
     let output = scanf!(input, "Test {usize} {f32} {{}} {}!", std::string::String);
-    assert!(output.is_ok());
     let (a, b, c) = output.unwrap();
     assert_eq!(a, 5);
     assert!((b - 1.4).abs() < f32::EPSILON, "b is {}", b);
     assert_eq!(c, "bob");
 
     let n = scanf!(input, "hi");
-    assert!(n.is_err());
+    n.unwrap_err();
 
     let input = "Position<5,0.3,2>; Dir: N24E10";
     let output = scanf!(
@@ -89,26 +89,25 @@ fn basic() {
 #[test]
 fn no_types() {
     let result = scanf!("hi", "hi");
-    assert!(result.is_ok());
+    result.unwrap();
     let result = scanf!("hi", "no");
-    assert!(result.is_err());
+    result.unwrap_err();
 }
 
 #[test]
 fn get_regex() {
-    let input = "Test 5 1.4 {} bob!";
-    let regex = scanf_get_regex!("Test {usize} {f32} {{}} {}!", std::string::String);
+    let input = "Test 5 {} bob!";
+    let regex = scanf_get_regex!("Test {usize} {{}} {}!", std::string::String);
     assert_eq!(
         regex.as_str(),
-        r"^Test (\+?\d{1,20}) ([-+]?\d+\.?\d*) \{\} (.+?)!$"
+        r"^Test (\+?\d{1,20}) \{\} (.+?)!$"
     );
 
     let output = regex.captures(input);
     assert!(output.is_some());
     let output = output.unwrap();
     assert_eq!(output.get(1).map(|m| m.as_str()), Some("5"));
-    assert_eq!(output.get(2).map(|m| m.as_str()), Some("1.4"));
-    assert_eq!(output.get(3).map(|m| m.as_str()), Some("bob"));
+    assert_eq!(output.get(2).map(|m| m.as_str()), Some("bob"));
 }
 
 #[test]
@@ -169,7 +168,7 @@ fn config_numbers() {
 
     let input = "-0xab01";
     let parsed = scanf!(input, "{usize:x}");
-    assert!(parsed.is_err());
+    parsed.unwrap_err();
 
     let input = "+10 +0xab01 +0o127 +0b101010";
     let parsed = scanf!(input, "{u32:r3} {usize:x} {u32:o} {u8:b}");

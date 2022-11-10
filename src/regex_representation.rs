@@ -1,3 +1,5 @@
+use const_format::formatcp;
+
 /// A Trait used by `scanf` to obtain the Regex of a Type
 ///
 /// Has one associated Constant: `REGEX`, which should be set to a regular Expression.
@@ -55,6 +57,19 @@ pub trait RegexRepresentation {
     const REGEX: &'static str;
 }
 
+// float syntax: https://doc.rust-lang.org/std/primitive.f32.html#grammar
+//
+// Float  ::= Sign? ( 'inf' | 'infinity' | 'nan' | Number )
+const FLOAT: &str = formatcp!(r"{SIGN}?(?i:inf|infinity|nan|{NUMBER})",);
+// Number ::= ( Digit+ | Digit+ '.' Digit* | Digit* '.' Digit+ ) Exp?
+const NUMBER: &str = formatcp!(r"(?:{DIGIT}+|{DIGIT}+\.{DIGIT}*|{DIGIT}*\.{DIGIT}+)(?:{EXP})?",);
+// Exp    ::= 'e' Sign? Digit+
+const EXP: &str = formatcp!(r"e{SIGN}?{DIGIT}+");
+// Sign   ::= [+-]
+const SIGN: &str = r"[+-]";
+// Digit  ::= [0-9]
+const DIGIT: &str = r"\d";
+
 macro_rules! doc_concat {
     ($target: item, $($doc: expr),+) => {
         $(
@@ -83,11 +98,13 @@ macro_rules! impl_num {
     (f64; $($ty: ty),+) => {
         $(impl RegexRepresentation for $ty {
             doc_concat!{
-                const REGEX: &'static str = r"[-+]?\d+\.?\d*";,
+                const REGEX: &'static str = FLOAT;,
                 "Matches any floating point number",
+                "",
+                concat!("See See [FromStr on ", stringify!($ty), "](https://doc.rust-lang.org/std/primitive.", stringify!($ty), ".html#method.from_str) for details"),
                 "```",
                 "# use sscanf::RegexRepresentation;",
-                concat!("assert_eq!(", stringify!($ty), r#"::REGEX, r"[-+]?\d+\.?\d*");"#),
+                concat!("assert_eq!(", stringify!($ty), r#"::REGEX, r"[+-]?(?i:inf|infinity|nan|(?:\d+|\d+\.\d*|\d*\.\d+)(?:e[+-]?\d+)?)");"#),
                 "```"
             }
         })+

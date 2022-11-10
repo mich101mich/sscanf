@@ -21,7 +21,7 @@
 // TODO: Remove error
 // TODO: from_scanf docs
 // TODO: derive: add docs, add tests, Generics
-// TODO: fail tests for type index, format options, derive
+// TODO: fail tests for type index, format options, derive, :#r16
 // TODO: Add more format options
 
 //! A sscanf (inverse of format!()) Macro based on Regex
@@ -190,30 +190,21 @@
 //! **Radix Options:**
 //!
 //! Only work on primitive integer types (`u8`, ..., `u128`, `i8`, ..., `i128`, `usize`, `isize`).
-//! - `x`: hexadecimal Number (Digits 0-9 and a-f or A-F)
-//! - `o`: octal Number (Digits 0-7)
-//! - `b`: binary Number (Digits 0-1)
+//! - `x`: hexadecimal Number (Digits 0-9 and a-f or A-F), optional prefix `0x` or `0X`
+//! - `o`: octal Number (Digits 0-7), optional prefix `0o` or `0O`
+//! - `b`: binary Number (Digits 0-1), optional prefix `0b` or `0B`
 //! - `r2` - `r36`: any radix Number (Digits 0-9 and a-z or A-Z for higher radices)
 //!
 //! **alternate form:**
 //!
 //! If used alongside a radix option: makes the number require a prefix (0x, 0o, 0b).
 //!
-//! If used on `f32` or `f64`: matches the full range of floating point identifiers like `nan`, `inf`, `2.0e5`, ...
-//!
-//! Normal `f32` and `f64` only accept numbers with an optional sign and decimal point. This is
-//! done to avoid accidentally matching against text:
-//! ```
-//! # use sscanf::*;
-//! let input = "Match a Banana against a number";
-//! let output = scanf!(input, "{str}{f32}{str}");
-//! // There are no Numbers in input, so expect no match
-//! assert!(output.is_err());
-//!
-//! // let output = scanf!(input, "{str}{f32:#}{str}"); // TODO:
-//! // // The 'nan' part in "Banana" is parsed as f32::NaN
-//! // assert!(output.unwrap().1.is_nan());
-//! ```
+//! A note on prefixes: `r2`, `r8` and `r16` match the same numbers as `b`, `o` and `x` respectively,
+//! but without a prefix. Thus:
+//! - `{:x}` _may_ have a prefix, matching numbers like `0xab` or `ab`
+//! - `{:r16}` has no prefix and would only match `ab`
+//! - `{:#x}` _must_ have a prefix, matching only `0xab`
+//! - `{:#r16}` gives a compile error
 //!
 //! # Custom Types
 //!
@@ -297,7 +288,7 @@
 //! in the [`FromStr`] implementation.
 //!
 //! A custom implementation of [`FromScanf`] requires some in-depth knowledge and is thus not
-//! recommended and not described here. See the trait documentation for more information.
+//! recommended and not described here. See the trait documentation if absolutely necessary.
 //!
 //! Implementing `RegexRepresentation` isn't strictly necessary if you **always** supply a custom
 //! Regex when using the type by using the `{:/.../}` format option, but this tends to make your code

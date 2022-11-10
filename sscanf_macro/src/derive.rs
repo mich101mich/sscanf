@@ -185,7 +185,7 @@ pub fn parse_struct(
                 let mut len = src.len();
 
                 let mut catcher = || -> ::std::result::Result<Self, ::std::boxed::Box<dyn ::std::error::Error>> {
-                    Ok(#name #from_matches)
+                    ::std::result::Result::Ok(#name #from_matches)
                 };
                 let res = catcher().map_err(|error| ::sscanf::FromScanfFailedError {
                     type_name: stringify!(#name),
