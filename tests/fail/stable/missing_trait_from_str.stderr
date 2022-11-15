@@ -1,8 +1,8 @@
 error[E0277]: the trait bound `NoFromStr: FromStr` is not satisfied
- --> tests/fail/stable/missing_trait_from_str.rs:9:32
+ --> tests/fail/stable/missing_trait_from_str.rs:9:33
   |
-9 |     sscanf::scanf!("hi", "{}", module::NoFromStr);
-  |                                ^^^^^^^^^^^^^^^^^ the trait `FromStr` is not implemented for `NoFromStr`
+9 |     sscanf::sscanf!("hi", "{}", module::NoFromStr);
+  |                                 ^^^^^^^^^^^^^^^^^ the trait `FromStr` is not implemented for `NoFromStr`
   |
   = help: the following other types implement trait `FromStr`:
             FullF32
@@ -17,28 +17,10 @@ error[E0277]: the trait bound `NoFromStr: FromStr` is not satisfied
   = note: required because of the requirements on the impl of `FromScanf` for `NoFromStr`
 
 error[E0277]: the trait bound `NoFromStr: FromStr` is not satisfied
-  --> tests/fail/stable/missing_trait_from_str.rs:10:26
+  --> tests/fail/stable/missing_trait_from_str.rs:10:27
    |
-10 |     sscanf::scanf!("hi", "{module::NoFromStr}");
-   |                          ^^^^^^^^^^^^^^^^^^^^^ the trait `FromStr` is not implemented for `NoFromStr`
-   |
-   = help: the following other types implement trait `FromStr`:
-             FullF32
-             FullF64
-             HexNumber
-             IpAddr
-             Ipv4Addr
-             Ipv6Addr
-             NonZeroI128
-             NonZeroI16
-           and 34 others
-   = note: required because of the requirements on the impl of `FromScanf` for `NoFromStr`
-
-error[E0277]: the trait bound `NoFromStr: FromStr` is not satisfied
-  --> tests/fail/stable/missing_trait_from_str.rs:12:32
-   |
-12 |     sscanf::scanf!("hi", "{}", NoFromStr);
-   |                                ^^^^^^^^^ the trait `FromStr` is not implemented for `NoFromStr`
+10 |     sscanf::sscanf!("hi", "{module::NoFromStr}");
+   |                           ^^^^^^^^^^^^^^^^^^^^^ the trait `FromStr` is not implemented for `NoFromStr`
    |
    = help: the following other types implement trait `FromStr`:
              FullF32
@@ -53,10 +35,28 @@ error[E0277]: the trait bound `NoFromStr: FromStr` is not satisfied
    = note: required because of the requirements on the impl of `FromScanf` for `NoFromStr`
 
 error[E0277]: the trait bound `NoFromStr: FromStr` is not satisfied
-  --> tests/fail/stable/missing_trait_from_str.rs:13:26
+  --> tests/fail/stable/missing_trait_from_str.rs:12:33
    |
-13 |     sscanf::scanf!("hi", "{NoFromStr}");
-   |                          ^^^^^^^^^^^^^ the trait `FromStr` is not implemented for `NoFromStr`
+12 |     sscanf::sscanf!("hi", "{}", NoFromStr);
+   |                                 ^^^^^^^^^ the trait `FromStr` is not implemented for `NoFromStr`
+   |
+   = help: the following other types implement trait `FromStr`:
+             FullF32
+             FullF64
+             HexNumber
+             IpAddr
+             Ipv4Addr
+             Ipv6Addr
+             NonZeroI128
+             NonZeroI16
+           and 34 others
+   = note: required because of the requirements on the impl of `FromScanf` for `NoFromStr`
+
+error[E0277]: the trait bound `NoFromStr: FromStr` is not satisfied
+  --> tests/fail/stable/missing_trait_from_str.rs:13:27
+   |
+13 |     sscanf::sscanf!("hi", "{NoFromStr}");
+   |                           ^^^^^^^^^^^^^ the trait `FromStr` is not implemented for `NoFromStr`
    |
    = help: the following other types implement trait `FromStr`:
              FullF32

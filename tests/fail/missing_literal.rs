@@ -1,10 +1,10 @@
 fn main() {
-    sscanf::scanf!("5");
-    sscanf::scanf!("5",);
+    sscanf::sscanf!("5");
+    sscanf::sscanf!("5",);
     
     let input = "hi";
-    sscanf::scanf!(input, '{', std::vec::Vec<usize>);
+    sscanf::sscanf!(input, '{', std::vec::Vec<usize>);
 
     let fmt = "{}";
-    sscanf::scanf!(input, fmt, std::vec::Vec<usize>);
+    sscanf::sscanf!(input, fmt, std::vec::Vec<usize>);
 }

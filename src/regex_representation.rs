@@ -1,9 +1,9 @@
 use const_format::formatcp;
 
-/// A Trait used by `scanf` to obtain the Regex of a Type
+/// A Trait used by `sscanf` to obtain the Regex of a Type
 ///
 /// Has one associated Constant: `REGEX`, which should be set to a regular Expression.
-/// Implement this trait for a Type that you want to be parsed using scanf.
+/// Implement this trait for a Type that you want to be parsed using sscanf.
 ///
 /// The Regular Expression should match the string representation as exactly as possible.
 /// Any incorrect matches might be caught in the from_str parsing, but that might cause this
@@ -24,32 +24,32 @@ use const_format::formatcp;
 /// use sscanf::FromScanf;
 /// #[derive(FromScanf)]
 /// # #[derive(Debug, PartialEq)]
-/// #[scanf(format = "{}/{}")] // placeholders are automatically indexed in order
+/// #[sscanf(format = "{}/{}")] // placeholders are automatically indexed in order
 /// struct Fraction(isize, usize);
 /// ```
 /// Which can be obtained from any string of the kind `±X/Y`
 ///
-/// Now we can use this `Fraction` struct in `scanf`:
+/// Now we can use this `Fraction` struct in `sscanf`:
 /// ```
 /// # use sscanf::FromScanf;
 /// # #[derive(Debug, PartialEq, FromScanf)]
-/// #[scanf(format = "{}/{}")]
+/// #[sscanf(format = "{}/{}")]
 /// # struct Fraction(isize, usize);
-/// use sscanf::scanf;
+/// use sscanf::sscanf;
 ///
-/// let output = scanf!("2/5", "{Fraction}");
+/// let output = sscanf!("2/5", "{Fraction}");
 /// assert_eq!(output.unwrap(), Fraction(2, 5));
 ///
-/// let output = scanf!("-25/3", "{Fraction}");
+/// let output = sscanf!("-25/3", "{Fraction}");
 /// assert_eq!(output.unwrap(), Fraction(-25, 3));
 ///
-/// let output = scanf!("6e/3", "{Fraction}");
+/// let output = sscanf!("6e/3", "{Fraction}");
 /// assert!(output.is_err());
 ///
-/// let output = scanf!("6/-3", "{Fraction}");
+/// let output = sscanf!("6/-3", "{Fraction}");
 /// assert!(output.is_err()); // only first number can be negative
 ///
-/// let output = scanf!("6/3", "{Fraction}");
+/// let output = sscanf!("6/3", "{Fraction}");
 /// assert_eq!(output.unwrap(), Fraction(6, 3));
 /// ```
 pub trait RegexRepresentation {
@@ -162,7 +162,7 @@ impl RegexRepresentation for str {
     /// Matches any sequence of Characters.
     ///
     /// Note that this is the non-borrowed form of the usual `&str`. This is the type that should be
-    /// used when calling scanf!() because of proc-macro limitations. The type returned by scanf!()
+    /// used when calling sscanf!() because of proc-macro limitations. The type returned by sscanf!()
     /// is `&str` as one would expect.
     ///
     /// This is also currently the only type that borrows part of the input string, so you need to

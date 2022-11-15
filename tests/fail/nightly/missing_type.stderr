@@ -1,17 +1,17 @@
 error: more placeholders than types provided
- --> tests/fail/nightly/missing_type.rs:2:33
+ --> tests/fail/nightly/missing_type.rs:2:34
   |
-2 |     sscanf::scanf!("hi", "asdf{}{}asdf{}", usize);
-  |                                 ^^
+2 |     sscanf::sscanf!("hi", "asdf{}{}asdf{}", usize);
+  |                                  ^^
 
 error: more placeholders than types provided
- --> tests/fail/nightly/missing_type.rs:2:39
+ --> tests/fail/nightly/missing_type.rs:2:40
   |
-2 |     sscanf::scanf!("hi", "asdf{}{}asdf{}", usize);
-  |                                       ^^
+2 |     sscanf::sscanf!("hi", "asdf{}{}asdf{}", usize);
+  |                                        ^^
 
 error: more placeholders than types provided
- --> tests/fail/nightly/missing_type.rs:3:42
+ --> tests/fail/nightly/missing_type.rs:3:43
   |
-3 |     sscanf::scanf!("hi", "asdf{}{usize}as{}df{i32}", usize);
-  |                                          ^^
+3 |     sscanf::sscanf!("hi", "asdf{}{usize}as{}df{i32}", usize);
+  |                                           ^^

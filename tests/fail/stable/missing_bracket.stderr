@@ -1,15 +1,15 @@
 error: missing '}' to close a placeholder. If the '{' was intended to be a literal, escape it with '{{':
        At "asdf{asdf"
                ^^^^^
- --> tests/fail/stable/missing_bracket.rs:2:26
+ --> tests/fail/stable/missing_bracket.rs:2:27
   |
-2 |     sscanf::scanf!("hi", "asdf{asdf");
-  |                          ^^^^^^^^^^^
+2 |     sscanf::sscanf!("hi", "asdf{asdf");
+  |                           ^^^^^^^^^^^
 
 error: Unexpected standalone '}'. Literal '}' need to be escaped as '}}':
        At "asdf}asdf"
                ^
- --> tests/fail/stable/missing_bracket.rs:3:26
+ --> tests/fail/stable/missing_bracket.rs:3:27
   |
-3 |     sscanf::scanf!("hi", "asdf}asdf");
-  |                          ^^^^^^^^^^^
+3 |     sscanf::sscanf!("hi", "asdf}asdf");
+  |                           ^^^^^^^^^^^

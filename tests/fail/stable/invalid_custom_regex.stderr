@@ -6,7 +6,7 @@ error: regex parse error:
        In custom Regex format option:
        At "   {:/ab(ab/}   "
                 ^^^^^^^
- --> tests/fail/stable/invalid_custom_regex.rs:2:24
+ --> tests/fail/stable/invalid_custom_regex.rs:2:25
   |
-2 |     sscanf::scanf!("", "   {:/ab(ab/}   ", String).unwrap();
-  |                        ^^^^^^^^^^^^^^^^^^
+2 |     sscanf::sscanf!("", "   {:/ab(ab/}   ", String).unwrap();
+  |                         ^^^^^^^^^^^^^^^^^^

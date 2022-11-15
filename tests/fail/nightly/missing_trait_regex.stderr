@@ -1,8 +1,8 @@
 error[E0277]: the trait bound `Vec<usize>: RegexRepresentation` is not satisfied
-  --> tests/fail/nightly/missing_trait_regex.rs:10:32
+  --> tests/fail/nightly/missing_trait_regex.rs:10:33
    |
-10 |     sscanf::scanf!("hi", "{}", std::vec::Vec<usize>);
-   |                                ^^^^^^^^^^^^^^^^^^^^ the trait `RegexRepresentation` is not implemented for `Vec<usize>`
+10 |     sscanf::sscanf!("hi", "{}", std::vec::Vec<usize>);
+   |                                 ^^^^^^^^^^^^^^^^^^^^ the trait `RegexRepresentation` is not implemented for `Vec<usize>`
    |
    = help: the following other types implement trait `RegexRepresentation`:
              FullF32
@@ -18,24 +18,24 @@ error[E0277]: the trait bound `Vec<usize>: RegexRepresentation` is not satisfied
 error[E0080]: evaluation of constant value failed
   --> tests/fail/nightly/missing_trait_regex.rs:10:5
    |
-10 |     sscanf::scanf!("hi", "{}", std::vec::Vec<usize>);
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ referenced constant has errors
+10 |     sscanf::sscanf!("hi", "{}", std::vec::Vec<usize>);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ referenced constant has errors
    |
-   = note: this error originates in the macro `$crate::pmr::__concatcp_impl` which comes from the expansion of the macro `sscanf::scanf` (in Nightly builds, run with -Z macro-backtrace for more info)
+   = note: this error originates in the macro `$crate::pmr::__concatcp_impl` which comes from the expansion of the macro `sscanf::sscanf` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0080]: evaluation of constant value failed
   --> tests/fail/nightly/missing_trait_regex.rs:10:5
    |
-10 |     sscanf::scanf!("hi", "{}", std::vec::Vec<usize>);
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ referenced constant has errors
+10 |     sscanf::sscanf!("hi", "{}", std::vec::Vec<usize>);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ referenced constant has errors
    |
-   = note: this error originates in the macro `__cf_osRcTFl4A::__concatcp_inner` which comes from the expansion of the macro `sscanf::scanf` (in Nightly builds, run with -Z macro-backtrace for more info)
+   = note: this error originates in the macro `__cf_osRcTFl4A::__concatcp_inner` which comes from the expansion of the macro `sscanf::sscanf` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `NoRegex: RegexRepresentation` is not satisfied
-  --> tests/fail/nightly/missing_trait_regex.rs:11:32
+  --> tests/fail/nightly/missing_trait_regex.rs:11:33
    |
-11 |     sscanf::scanf!("hi", "{}", NoRegex);
-   |                                ^^^^^^^ the trait `RegexRepresentation` is not implemented for `NoRegex`
+11 |     sscanf::sscanf!("hi", "{}", NoRegex);
+   |                                 ^^^^^^^ the trait `RegexRepresentation` is not implemented for `NoRegex`
    |
    = help: the following other types implement trait `RegexRepresentation`:
              FullF32
@@ -51,15 +51,15 @@ error[E0277]: the trait bound `NoRegex: RegexRepresentation` is not satisfied
 error[E0080]: evaluation of constant value failed
   --> tests/fail/nightly/missing_trait_regex.rs:11:5
    |
-11 |     sscanf::scanf!("hi", "{}", NoRegex);
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ referenced constant has errors
+11 |     sscanf::sscanf!("hi", "{}", NoRegex);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ referenced constant has errors
    |
-   = note: this error originates in the macro `$crate::pmr::__concatcp_impl` which comes from the expansion of the macro `sscanf::scanf` (in Nightly builds, run with -Z macro-backtrace for more info)
+   = note: this error originates in the macro `$crate::pmr::__concatcp_impl` which comes from the expansion of the macro `sscanf::sscanf` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0080]: evaluation of constant value failed
   --> tests/fail/nightly/missing_trait_regex.rs:11:5
    |
-11 |     sscanf::scanf!("hi", "{}", NoRegex);
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ referenced constant has errors
+11 |     sscanf::sscanf!("hi", "{}", NoRegex);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ referenced constant has errors
    |
-   = note: this error originates in the macro `__cf_osRcTFl4A::__concatcp_inner` which comes from the expansion of the macro `sscanf::scanf` (in Nightly builds, run with -Z macro-backtrace for more info)
+   = note: this error originates in the macro `__cf_osRcTFl4A::__concatcp_inner` which comes from the expansion of the macro `sscanf::sscanf` (in Nightly builds, run with -Z macro-backtrace for more info)

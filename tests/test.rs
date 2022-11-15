@@ -10,7 +10,7 @@ mod types {
 use sscanf::RegexRepresentation;
 
 #[derive(FromScanf, Debug, PartialEq)]
-#[scanf(format = "({name},{age})")]
+#[sscanf(format = "({name},{age})")]
 struct Person {
     name: String,
     age: u8,
@@ -19,7 +19,7 @@ struct Person {
 #[test]
 fn test_from_regex() {
     let input = "Hi, I'm (Bob,42)!";
-    let bob = scanf!(input, "Hi, I'm {Person}!").unwrap();
+    let bob = sscanf!(input, "Hi, I'm {Person}!").unwrap();
 
     assert_eq!(
         bob,
@@ -32,9 +32,9 @@ fn test_from_regex() {
 
 // #[derive(FromScanf, Debug, PartialEq)]
 // enum Number {
-//     #[scanf(format = "{}")]
+//     #[sscanf(format = "{}")]
 //     Whole(isize),
-//     #[scanf(format = "{numerator}/{denominator}")]
+//     #[sscanf(format = "{numerator}/{denominator}")]
 //     Fraction {
 //         numerator: isize,
 //         denominator: isize,
@@ -44,7 +44,7 @@ fn test_from_regex() {
 // #[test]
 // fn test_from_regex() {
 //     let input = "Hi, I'm (Bob,42)!. I have 5 dollars and -1/2 pennies.";
-//     let (bob, dollars, pennies) = sscanf::scanf!(
+//     let (bob, dollars, pennies) = sscanf!(
 //         input,
 //         "Hi, I'm {Person}! I have {Number} dollars and {Number} pennies."
 //     )
@@ -66,38 +66,38 @@ fn test_from_regex() {
 #[test]
 fn basic() {
     let input = "Test 5 1.4 {} bob!";
-    let output = scanf!(input, "Test {usize} {f32} {{}} {}!", std::string::String);
+    let output = sscanf!(input, "Test {usize} {f32} {{}} {}!", std::string::String);
     let (a, b, c) = output.unwrap();
     assert_eq!(a, 5);
     assert!((b - 1.4).abs() < f32::EPSILON, "b is {}", b);
     assert_eq!(c, "bob");
 
-    let n = scanf!(input, "hi");
+    let n = sscanf!(input, "hi");
     n.unwrap_err();
 
     let input = "Position<5,0.3,2>; Dir: N24E10";
-    let output = scanf!(
+    let output = sscanf!(
         input,
         "Position<{f32},{f32},{f32}>; Dir: {char}{usize}{char}{usize}",
     );
     assert_eq!(output.unwrap(), (5.0, 0.3, 2.0, 'N', 24, 'E', 10));
 
-    let output = scanf!("hi", "{str}").unwrap();
+    let output = sscanf!("hi", "{str}").unwrap();
     assert_eq!(output, "hi");
 }
 
 #[test]
 fn no_types() {
-    let result = scanf!("hi", "hi");
+    let result = sscanf!("hi", "hi");
     result.unwrap();
-    let result = scanf!("hi", "no");
+    let result = sscanf!("hi", "no");
     result.unwrap_err();
 }
 
 #[test]
 fn get_regex() {
     let input = "Test 5 {} bob!";
-    let regex = scanf_get_regex!("Test {usize} {{}} {}!", std::string::String);
+    let regex = sscanf_get_regex!("Test {usize} {{}} {}!", std::string::String);
     assert_eq!(
         regex.as_str(),
         r"^Test (\+?\d{1,20}) \{\} (.+?)!$"
@@ -113,7 +113,7 @@ fn get_regex() {
 #[test]
 fn unescaped() {
     let input = "5.0SOME_RANDOM_TEXT3";
-    let output = scanf_unescaped!(input, "{f32}.*{usize}");
+    let output = sscanf_unescaped!(input, "{f32}.*{usize}");
     assert_eq!(output.unwrap(), (5.0, 3));
 }
 
@@ -132,18 +132,18 @@ fn generic_types() {
     }
 
     let input = "Test";
-    let output = scanf!(input, "{}", Bob<usize>);
+    let output = sscanf!(input, "{}", Bob<usize>);
     assert_eq!(output.unwrap(), Default::default());
 
     let input = "Test";
-    let output = scanf!(input, "{Bob<usize>}");
+    let output = sscanf!(input, "{Bob<usize>}");
     assert_eq!(output.unwrap(), Default::default());
 }
 
 #[test]
 fn config_numbers() {
     let input = "A Sentence with Spaces. Number formats: 0xab01 0o127 0b101010.";
-    let parsed = scanf!(input, "{str}. Number formats: {usize:x} {i32:o} {u8:b}.");
+    let parsed = sscanf!(input, "{str}. Number formats: {usize:x} {i32:o} {u8:b}.");
     let (a, b, c, d) = parsed.unwrap();
     assert_eq!(a, "A Sentence with Spaces");
     assert_eq!(b, 0xab01);
@@ -151,7 +151,7 @@ fn config_numbers() {
     assert_eq!(d, 0b101010);
 
     let input = "-10 -0xab01 -0o127 -0b101010";
-    let parsed = scanf!(input, "{i32:r3} {isize:x} {i32:o} {i8:b}");
+    let parsed = sscanf!(input, "{i32:r3} {isize:x} {i32:o} {i8:b}");
     let (a, b, c, d) = parsed.unwrap();
     assert_eq!(a, -3);
     assert_eq!(b, -0xab01);
@@ -159,7 +159,7 @@ fn config_numbers() {
     assert_eq!(d, -0b101010);
 
     let input = "+10 +0xab01 +0o127 +0b101010";
-    let parsed = scanf!(input, "{i32:r3} {isize:x} {i32:o} {i8:b}");
+    let parsed = sscanf!(input, "{i32:r3} {isize:x} {i32:o} {i8:b}");
     let (a, b, c, d) = parsed.unwrap();
     assert_eq!(a, 3);
     assert_eq!(b, 0xab01);
@@ -167,11 +167,11 @@ fn config_numbers() {
     assert_eq!(d, 0b101010);
 
     let input = "-0xab01";
-    let parsed = scanf!(input, "{usize:x}");
+    let parsed = sscanf!(input, "{usize:x}");
     parsed.unwrap_err();
 
     let input = "+10 +0xab01 +0o127 +0b101010";
-    let parsed = scanf!(input, "{u32:r3} {usize:x} {u32:o} {u8:b}");
+    let parsed = sscanf!(input, "{u32:r3} {usize:x} {u32:o} {u8:b}");
     let (a, b, c, d) = parsed.unwrap();
     assert_eq!(a, 3);
     assert_eq!(b, 0xab01);
@@ -180,7 +180,7 @@ fn config_numbers() {
 }
 
 #[test]
-#[should_panic(expected = "scanf: Cannot generate Regex")]
+#[should_panic(expected = "sscanf: Cannot generate Regex")]
 fn invalid_regex_representation() {
     struct Test;
     impl FromStr for Test {
@@ -192,17 +192,17 @@ fn invalid_regex_representation() {
     impl RegexRepresentation for Test {
         const REGEX: &'static str = ")";
     }
-    scanf!("hi", "{Test}").unwrap();
+    sscanf!("hi", "{Test}").unwrap();
 }
 
 #[test]
 fn custom_regex() {
     let input = "ab123cd";
-    let parsed = scanf!(input, r"{str}{u8:/\d/}{str:/\d\d.*/}");
+    let parsed = sscanf!(input, r"{str}{u8:/\d/}{str:/\d\d.*/}");
     assert_eq!(parsed.unwrap(), ("ab", 1, "23cd"));
 
     let input = r"({(\}*[\{";
-    let parsed = scanf!(input, r"{:/\(\{\(\\\}\*/}{:/\[\\\{/}", str, str);
+    let parsed = sscanf!(input, r"{:/\(\{\(\\\}\*/}{:/\[\\\{/}", str, str);
     assert_eq!(parsed.unwrap(), ("({(\\}*", "[\\{"));
 
     #[derive(Debug, PartialEq)]
@@ -213,21 +213,21 @@ fn custom_regex() {
             Ok(NoRegex)
         }
     }
-    let parsed = scanf!(input, "{NoRegex:/.*/}");
+    let parsed = sscanf!(input, "{NoRegex:/.*/}");
     assert_eq!(parsed.unwrap(), NoRegex);
 }
 
 #[test]
 #[should_panic(expected = "MatchFailed")]
 fn check_error_regex() {
-    scanf!("hi", "bob").unwrap();
+    sscanf!("hi", "bob").unwrap();
 }
 #[test]
 #[should_panic(
     expected = "FromStrFailedError { type_name: \"usize\", error: ParseIntError { kind: InvalidDigit } }"
 )]
 fn check_error_from_str_1() {
-    scanf!("5bobhibob", "{u32}bob{usize:/.*/}bob").unwrap();
+    sscanf!("5bobhibob", "{u32}bob{usize:/.*/}bob").unwrap();
 }
 #[test]
 #[should_panic(
@@ -244,7 +244,7 @@ fn check_error_from_str_2() {
     impl RegexRepresentation for Test {
         const REGEX: &'static str = ".*";
     }
-    scanf!("bobhibob", "bob{}bob", Test).unwrap();
+    sscanf!("bobhibob", "bob{}bob", Test).unwrap();
 }
 
 #[test]
@@ -253,13 +253,13 @@ fn string_lifetime() {
     let s;
     {
         let input = String::from("hi");
-        s = sscanf::scanf!(input, "{String}").unwrap();
+        s = sscanf!(input, "{String}").unwrap();
     }
     println!("{}", s);
 
-    // check if scanf works with this function signature
+    // check if sscanf works with this function signature
     fn _process(a: &str) -> &str {
-        scanf!(a, "{str}").unwrap()
+        sscanf!(a, "{str}").unwrap()
     }
 }
 
@@ -267,14 +267,14 @@ fn string_lifetime() {
 fn error_lifetime() {
     fn foo() -> Result<(), Box<dyn std::error::Error>> {
         let input = String::from("hi");
-        sscanf::scanf!(input, "{String}").map_err(|err| err.to_string())?;
+        sscanf!(input, "{String}").map_err(|err| err.to_string())?;
         Ok(())
     }
     foo().unwrap();
 }
 
 #[test]
-#[should_panic(expected = r#"scanf: Regex has 3 capture groups, but 2 were expected.
+#[should_panic(expected = r#"sscanf: Regex has 3 capture groups, but 2 were expected.
 If you use ( ) in a custom Regex, please add a '?:' at the beginning to avoid forming a capture group like this:
     "  (  )  "  =>  "  (?:  )  "
 "#)]
@@ -289,7 +289,7 @@ fn custom_regex_with_capture_group() {
     impl RegexRepresentation for Test {
         const REGEX: &'static str = "(.*)";
     }
-    scanf!("5", "{Test}").unwrap();
+    sscanf!("5", "{Test}").unwrap();
 }
 
 #[test]

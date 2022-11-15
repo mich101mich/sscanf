@@ -7,6 +7,6 @@ impl std::str::FromStr for NoRegex {
 }
 
 fn main() {
-    sscanf::scanf!("hi", "{}", std::vec::Vec<usize>);
-    sscanf::scanf!("hi", "{}", NoRegex);
+    sscanf::sscanf!("hi", "{}", std::vec::Vec<usize>);
+    sscanf::sscanf!("hi", "{}", NoRegex);
 }

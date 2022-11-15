@@ -6,9 +6,9 @@ mod module {
 }
 
 fn main() {
-    sscanf::scanf!("hi", "{}", module::NoFromStr);
-    sscanf::scanf!("hi", "{module::NoFromStr}");
+    sscanf::sscanf!("hi", "{}", module::NoFromStr);
+    sscanf::sscanf!("hi", "{module::NoFromStr}");
     use module::NoFromStr;
-    sscanf::scanf!("hi", "{}", NoFromStr);
-    sscanf::scanf!("hi", "{NoFromStr}");
+    sscanf::sscanf!("hi", "{}", NoFromStr);
+    sscanf::sscanf!("hi", "{NoFromStr}");
 }

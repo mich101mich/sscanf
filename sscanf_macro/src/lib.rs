@@ -28,16 +28,16 @@ pub(crate) use str_lit::*;
 
 mod derive;
 
-/// Format string and types for scanf_get_regex. Shared by scanf and scanf_unescaped
+/// Format string and types for sscanf_get_regex. Shared by sscanf and sscanf_unescaped
 struct ScanfInner {
     /// the format string
     fmt: StrLit,
     /// Types after the format string
     type_tokens: Vec<Path>,
 }
-/// Input string, format string and types for scanf and scanf_unescaped
+/// Input string, format string and types for sscanf and sscanf_unescaped
 struct Scanf {
-    /// input to run the scanf on
+    /// input to run the sscanf on
     src_str: Expr,
     /// format string and types
     inner: ScanfInner,
@@ -109,19 +109,19 @@ impl Parse for Scanf {
 }
 
 #[proc_macro]
-pub fn scanf(input: TokenStream1) -> TokenStream1 {
+pub fn sscanf(input: TokenStream1) -> TokenStream1 {
     let input = parse_macro_input!(input as Scanf);
-    scanf_internal(input, true)
+    sscanf_internal(input, true)
 }
 
 #[proc_macro]
-pub fn scanf_unescaped(input: TokenStream1) -> TokenStream1 {
+pub fn sscanf_unescaped(input: TokenStream1) -> TokenStream1 {
     let input = parse_macro_input!(input as Scanf);
-    scanf_internal(input, false)
+    sscanf_internal(input, false)
 }
 
 #[proc_macro]
-pub fn scanf_get_regex(input: TokenStream1) -> TokenStream1 {
+pub fn sscanf_get_regex(input: TokenStream1) -> TokenStream1 {
     let input = parse_macro_input!(input as ScanfInner);
     let (regex, _) = match generate_regex(input, true) {
         Ok(v) => v,
@@ -134,8 +134,8 @@ pub fn scanf_get_regex(input: TokenStream1) -> TokenStream1 {
     .into()
 }
 
-#[proc_macro_derive(FromScanf, attributes(scanf))]
-pub fn derive_from_scanf(input: TokenStream1) -> TokenStream1 {
+#[proc_macro_derive(FromScanf, attributes(sscanf))]
+pub fn derive_from_sscanf(input: TokenStream1) -> TokenStream1 {
     let input = parse_macro_input!(input as DeriveInput);
 
     let ident = input.ident;
@@ -153,7 +153,7 @@ pub fn derive_from_scanf(input: TokenStream1) -> TokenStream1 {
     }
 }
 
-fn scanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
+fn sscanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
     let (regex, matcher) = match generate_regex(input.inner, escape_input) {
         Ok(v) => v,
         Err(e) => return e.into(),
@@ -274,13 +274,13 @@ fn generate_regex(
         static ref REGEX: ::sscanf::regex::Regex = {
             let regex_str = #regex;
             let regex = ::sscanf::regex::Regex::new(regex_str)
-                .expect("scanf: Cannot generate Regex");
+                .expect("sscanf: Cannot generate Regex");
 
             const NUM_CAPTURES: ::std::primitive::usize = #num_captures;
 
             if regex.captures_len() != NUM_CAPTURES {
                 panic!(
-                    "scanf: Regex has {} capture groups, but {} were expected.{}",
+                    "sscanf: Regex has {} capture groups, but {} were expected.{}",
                     regex.captures_len(), NUM_CAPTURES, #WRONG_CAPTURES_HINT
                 );
             }

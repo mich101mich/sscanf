@@ -3,52 +3,52 @@ error: Invalid type in placeholder: expected identifier.
        If you want syntax highlighting and better errors, place the type in the arguments after the format string while debugging:
        At "{.}"
             ^
- --> tests/fail/stable/invalid_type_in_placeholder.rs:2:26
+ --> tests/fail/stable/invalid_type_in_placeholder.rs:2:27
   |
-2 |     sscanf::scanf!("hi", "{.}");
-  |                          ^^^^^
+2 |     sscanf::sscanf!("hi", "{.}");
+  |                           ^^^^^
 
 error: Invalid type in placeholder: expected identifier.
        Hint: The syntax for placeholders is {<type>} or {<type>:<config>}. Make sure <type> is a valid type or index.
        If you want syntax highlighting and better errors, place the type in the arguments after the format string while debugging:
        At "{.:/hi/}"
             ^
- --> tests/fail/stable/invalid_type_in_placeholder.rs:4:26
+ --> tests/fail/stable/invalid_type_in_placeholder.rs:4:27
   |
-4 |     sscanf::scanf!("hi", "{.:/hi/}");
-  |                          ^^^^^^^^^^
+4 |     sscanf::sscanf!("hi", "{.:/hi/}");
+  |                           ^^^^^^^^^^
 
 error[E0412]: cannot find type `bob` in this scope
  --> tests/fail/stable/invalid_type_in_placeholder.rs:3:5
   |
-3 |     sscanf::scanf!("hi", "{bob}");
-  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not found in this scope
+3 |     sscanf::sscanf!("hi", "{bob}");
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not found in this scope
   |
-  = note: this error originates in the macro `sscanf::scanf` (in Nightly builds, run with -Z macro-backtrace for more info)
+  = note: this error originates in the macro `sscanf::sscanf` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0412]: cannot find type `bob` in this scope
  --> tests/fail/stable/invalid_type_in_placeholder.rs:5:5
   |
-5 |     sscanf::scanf!("hi", "{bob:/hi/}");
-  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not found in this scope
+5 |     sscanf::sscanf!("hi", "{bob:/hi/}");
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not found in this scope
   |
-  = note: this error originates in the macro `sscanf::scanf` (in Nightly builds, run with -Z macro-backtrace for more info)
+  = note: this error originates in the macro `sscanf::sscanf` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error: any use of this value will cause an error
  --> tests/fail/stable/invalid_type_in_placeholder.rs:3:5
   |
-3 |     sscanf::scanf!("hi", "{bob}");
-  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ referenced constant has errors
+3 |     sscanf::sscanf!("hi", "{bob}");
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ referenced constant has errors
   |
   = note: `#[deny(const_err)]` on by default
   = warning: this was previously accepted by the compiler but is being phased out; it will become a hard error in a future release!
   = note: for more information, see issue #71800 <https://github.com/rust-lang/rust/issues/71800>
-  = note: this error originates in the macro `$crate::pmr::__concatcp_impl` which comes from the expansion of the macro `sscanf::scanf` (in Nightly builds, run with -Z macro-backtrace for more info)
+  = note: this error originates in the macro `$crate::pmr::__concatcp_impl` which comes from the expansion of the macro `sscanf::sscanf` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0080]: evaluation of constant value failed
  --> tests/fail/stable/invalid_type_in_placeholder.rs:3:5
   |
-3 |     sscanf::scanf!("hi", "{bob}");
-  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ referenced constant has errors
+3 |     sscanf::sscanf!("hi", "{bob}");
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ referenced constant has errors
   |
-  = note: this error originates in the macro `__cf_osRcTFl4A::__concatcp_inner` which comes from the expansion of the macro `sscanf::scanf` (in Nightly builds, run with -Z macro-backtrace for more info)
+  = note: this error originates in the macro `__cf_osRcTFl4A::__concatcp_inner` which comes from the expansion of the macro `sscanf::sscanf` (in Nightly builds, run with -Z macro-backtrace for more info)

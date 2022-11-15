@@ -10,7 +10,7 @@ If you use ( ) in a custom Regex, please add a '?:' at the beginning to avoid fo
 pub const EXPECT_CAPTURE_HINT: &str = r#"sscanf: Non-optional capture group marked as optional.
 This is either a problem with a custom regex or RegexRepresentation implementation or an internal error."#;
 
-/// The Error returned by [`scanf`](crate::scanf).
+/// The Error returned by [`sscanf`](crate::sscanf).
 #[derive(Debug)]
 pub enum Error {
     /// The Regex generated from the format string did not match the input
@@ -39,8 +39,8 @@ impl error::Error for Error {
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Error::MatchFailed => write!(f, "scanf: The input did not match the format string"),
-            Error::ParsingFailed(e) => write!(f, "scanf: Parsing failed: {}", e),
+            Error::MatchFailed => write!(f, "sscanf: The input did not match the format string"),
+            Error::ParsingFailed(e) => write!(f, "sscanf: Parsing failed: {}", e),
         }
     }
 }

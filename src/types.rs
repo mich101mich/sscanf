@@ -68,7 +68,7 @@ impl_wrapper_ops!(FullF64, f64);
 /// ```
 /// # use sscanf::*;
 /// let input = "deadbeef + 0x123456789abcdef";
-/// let output = scanf!(input, "{} + {}", HexNumber, HexNumber).unwrap();
+/// let output = sscanf!(input, "{} + {}", HexNumber, HexNumber).unwrap();
 /// assert_eq!(output.0, 0xdeadbeef);
 /// assert_eq!(output.1, 0x123456789abcdef);
 /// ```

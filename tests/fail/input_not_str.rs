@@ -1,4 +1,4 @@
 fn main() {
-    sscanf::scanf!(5usize, "{}", usize);
-    sscanf::scanf!(b"5", "{}", usize);
+    sscanf::sscanf!(5usize, "{}", usize);
+    sscanf::sscanf!(b"5", "{}", usize);
 }

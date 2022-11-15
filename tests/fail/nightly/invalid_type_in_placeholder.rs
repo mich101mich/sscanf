@@ -1,6 +1,6 @@
 fn main() {
-    sscanf::scanf!("hi", "{.}");
-    sscanf::scanf!("hi", "{bob}");
-    sscanf::scanf!("hi", "{.:/hi/}");
-    sscanf::scanf!("hi", "{bob:/hi/}");
+    sscanf::sscanf!("hi", "{.}");
+    sscanf::sscanf!("hi", "{bob}");
+    sscanf::sscanf!("hi", "{.:/hi/}");
+    sscanf::sscanf!("hi", "{bob:/hi/}");
 }

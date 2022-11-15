@@ -7,7 +7,7 @@ use syn::{parse2, Attribute, DataEnum, DataStruct, DataUnion, Generics, Ident};
 use crate::*;
 
 pub fn find_attr(attrs: Vec<Attribute>) -> Option<Attribute> {
-    attrs.into_iter().find(|a| a.path.is_ident("scanf"))
+    attrs.into_iter().find(|a| a.path.is_ident("sscanf"))
 }
 
 fn parse_format(
@@ -156,7 +156,7 @@ pub fn parse_struct(
     data: DataStruct,
 ) -> Result<TokenStream> {
     let attr = attr.ok_or_else(|| {
-        let msg = "FromScanf: structs must have a #[scanf(format=\"...\")] attribute";
+        let msg = "FromScanf: structs must have a #[sscanf(format=\"...\")] attribute";
         Error::new_spanned(&name, msg)
     })?;
 
@@ -175,7 +175,7 @@ pub fn parse_struct(
 
     let num_captures = regex_parts.num_captures();
     let from_matches = regex_parts.from_matches();
-    let from_scanf_impl = quote!(
+    let from_sscanf_impl = quote!(
         impl #impl_generics ::sscanf::FromScanf for #name #ty_generics #where_clause {
             type Err = ::sscanf::FromScanfFailedError;
             const NUM_CAPTURES: usize = #num_captures;
@@ -205,16 +205,20 @@ pub fn parse_struct(
 
     Ok(quote!(
         #regex_impl
-        #from_scanf_impl
+        #from_sscanf_impl
     ))
 }
 
+#[allow(unused)] // TODO: remove
 pub fn parse_enum(
     name: Ident,
     generics: Generics,
     attr: Option<Attribute>,
     data: DataEnum,
 ) -> Result<TokenStream> {
+    let msg = "FromScanf: enum support will be added in the next version";
+    return Err(Error::new_spanned(name, msg)); // TODO: remove
+
     if let Some(attr) = attr {
         let msg = "FromScanf: enum formats have to be specified per-variant";
         return Error::err_spanned(attr, msg);
@@ -244,7 +248,7 @@ pub fn parse_enum(
 
     let num_captures = regex_parts.num_captures();
     let from_matches = regex_parts.from_matches();
-    let from_scanf_impl = quote!(
+    let from_sscanf_impl = quote!(
         impl #impl_generics ::sscanf::FromScanf for #name #ty_generics #where_clause {
             type Err = ::sscanf::FromScanfFailedError;
             const NUM_CAPTURES: usize = #num_captures;
@@ -274,7 +278,7 @@ pub fn parse_enum(
 
     Ok(quote!(
         #regex_impl
-        #from_scanf_impl
+        #from_sscanf_impl
     ))
 }
 
