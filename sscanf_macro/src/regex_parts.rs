@@ -263,7 +263,7 @@ fn regex_from_radix(
     let prefix_string = match (prefix_policy, prefix) {
         (PrefixPolicy::Optional, Some(prefix)) => format!("(?:{})?", prefix),
         (PrefixPolicy::Forced, Some(prefix)) => prefix.to_owned(),
-        (PrefixPolicy::Never, None) => String::new(),
+        (PrefixPolicy::Never, _) => String::new(),
         _ => panic!("Invalid internal prefix configuration"),
     };
 
