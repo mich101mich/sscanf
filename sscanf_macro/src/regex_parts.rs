@@ -103,7 +103,6 @@ impl RegexParts {
         ph_indices: &[usize],
         fields: &[Field],
         types: &[Type],
-        handle_str: bool,
     ) -> Result<Self> {
         let mut ret = RegexParts {
             regex_builder: vec![],
@@ -168,7 +167,7 @@ impl RegexParts {
             };
             ret.regex_builder.push(regex);
 
-            let (num_captures, converter) = if handle_str && ty_string == "str" {
+            let (num_captures, converter) = if ty_string == "str" {
                 // str is special, because the type is actually &str
                 let cap = quote_spanned!(start => 1);
                 let conv = quote_spanned!(start =>

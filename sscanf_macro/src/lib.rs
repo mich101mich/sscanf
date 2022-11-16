@@ -266,7 +266,7 @@ fn generate_regex(
     error.ok_or_build()?;
 
     let ph_indices = (0..fields.len()).collect::<Vec<_>>();
-    let regex_parts = RegexParts::new(&format, &ph_indices, &fields, &types, true)?;
+    let regex_parts = RegexParts::new(&format, &ph_indices, &fields, &types)?;
 
     let regex = regex_parts.regex();
     let num_captures = regex_parts.num_captures();

@@ -13,7 +13,7 @@ error[E0277]: the trait bound `Vec<usize>: RegexRepresentation` is not satisfied
              NonZeroI32
              NonZeroI64
              NonZeroI8
-           and 26 others
+           and $N others
 
 error: any use of this value will cause an error
   --> tests/fail/stable/missing_trait_regex.rs:10:5
@@ -49,7 +49,7 @@ error[E0277]: the trait bound `NoRegex: RegexRepresentation` is not satisfied
              NonZeroI32
              NonZeroI64
              NonZeroI8
-           and 26 others
+           and $N others
 
 error: any use of this value will cause an error
   --> tests/fail/stable/missing_trait_regex.rs:11:5

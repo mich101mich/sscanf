@@ -76,3 +76,9 @@ impl Parse for DefaultAttribute {
         Ok(DefaultAttribute(value.to_token_stream()))
     }
 }
+
+impl ToTokens for DefaultAttribute {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        self.0.to_tokens(tokens);
+    }
+}

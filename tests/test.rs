@@ -9,27 +9,6 @@ mod types {
 
 use sscanf::RegexRepresentation;
 
-#[derive(FromScanf, Debug, PartialEq)]
-#[sscanf(format = "({name},{age})")]
-struct Person {
-    name: String,
-    age: u8,
-}
-
-#[test]
-fn test_from_regex() {
-    let input = "Hi, I'm (Bob,42)!";
-    let bob = sscanf!(input, "Hi, I'm {Person}!").unwrap();
-
-    assert_eq!(
-        bob,
-        Person {
-            name: "Bob".to_string(),
-            age: 42
-        }
-    );
-}
-
 // #[derive(FromScanf, Debug, PartialEq)]
 // enum Number {
 //     #[sscanf(format = "{}")]
@@ -98,10 +77,7 @@ fn no_types() {
 fn get_regex() {
     let input = "Test 5 {} bob!";
     let regex = sscanf_get_regex!("Test {usize} {{}} {}!", std::string::String);
-    assert_eq!(
-        regex.as_str(),
-        r"^Test (\+?\d{1,20}) \{\} (.+?)!$"
-    );
+    assert_eq!(regex.as_str(), r"^Test (\+?\d{1,20}) \{\} (.+?)!$");
 
     let output = regex.captures(input);
     assert!(output.is_some());
@@ -271,6 +247,60 @@ fn error_lifetime() {
         Ok(())
     }
     foo().unwrap();
+}
+
+#[test]
+fn derive() {
+    #[derive(FromScanf, Debug, PartialEq)]
+    #[sscanf(format = "({name},{age})")]
+    struct Person {
+        name: String,
+        age: u8,
+    }
+
+    let input = "Hi, I'm (Bob,42)!";
+    let bob = sscanf!(input, "Hi, I'm {Person}!").unwrap();
+
+    assert_eq!(bob.name, "Bob");
+    assert_eq!(bob.age, 42);
+}
+
+#[test]
+fn derive_lifetimes() {
+    #[derive(FromScanf, Debug, PartialEq)]
+    #[sscanf(format = "({name},{age},{address})")]
+    struct Person<'a, 'b> {
+        name: &'a str,
+        age: u8,
+        address: &'b str,
+        #[sscanf(default = "")]
+        source: &'static str,
+    }
+
+    let input = String::from("Hi, I'm (Bob,42,here)!");
+    let bob = sscanf!(input, "Hi, I'm {Person}!").unwrap();
+
+    assert_eq!(bob.name, "Bob");
+    assert_eq!(bob.age, 42);
+    assert_eq!(bob.address, "here");
+}
+
+#[test]
+fn derive_static() {
+    #[derive(FromScanf, Debug, PartialEq)]
+    #[sscanf(format = "({name},{age},{address})")]
+    struct Person {
+        name: &'static str,
+        age: u8,
+        address: &'static str,
+    }
+
+    let input = "Hi, I'm (Bob,42,here)!";
+    let bob = sscanf!(input, "Hi, I'm {Person}!").unwrap();
+
+    assert_eq!(bob.name, "Bob");
+    assert_eq!(bob.age, 42);
+    assert_eq!(bob.address, "here");
 }
 
 #[test]

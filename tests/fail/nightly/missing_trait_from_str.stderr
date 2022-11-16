@@ -13,8 +13,8 @@ error[E0277]: the trait bound `NoFromStr: FromStr` is not satisfied
             Ipv6Addr
             NonZeroI128
             NonZeroI16
-          and 34 others
-  = note: required for `NoFromStr` to implement `FromScanf`
+          and $N others
+  = note: required for `NoFromStr` to implement `FromScanf<'_>`
 
 error[E0277]: the trait bound `NoFromStr: FromStr` is not satisfied
   --> tests/fail/nightly/missing_trait_from_str.rs:10:29
@@ -31,8 +31,8 @@ error[E0277]: the trait bound `NoFromStr: FromStr` is not satisfied
              Ipv6Addr
              NonZeroI128
              NonZeroI16
-           and 34 others
-   = note: required for `NoFromStr` to implement `FromScanf`
+           and $N others
+   = note: required for `NoFromStr` to implement `FromScanf<'_>`
 
 error[E0277]: the trait bound `NoFromStr: FromStr` is not satisfied
   --> tests/fail/nightly/missing_trait_from_str.rs:12:33
@@ -49,8 +49,8 @@ error[E0277]: the trait bound `NoFromStr: FromStr` is not satisfied
              Ipv6Addr
              NonZeroI128
              NonZeroI16
-           and 34 others
-   = note: required for `NoFromStr` to implement `FromScanf`
+           and $N others
+   = note: required for `NoFromStr` to implement `FromScanf<'_>`
 
 error[E0277]: the trait bound `NoFromStr: FromStr` is not satisfied
   --> tests/fail/nightly/missing_trait_from_str.rs:13:29
@@ -67,5 +67,5 @@ error[E0277]: the trait bound `NoFromStr: FromStr` is not satisfied
              Ipv6Addr
              NonZeroI128
              NonZeroI16
-           and 34 others
-   = note: required for `NoFromStr` to implement `FromScanf`
+           and $N others
+   = note: required for `NoFromStr` to implement `FromScanf<'_>`

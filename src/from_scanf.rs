@@ -5,49 +5,48 @@ use crate::FromStrFailedError;
 
 /// A trait that allows you to use a custom regex for parsing a type.
 ///
-/// **You should not implement this trait yourself.**
-///
 /// There are three options to implement this trait:
 /// - `#[derive(FromScanf)]` (recommended)
-/// - implement [`FromStr`] and use the [blanket implementation](#impl-FromScanf)
+/// - implement [`std::str::FromStr`] and use the [blanket implementation](#impl-FromScanf)
 /// - manual implementation (highly discouraged)
 ///
 /// The second and third options also require you to implement [`RegexRepresentation`](crate::RegexRepresentation),
-/// unless you **always** use a custom regex `{:/.../}`, but this tends to make the code less readable.
+/// unless you **always** use a custom regex `{:/.../}`, but that tends to make the code less readable.
 ///
 /// ## Deriving
 /// ```
 /// use sscanf::{sscanf, FromScanf};
 ///
 /// #[derive(FromScanf)]
-/// # #[derive(Debug, PartialEq)]
 /// #[sscanf(format = "#{r:r16}{g:r16}{b:r16}")] // matches '#' followed by 3 hexadecimal u8s
-///                                              // note the use of :r16 over :x to avoid prefixes
-/// struct Color {
+/// struct Color {                               // note the use of :r16 over :x to avoid prefixes
 ///     r: u8,
 ///     g: u8,
 ///     b: u8,
 /// }
 ///
-/// let input = "color: #ff00cc";
+/// let input = "color: #ff12cc";
 /// let parsed = sscanf!(input, "color: {Color}").unwrap();
-/// assert_eq!(parsed, Color { r: 0xff, g: 0x00, b: 0xcc });
+/// assert_eq!(parsed.r, 0xff);
+/// assert_eq!(parsed.g, 0x12);
+/// assert_eq!(parsed.b, 0xcc);
 /// ```
 ///
 /// A detailed description of the syntax and options can be found [here](derive.FromScanf.html)
 ///
 /// ## Implementing [`FromStr`]
 /// ```
-/// # #[derive(Debug, PartialEq)]
 /// struct Color {
 ///     r: u8,
 ///     g: u8,
 ///     b: u8,
 /// }
+///
 /// impl sscanf::RegexRepresentation for Color {
 ///     // matches '#' followed by 6 hexadecimal digits
 ///     const REGEX: &'static str = r"#[0-9a-fA-F]{6}";
 /// }
+///
 /// #[derive(Debug, thiserror::Error)]
 /// enum ColorParseError {
 ///     #[error("Invalid digit")]
@@ -71,16 +70,17 @@ use crate::FromStrFailedError;
 ///         Ok(Color { r, g, b })
 ///     }
 /// }
-/// let input = "color: #ff00cc";
-/// let parsed = sscanf::sscanf!(input, "color: {Color}").unwrap();
-/// assert_eq!(parsed, Color { r: 0xff, g: 0x00, b: 0xcc });
+///
+/// let input = "color: #ff12cc";
+/// let parsed = sscanf!(input, "color: {Color}").unwrap();
+/// assert_eq!(parsed.r, 0xff); assert_eq!(parsed.g, 0x12); assert_eq!(parsed.b, 0xcc);
 /// ```
 /// This option gives a lot more control over the parsing process, but requires more code and
 /// manual error handling.
 ///
 /// ## Manual implementation
 /// This should only be done if absolutely necessary, since it requires upholding several invariants
-/// that cannot be checked at compile time.
+/// that cannot be properly checked by `sscanf`.
 /// ```
 /// use sscanf::{FromScanf, RegexRepresentation};
 ///
@@ -101,7 +101,7 @@ use crate::FromStrFailedError;
 ///     //                            # \_____r______/  \_____g______/  \_____b______/
 /// }
 ///
-/// impl FromScanf for Color {
+/// impl FromScanf<'_> for Color {
 ///     type Err = std::num::ParseIntError;
 ///     const NUM_CAPTURES: usize = 4; // 3 capture groups + the whole match
 ///     fn from_matches(src: &mut regex::SubCaptureMatches) -> Result<Self, Self::Err> {
@@ -117,21 +117,26 @@ use crate::FromStrFailedError;
 ///         let b_str = src.next().unwrap().unwrap().as_str();
 ///         let b = u8::from_str_radix(b_str, 16)?;
 ///         // instead of using '?' it is also technically possible to simply unwrap and set the
-///         // Err-type to '!', since the regex only allows valid hex u8s, meaning that this
-///         // conversion cannot fail
+///         // Err-type to std::convert::Infallible, since the regex only allows valid hex u8s,
+///         // meaning that this conversion cannot fail
 ///
 ///         Ok(Color { r, g, b })
 ///     }
 /// }
+///
+/// let input = "color: #ff12cc";
+/// let parsed = sscanf!(input, "color: {Color}").unwrap();
+/// assert_eq!(parsed.r, 0xff); assert_eq!(parsed.g, 0x12); assert_eq!(parsed.b, 0xcc);
 /// ```
-/// This option may be faster than [`FromStr`], since it can have capture groups
+/// This option usually has a faster runtime than [`FromStr`], since it can have capture groups
 /// match during the initial parsing instead of having to parse the string again in the
 /// [`FromStr`] implementation.
 ///
 /// The downside is that it requires manually upholding the [`NUM_CAPTURES`](FromScanf::NUM_CAPTURES)
 /// invariant, which cannot be checked at compile time. It is also mostly not checked at runtime,
-/// since this would require a lot of overhead. This means that an error in one implementation
-/// might cause a panic in another implementation, which is near-impossible to debug.
+/// since this would require overhead that is unnecessary in all intended cases. This means that
+/// an error in one implementation might cause a panic in another implementation, which is
+/// near-impossible to debug.
 ///
 /// The invariant is:
 /// - `NUM_CAPTURES` **IS EQUAL TO**
@@ -139,8 +144,34 @@ use crate::FromStrFailedError;
 /// -  1 + the number of unescaped capture groups in [`RegexRepresentation`](crate::RegexRepresentation) (or `{:/.../}`).
 /// The 1 is for the whole match, which is a capture group added by `sscanf`.
 ///
-/// All of these are automatically enforced by the derive macro or the [`FromStr`] implementation.
-pub trait FromScanf
+/// All of these are automatically enforced by the derive macro or the [`FromStr`] implementation,
+/// which is why they should be preferred over this option.
+///
+/// #### Lifetime Parameter
+/// The lifetime parameter of `FromScanf` is the borrow from the input string given to `sscanf`.
+/// If your type borrows parts of that string, like `&str` does, you need to specify the lifetime
+/// parameter and match it with the _second_ lifetime parameter of [`regex::SubCaptureMatches`]:
+/// ```
+/// struct Name<'a, 'b> {
+///     first: &'a str,
+///     last: &'b str,
+/// }
+///
+/// impl<'a, 'b> sscanf::RegexRepresentation for Name<'a, 'b> {
+///     const REGEX: &'static str = r"(\w+) (\w+)";
+/// }
+///
+/// impl<'t> sscanf::FromScanf<'t> for Name<'t, 't> { // both parts are given the same input => same lifetime
+///     type Err = std::convert::Infallible;
+///     const NUM_CAPTURES: usize = 3;
+///     fn from_matches(src: &mut regex::SubCaptureMatches<'_, 't>) -> Result<Self, Self::Err> {
+///         let _ = src.next().unwrap().unwrap(); // skip the whole match
+///         let first = src.next().unwrap().unwrap().as_str();
+///         let last = src.next().unwrap().unwrap().as_str();
+///         Ok(Self { first, last })
+///     }
+/// }
+pub trait FromScanf<'t>
 where
     Self: Sized,
 {
@@ -154,10 +185,10 @@ where
     /// The implementation of the parsing.
     ///
     /// **HAS** to take **EXACTLY** `NUM_CAPTURES` elements from the iterator.
-    fn from_matches(src: &mut regex::SubCaptureMatches) -> Result<Self, Self::Err>;
+    fn from_matches(src: &mut regex::SubCaptureMatches<'_, 't>) -> Result<Self, Self::Err>;
 }
 
-impl<T> FromScanf for T
+impl<'t, T> FromScanf<'t> for T
 where
     T: FromStr + 'static,
     <T as FromStr>::Err: Error + 'static,

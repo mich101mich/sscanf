@@ -14,7 +14,7 @@ error[E0277]: the trait bound `NoFromStr: FromStr` is not satisfied
             NonZeroI128
             NonZeroI16
           and 34 others
-  = note: required for `NoFromStr` to implement `FromScanf`
+  = note: required for `NoFromStr` to implement `FromScanf<'_>`
 
 error[E0277]: the trait bound `NoFromStr: FromStr` is not satisfied
   --> tests/fail/stable/missing_trait_from_str.rs:10:27
@@ -32,7 +32,7 @@ error[E0277]: the trait bound `NoFromStr: FromStr` is not satisfied
              NonZeroI128
              NonZeroI16
            and 34 others
-   = note: required for `NoFromStr` to implement `FromScanf`
+   = note: required for `NoFromStr` to implement `FromScanf<'_>`
 
 error[E0277]: the trait bound `NoFromStr: FromStr` is not satisfied
   --> tests/fail/stable/missing_trait_from_str.rs:12:33
@@ -50,7 +50,7 @@ error[E0277]: the trait bound `NoFromStr: FromStr` is not satisfied
              NonZeroI128
              NonZeroI16
            and 34 others
-   = note: required for `NoFromStr` to implement `FromScanf`
+   = note: required for `NoFromStr` to implement `FromScanf<'_>`
 
 error[E0277]: the trait bound `NoFromStr: FromStr` is not satisfied
   --> tests/fail/stable/missing_trait_from_str.rs:13:27
@@ -68,4 +68,4 @@ error[E0277]: the trait bound `NoFromStr: FromStr` is not satisfied
              NonZeroI128
              NonZeroI16
            and 34 others
-   = note: required for `NoFromStr` to implement `FromScanf`
+   = note: required for `NoFromStr` to implement `FromScanf<'_>`
