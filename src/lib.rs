@@ -24,7 +24,7 @@
 // TODO: fail tests for type index, format options, derive, :#r16
 // TODO: Add more format options
 
-#![doc = include_str!("../README.md")]
+#![doc = include_str!("../Readme.md")]
 //! # A Note on Compiler Errors
 //!
 //! Errors in the format string would ideally point to the exact position in the string that
