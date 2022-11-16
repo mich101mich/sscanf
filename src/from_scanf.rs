@@ -15,9 +15,7 @@ use crate::FromStrFailedError;
 ///
 /// ## Deriving
 /// ```
-/// use sscanf::{sscanf, FromScanf};
-///
-/// #[derive(FromScanf)]
+/// #[derive(sscanf::FromScanf)]
 /// #[sscanf(format = "#{r:r16}{g:r16}{b:r16}")] // matches '#' followed by 3 hexadecimal u8s
 /// struct Color {                               // note the use of :r16 over :x to avoid prefixes
 ///     r: u8,
@@ -26,7 +24,7 @@ use crate::FromStrFailedError;
 /// }
 ///
 /// let input = "color: #ff12cc";
-/// let parsed = sscanf!(input, "color: {Color}").unwrap();
+/// let parsed = sscanf::sscanf!(input, "color: {Color}").unwrap();
 /// assert_eq!(parsed.r, 0xff);
 /// assert_eq!(parsed.g, 0x12);
 /// assert_eq!(parsed.b, 0xcc);
@@ -72,7 +70,7 @@ use crate::FromStrFailedError;
 /// }
 ///
 /// let input = "color: #ff12cc";
-/// let parsed = sscanf!(input, "color: {Color}").unwrap();
+/// let parsed = sscanf::sscanf!(input, "color: {Color}").unwrap();
 /// assert_eq!(parsed.r, 0xff); assert_eq!(parsed.g, 0x12); assert_eq!(parsed.b, 0xcc);
 /// ```
 /// This option gives a lot more control over the parsing process, but requires more code and
@@ -82,8 +80,6 @@ use crate::FromStrFailedError;
 /// This should only be done if absolutely necessary, since it requires upholding several invariants
 /// that cannot be properly checked by `sscanf`.
 /// ```
-/// use sscanf::{FromScanf, RegexRepresentation};
-///
 /// # #[derive(Debug, PartialEq)]
 /// struct Color {
 ///     r: u8,
@@ -91,7 +87,7 @@ use crate::FromStrFailedError;
 ///     b: u8,
 /// }
 ///
-/// impl RegexRepresentation for Color {
+/// impl sscanf::RegexRepresentation for Color {
 ///     // matches '#' followed by 3 capture groups with 2 hexadecimal digits each
 ///     //
 ///     // Capture groups are normally not allowed in RegexRepresentation, because the default
@@ -101,7 +97,7 @@ use crate::FromStrFailedError;
 ///     //                            # \_____r______/  \_____g______/  \_____b______/
 /// }
 ///
-/// impl FromScanf<'_> for Color {
+/// impl sscanf::FromScanf<'_> for Color {
 ///     type Err = std::num::ParseIntError;
 ///     const NUM_CAPTURES: usize = 4; // 3 capture groups + the whole match
 ///     fn from_matches(src: &mut regex::SubCaptureMatches) -> Result<Self, Self::Err> {
@@ -125,7 +121,7 @@ use crate::FromStrFailedError;
 /// }
 ///
 /// let input = "color: #ff12cc";
-/// let parsed = sscanf!(input, "color: {Color}").unwrap();
+/// let parsed = sscanf::sscanf!(input, "color: {Color}").unwrap();
 /// assert_eq!(parsed.r, 0xff); assert_eq!(parsed.g, 0x12); assert_eq!(parsed.b, 0xcc);
 /// ```
 /// This option usually has a faster runtime than [`FromStr`], since it can have capture groups
@@ -171,6 +167,33 @@ use crate::FromStrFailedError;
 ///         Ok(Self { first, last })
 ///     }
 /// }
+///
+/// let input = String::from("John Doe");
+/// let parsed = sscanf::sscanf!(input, "{Name}").unwrap();
+/// assert_eq!(parsed.first, "John");
+/// assert_eq!(parsed.last, "Doe");
+/// ```
+///
+/// This allows custom borrows from the input string to avoid unnecessary allocations. The lifetime
+/// of the returned value is that of the input string:
+/// 
+/// ```compile_fail
+/// # #[derive(sscanf::FromScanf)]
+/// # #[sscanf(format = "{} {}")]
+/// struct Name<'a, 'b> {
+///     first: &'a str,
+///     last: &'b str,
+/// }
+/// // ...same impl setup as above...
+///
+/// let parsed;
+/// {
+///     let input = String::from("John Doe");
+///     parsed = sscanf::sscanf!(input, "{Name}").unwrap();
+///     // input is dropped here
+/// }
+/// println!("{} {}", parsed.first, parsed.last); // use after drop
+/// ```
 pub trait FromScanf<'t>
 where
     Self: Sized,
