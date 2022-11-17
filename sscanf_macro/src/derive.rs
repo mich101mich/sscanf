@@ -94,22 +94,22 @@ fn parse_format(
     for ph in &format.placeholders {
         let index = if let Some(name) = ph.ident.as_ref() {
             if let Ok(n) = name.text().parse::<usize>() {
-                if n < fields.len() {
-                    n
-                } else {
+                if n >= fields.len() {
                     let msg = format!("field index {} out of range of {} fields", n, fields.len());
-                    error.with_error(name.error(&msg));
+                    error.push(name.error(&msg));
                     continue;
                 }
+                n
             } else if let Some(i) = field_map.get(name.text()) {
                 *i
             } else {
-                error.with_error(name.error(&format!("field `{}` not found", name.text())));
+                error.push(name.error(&format!("field `{}` not found", name.text())));
                 continue;
             }
         } else {
+            let n = ph_index;
             ph_index += 1;
-            ph_index - 1
+            n
         };
 
         ph_indices.push(index);
@@ -117,7 +117,7 @@ fn parse_format(
         if visited[index] {
             let name = fields[index].ident.to_string();
             let msg = format!("field `{}` specified more than once", name);
-            error.with_error(ph.src.error(&msg));
+            error.push(ph.src.error(&msg));
             continue;
         }
         visited[index] = true;

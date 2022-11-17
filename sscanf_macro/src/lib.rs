@@ -179,14 +179,18 @@ fn sscanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
                     let mut src = cap.iter();
                     let src = &mut src;
                     src.next().unwrap(); // skip the full match
+
+                    #[cfg(debug_assertions)]
                     let mut len = src.len();
+
                     let mut matcher = || -> ::std::result::Result<_, ::std::boxed::Box<dyn ::std::error::Error>> {
                         ::std::result::Result::Ok(( #(#matcher),* ))
                     };
                     let res = matcher().map_err(|e| ::sscanf::Error::ParsingFailed(e));
+
                     if src.len() != 0 {
                         panic!("{} captures generated, but {} were taken",
-                            REGEX.captures_len(), len
+                            REGEX.captures_len(), REGEX.captures_len() - src.len()
                         );
                     }
                     res
@@ -210,51 +214,48 @@ fn generate_regex(
         .map(|path| Type::Path(TypePath { qself: None, path }))
         .collect::<Vec<_>>();
 
-    let mut fields = vec![];
-    let mut ph_index = 0;
-    let mut visited = vec![false; types.len()];
-    let mut error = Error::builder();
-
-    for ph in format.placeholders.iter() {
+    fn to_type_source<'a>(
+        ph: &Placeholder<'a>,
+        visited: &mut [bool],
+        ph_index: &mut usize,
+    ) -> Result<TypeSource<'a>> {
         let ty_source = if let Some(name) = ph.ident.as_ref() {
             if let Ok(n) = name.text().parse::<usize>() {
-                if n < types.len() {
-                    visited[n] = true;
-                    TypeSource::External(n)
-                } else {
-                    let msg = format!("type index {} out of range of {} types", n, types.len());
-                    error.with_error(name.error(&msg));
-                    continue;
+                if n >= visited.len() {
+                    let msg = format!("type index {} out of range of {} types", n, visited.len());
+                    return name.err(&msg);
                 }
-            } else {
-                match to_type(name) {
-                    Ok(ty) => TypeSource::Inline {
-                        ty,
-                        src: name.clone(),
-                    },
-                    Err(e) => {
-                        error.with_error(e);
-                        continue;
-                    }
-                }
-            }
-        } else {
-            let n = ph_index;
-            ph_index += 1;
-            if n < types.len() {
                 visited[n] = true;
                 TypeSource::External(n)
             } else {
-                let msg = format!("more placeholders than types provided");
-                error.with_error(ph.src.error(&msg));
-                continue;
+                TypeSource::Inline {
+                    ty: to_type(name)?,
+                    src: name.clone(),
+                }
             }
+        } else {
+            let n = *ph_index;
+            *ph_index += 1;
+            if n >= visited.len() {
+                let msg = format!("more placeholders than types provided");
+                return ph.src.err(&msg);
+            }
+            visited[n] = true;
+            TypeSource::External(n)
         };
+        Ok(ty_source)
+    }
 
-        fields.push(Field {
-            ident: FieldIdent::None,
-            ty_source,
-        });
+    let mut ph_index = 0;
+    let mut visited = vec![false; types.len()];
+    let mut fields = vec![];
+    let mut error = Error::builder();
+
+    for ph in &format.placeholders {
+        match to_type_source(ph, &mut visited, &mut ph_index) {
+            Ok(ty_source) => fields.push(Field::from_source(ty_source)),
+            Err(e) => error.push(e),
+        }
     }
 
     for (visited, ty) in visited.iter().zip(types.iter()) {

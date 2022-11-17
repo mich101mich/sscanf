@@ -89,8 +89,9 @@ let (r, g, b) = sscanf!(input, "color: #{u8:x}{u8:x}{u8:x}").unwrap();
 assert_eq!((r, g, b), (0xD4, 0xAF, 0x37));
 ```
 The input in this case is a `&'static str`, but it can be `String`, `&str`, `&String`, ...
-Basically anything with [`Deref<Target=str>`](https://doc.rust-lang.org/std/ops/trait.Deref.html#implementors).
-and without taking ownership.
+Basically anything with [`Deref<Target=str>`](https://doc.rust-lang.org/std/ops/trait.Deref.html).
+and without taking ownership. See [here](https://docs.rs/sscanf/latest/sscanf/macro.sscanf.html#examples)
+for a few examples of possible inputs.
 
 The parsing part of this macro has very few limitations, since it replaces the `{}` with a
 Regular Expression ([`regex`](https://docs.rs/regex)) that corresponds to that type.
@@ -123,7 +124,7 @@ or Wrappers (~~`struct Wrapper(i32);`~~) or Aliases (~~`type Alias = i32;`~~). *
 | `{:o}`                      | octal numbers              | integers       |
 | `{:b}`                      | binary numbers             | integers       |
 | `{:r2}` - `{:r36}`          | radix 2 - radix 36 numbers | integers       |
-| `#`                         | ["alternate" form](https://doc.rust-lang.org/std/fmt/index.html#sign0) | all numbers    |
+| `#`                         | "alternate" form           | various types  |
 
 **Custom Regex:**
 
@@ -139,8 +140,12 @@ let parsed = sscanf::sscanf!(input, "{str:/[^m]+/}{str}");
 assert_eq!(parsed.unwrap(), ("rando", "m Text"));
 ```
 
-The regex uses the [`same escaping logic as JavaScripts /.../ syntax`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions#escaping)
-**IF** you are using a raw string for the format string. otherwise you need to escape `\` as `\\`:
+The regex uses the [`same escaping logic as JavaScripts /.../ syntax`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions#escaping),
+meaning that the normal regex escaping with `\d` for digits etc. is in effect, with the addition
+that any `/` need to be escaped as `\/` since they are used to end the regex.
+
+**NOTE:** You should use raw strings for a format string containing a regex, since otherwise you
+need to escape any `\` as `\\`:
 ```rust
 use sscanf::sscanf;
 let input = "1234";
@@ -161,7 +166,7 @@ Only work on primitive integer types (`u8`, ..., `u128`, `i8`, ..., `i128`, `usi
 - `b`: binary Number (Digits 0-1), optional prefix `0b` or `0B`
 - `r2` - `r36`: any radix Number (Digits 0-9 and a-z or A-Z for higher radices)
 
-**alternate form:**
+**Alternate form:**
 
 If used alongside a radix option: makes the number require a prefix (0x, 0o, 0b).
 
@@ -172,10 +177,12 @@ but without a prefix. Thus:
 - `{:#x}` _must_ have a prefix, matching only `0xab`
 - `{:#r16}` gives a compile error
 
+More uses for `#` may be added in the future. Let me know if you have a suggestion for this.
+
 # Custom Types
 
 `sscanf` works with most primitive Types from `std` as well as `String` by default. The
-full list can be seen here: [Implementations of `RegexRepresentation`](./trait.RegexRepresentation.html#foreign-impls).
+full list can be seen here: [Implementations of `RegexRepresentation`](https://docs.rs/sscanf/latest/sscanf/trait.RegexRepresentation.html#foreign-impls).
 
 To add more types there are three options:
 - Derive [`FromScanf`](https://docs.rs/sscanf/latest/sscanf/trait.FromScanf.html) for your type (recommended)

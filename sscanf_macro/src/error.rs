@@ -53,6 +53,9 @@ impl ErrorBuilder {
         self.tokens.extend(error.to_compile_error());
         self
     }
+    pub fn push(&mut self, error: Error) {
+        self.with_error(error);
+    }
 
     pub fn is_empty(&self) -> bool {
         self.tokens.is_empty()

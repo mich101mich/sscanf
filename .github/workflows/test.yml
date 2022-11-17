@@ -39,10 +39,12 @@ jobs:
       with: { toolchain: stable }
     - uses: actions-rs/toolchain@v1.0.6
       with: { toolchain: nightly }
+    - name: Update to minimal versions
+      run: cargo +nightly update -Z minimal-versions
     - name: Run minimal version tests
-      run: cargo +nightly update -Z minimal-versions && cargo +stable test
+      run: cargo +stable test -- --skip failing_tests
     - name: Run minimal version nightly tests
-      run: cargo +nightly update -Z minimal-versions && cargo +nightly test
+      run: cargo +nightly test -- --skip failing_tests
 
   minimum-rust-version:
     runs-on: ubuntu-latest

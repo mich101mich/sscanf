@@ -15,15 +15,9 @@
     rustdoc::invalid_codeblock_attributes,
     rustdoc::bare_urls
 )]
-// TODO: Update format options
-// TODO: Talk about regex escaping (JavaScript)
-// TODO: Remove chrono
-// TODO: Remove error
-// TODO: from_sscanf docs
-// TODO: derive: add docs, add tests, Generics
+// TODO: derive: add docs, add tests
 // TODO: fail tests for type index, format options, derive, :#r16
-// TODO: Add more format options
-
+// TODO: multiline format strings
 #![doc = include_str!("../Readme.md")]
 //! # A Note on Compiler Errors
 //!
@@ -113,9 +107,6 @@
 /// let input = String::from("5"); // String
 /// assert_eq!(sscanf!(input, "{usize}").unwrap(), 5);
 ///
-/// // does not work because it creates a temporary value
-/// // assert_eq!(sscanf!(String::from("5"), "{usize}").unwrap(), 5);
-///
 /// let input = &input; // &String
 /// assert_eq!(sscanf!(input, "{usize}").unwrap(), 5);
 /// assert_eq!(sscanf!(input.as_str(), "{usize}").unwrap(), 5);
@@ -127,6 +118,11 @@
 /// assert_eq!(sscanf!(input, "{usize}").unwrap(), 5);
 ///
 /// // and many more
+/// ```
+///
+/// ```compile_fail
+/// // temporary value: doesn't work
+/// sscanf!(String::from("5"), "{usize}");
 /// ```
 ///
 /// More Examples can be seen in the crate root documentation.

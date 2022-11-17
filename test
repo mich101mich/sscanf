@@ -17,6 +17,6 @@ try_silent cargo +nightly doc --no-deps || exit 1
 try_silent cargo +1.56.0 test --target-dir target/old_rustc -- --skip failing_tests || exit 1
 
 # minimum version
-# pushd ~/projects/sscanf
-# ./test
-# popd
+pushd ~/projects/sscanf
+./test
+popd

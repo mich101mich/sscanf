@@ -10,46 +10,88 @@ use const_format::formatcp;
 /// regex to take characters that could have been matched by other placeholders, leading to
 /// unexpected parsing failures.
 ///
-/// TODO: Talk abound concatcp!() and formatcp!()
+/// ## Implementing the Trait
 ///
-/// **Note:** The parser uses indexing to access capture groups. To avoid messing with the
-/// indexing, the regex should not contain any capture groups by using the `(?:)` syntax
-/// on any round brackets:
+/// A manual implementation of this trait is only necessary if you
+/// - want to use a custom Type that is not supported by default **AND**
+/// - can't use [`#[derive(FromScanf)]`](derive.FromScanf.html) on your Type
 ///
-/// Any `(<content>)` should be replaced with `(?:<content>)`
+/// Deriving [`FromScanf`](crate::FromScanf) will automatically implement this trait for your Type,
+/// and should be preferred in most cases.
+///
+/// If you do need to implement this trait yourself, note the following:
+/// - The regex can't contain any capture groups (round brackets). If you need to use `( )` in your
+///  regex, use `(?: )` instead to make it non-capturing.
+/// - Using a raw string literal (`r"..."`) is recommended to avoid having to escape backslashes.
+/// - The [`const_format`](https://docs.rs/const_format) crate can be used to combine multiple
+/// strings into one, which is useful for complex regexes. This can also be used to combine the
+/// existing regex implementation of other types. `sscanf` internally uses `const_format` as well,
+/// so a version of it is re-exported under `sscanf::const_format`.
 ///
 /// ## Example
 /// Let's say we want to add a Fraction parser
 /// ```
-/// use sscanf::FromScanf;
-/// #[derive(FromScanf)]
-/// # #[derive(Debug, PartialEq)]
-/// #[sscanf(format = "{}/{}")] // placeholders are automatically indexed in order
 /// struct Fraction(isize, usize);
 /// ```
-/// Which can be obtained from any string of the kind `±X/Y`
-///
-/// Now we can use this `Fraction` struct in `sscanf`:
+/// Which can be obtained from any string of the kind `±X/Y` or just `X`
 /// ```
-/// # use sscanf::FromScanf;
-/// # #[derive(Debug, PartialEq, FromScanf)]
-/// #[sscanf(format = "{}/{}")]
 /// # struct Fraction(isize, usize);
-/// use sscanf::sscanf;
+/// impl sscanf::RegexRepresentation for Fraction {
+///     /// matches an optional '-' or '+' followed by a number.
+///     /// possibly with a '/' and another Number
+///     const REGEX: &'static str = r"[-+]?\d+(?:/\d+)?";
+///     //                                     ^^ escapes the group. Has to be used on any ( ) in a regex.
 ///
-/// let output = sscanf!("2/5", "{Fraction}");
+///     // alternatively, we could use const_format to reuse existing regexes:
+///     // REGEX = const_format::concatcp!(isize::REGEX, "(?:", "/", usize::REGEX, ")?");
+/// }
+/// impl std::str::FromStr for Fraction {
+///     type Err = std::num::ParseIntError;
+///     fn from_str(s: &str) -> Result<Self, Self::Err> {
+///         let mut iter = s.split('/');
+///         let num = iter.next().unwrap().parse()?;
+///         let mut denom = 1;
+///         if let Some(d) = iter.next() {
+///             denom = d.parse()?;
+///         };
+///         Ok(Fraction(num, denom))
+///     }
+/// }
+/// ```
+/// Now we can use this `Fraction` struct in `scanf`:
+/// ```
+/// # #[derive(Debug, PartialEq)]
+/// # struct Fraction(isize, usize);
+/// # impl sscanf::RegexRepresentation for Fraction {
+/// #     const REGEX: &'static str = r"[-+]?\d+(?:/\d+)?";
+/// # }
+/// # impl std::str::FromStr for Fraction {
+/// #     type Err = std::num::ParseIntError;
+/// #     fn from_str(s: &str) -> Result<Self, Self::Err> {
+/// #         let mut iter = s.split('/');
+/// #         let num = iter.next().unwrap().parse()?;
+/// #         let denom = iter.next().map(|d| d.parse()).transpose()?.unwrap_or(1);
+/// #         Ok(Fraction(num, denom))
+/// #     }
+/// # }
+/// # use sscanf::sscanf;
+///
+/// let output = sscanf!("2/5", "{}", Fraction);
 /// assert_eq!(output.unwrap(), Fraction(2, 5));
 ///
-/// let output = sscanf!("-25/3", "{Fraction}");
+/// let output = sscanf!("-25/3", "{}", Fraction);
 /// assert_eq!(output.unwrap(), Fraction(-25, 3));
 ///
-/// let output = sscanf!("6e/3", "{Fraction}");
+/// let output = sscanf!("8", "{}", Fraction);
+/// assert_eq!(output.unwrap(), Fraction(8, 1));
+///
+/// let output = sscanf!("6e/3", "{}", Fraction);
 /// assert!(output.is_err());
 ///
-/// let output = sscanf!("6/-3", "{Fraction}");
+/// let output = sscanf!("6/-3", "{}", Fraction);
 /// assert!(output.is_err()); // only first number can be negative
 ///
-/// let output = sscanf!("6/3", "{Fraction}");
+/// let output = sscanf!("6/3", "{}", Fraction);
 /// assert_eq!(output.unwrap(), Fraction(6, 3));
 /// ```
 pub trait RegexRepresentation {

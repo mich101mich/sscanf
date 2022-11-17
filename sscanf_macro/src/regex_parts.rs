@@ -14,6 +14,15 @@ pub struct Field<'a> {
     pub ty_source: TypeSource<'a>,
 }
 
+impl<'a> Field<'a> {
+    pub fn from_source(ty_source: TypeSource<'a>) -> Self {
+        Field {
+            ident: FieldIdent::None,
+            ty_source,
+        }
+    }
+}
+
 pub enum FieldIdent {
     Named(Ident),
     Index(Literal),
@@ -194,15 +203,18 @@ impl RegexParts {
 
             let from_matches = quote!(#ident {
                 let value = #converter;
-                let n = len - src.len();
-                let expected = #num_captures;
-                if n != expected {
-                    panic!(
-                        "{}::NUM_CAPTURES = {} but {} were taken{}",
-                        stringify!(#ty), expected, n, #WRONG_CAPTURES_HINT
-                    );
+                #[cfg(debug_assertions)]
+                {
+                    let n = len - src.len();
+                    let expected = #num_captures;
+                    if n != expected {
+                        panic!(
+                            "{}::NUM_CAPTURES = {} but {} were taken{}",
+                            stringify!(#ty), expected, n, #WRONG_CAPTURES_HINT
+                        );
+                    }
+                    len = src.len();
                 }
-                len = src.len();
                 value
             });
 
