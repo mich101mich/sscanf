@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, convert::TryFrom};
 
 use proc_macro2::TokenStream;
 use quote::quote;
@@ -9,11 +9,47 @@ pub fn find_attr(attrs: Vec<syn::Attribute>) -> Option<syn::Attribute> {
     attrs.into_iter().find(|a| a.path.is_ident("sscanf"))
 }
 
+pub struct Field {
+    ident: FieldIdent,
+    ty: syn::Type,
+    default: Option<DefaultAttribute>,
+    mapper: Option<MapperAttribute>,
+    ph_index: Option<usize>,
+}
+
+pub enum FieldIdent {
+    Named(syn::Ident),
+    Index(proc_macro2::Literal),
+}
+impl FieldIdent {
+    pub fn from_index(i: usize, span: Span) -> FieldIdent {
+        let mut literal = proc_macro2::Literal::usize_unsuffixed(i);
+        literal.set_span(span);
+        FieldIdent::Index(literal)
+    }
+}
+impl ToTokens for FieldIdent {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        match self {
+            FieldIdent::Named(ident) => tokens.extend(quote!(#ident)),
+            FieldIdent::Index(index) => tokens.extend(quote!(#index)),
+        }
+    }
+}
+impl std::fmt::Display for FieldIdent {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FieldIdent::Named(ident) => write!(f, "{}", ident),
+            FieldIdent::Index(index) => write!(f, "{}", index),
+        }
+    }
+}
+
 fn parse_format(
-    configs: &mut HashMap<String, FormatAttribute>,
+    configs: &mut HashMap<String, AttributeArg>,
     configs_src: syn::Attribute,
     raw_fields: syn::Fields,
-) -> Result<(RegexParts, Vec<syn::Lifetime>)> {
+) -> Result<(RegexParts, Vec<TokenStream>, Vec<syn::Lifetime>)> {
     let found = [
         ("format", true),
         ("format_unescaped", false),
@@ -23,15 +59,15 @@ fn parse_format(
     .filter_map(|(name, escape)| configs.remove(*name).map(|a| (a, *escape)))
     .collect::<Vec<_>>();
 
-    let (format_src, escape) = match found.len() {
-        0 => {
+    let (format_src, escape) = match found.as_slice() {
+        [] => {
             return Error::err_spanned(configs_src, "FromScanf: missing `format` attribute");
         }
-        1 => found.into_iter().next().unwrap(),
-        _ => {
+        [x] => x,
+        found => {
             let mut error = Error::builder();
             for (a, _) in found {
-                error.with_spanned(a.name, "FromScanf: only one format attribute allowed");
+                error.with_spanned(&a.name, "only one format attribute allowed");
             }
             return error.build_err();
         }
@@ -40,20 +76,20 @@ fn parse_format(
     if !configs.is_empty() {
         let mut error = Error::builder();
         for (name, attr) in configs {
-            error.with_spanned(&attr.src, format!("FromScanf: unknown attribute: {}", name));
+            error.with_spanned(&attr.src, format!("unknown attribute arg: {}", name));
         }
         return error.build_err();
     }
 
-    let format = FormatString::new(format_src.value.to_slice(), escape)?;
+    let format_src = syn::parse2::<StrLit>(format_src.value.to_token_stream())?;
+
+    let format = FormatString::new(format_src.to_slice(), *escape)?;
 
     let mut fields = vec![];
     let mut field_map = HashMap::new();
-    let mut defaults = vec![];
-    let mut types = vec![];
     let mut str_lifetimes = vec![];
     for (i, field) in raw_fields.into_iter().enumerate() {
-        let ty = field.ty;
+        let mut ty = field.ty;
         let ident = field
             .ident
             .map(FieldIdent::Named)
@@ -62,36 +98,57 @@ fn parse_format(
         field_map.insert(ident.to_string(), i);
 
         let mut default = None;
+        let mut mapper = None;
 
         if let Some(attr) = find_attr(field.attrs) {
-            if !attr.tokens.is_empty() {
-                default = Some(attr.parse_args::<DefaultAttribute>()?);
+            let mut args = AttributeArg::from_attrs(&attr)?;
+
+            default = args.remove("default").map(DefaultAttribute::from);
+
+            if let Some(map) = args.remove("map") {
+                let map = MapperAttribute::try_from(map)?;
+                ty = map.ty.clone();
+                mapper = Some(map);
+            }
+
+            if default.is_some() && mapper.is_some() {
+                let msg = "FromScanf: cannot use both `default` and `map` on the same field";
+                return Error::err_spanned(attr, msg);
+            }
+
+            if !args.is_empty() {
+                let mut error = Error::builder();
+                for (name, attr) in args {
+                    error.with_spanned(&attr.src, format!("unknown attribute arg: {}", name));
+                }
+                return error.build_err();
             }
         };
         let has_default = default.is_some();
 
-        match ty {
+        let ty = match ty {
             syn::Type::Reference(r) if r.elem.to_token_stream().to_string() == "str" => {
-                types.push(syn::parse_quote! { str });
                 if !has_default {
                     str_lifetimes.extend(r.lifetime);
                 }
+                *r.elem
             }
-            ty => types.push(ty),
-        }
+            ty => ty,
+        };
 
         fields.push(Field {
             ident,
-            ty_source: TypeSource::External(i),
+            ty,
+            default,
+            mapper,
+            ph_index: None,
         });
-        defaults.push(default);
     }
 
-    let mut ph_indices = vec![];
-    let mut ph_index = 0;
-    let mut visited = vec![false; fields.len()];
+    let mut ph_types = vec![];
+    let mut ph_counter = 0;
     let mut error = Error::builder();
-    for ph in &format.placeholders {
+    for (ph_index, ph) in format.placeholders.iter().enumerate() {
         let index = if let Some(name) = ph.ident.as_ref() {
             if let Ok(n) = name.text().parse::<usize>() {
                 if n >= fields.len() {
@@ -107,59 +164,67 @@ fn parse_format(
                 continue;
             }
         } else {
-            let n = ph_index;
-            ph_index += 1;
+            let n = ph_counter;
+            ph_counter += 1;
             n
         };
 
-        ph_indices.push(index);
+        let field = &mut fields[index];
 
-        if visited[index] {
-            let name = fields[index].ident.to_string();
-            let msg = format!("field `{}` specified more than once", name);
+        if field.ph_index.is_some() {
+            let msg = format!("field `{}` specified more than once", field.ident);
             error.push(ph.src.error(&msg));
             continue;
         }
-        visited[index] = true;
+        field.ph_index = Some(ph_index);
+        ph_types.push(TypeSource {
+            ty: field.ty.clone(),
+            source: Some(ph.src.clone()),
+        });
     }
 
     error.ok_or_build()?;
 
-    let mut regex_parts = RegexParts::new(&format, &ph_indices, &fields, &types)?;
+    let regex_parts = RegexParts::new(&format, &ph_types)?;
+
+    let mut from_matches = vec![];
 
     error = Error::builder();
-    for ((visited, field), default) in visited.iter().zip(fields.into_iter()).zip(defaults.iter()) {
-        match (*visited, default) {
-            (false, None) => {
+    for field in fields {
+        let ident = field.ident;
+        match (field.ph_index, field.default) {
+            (None, None) => {
                 let msg = format!(
                     "FromScanf: field `{}` is not specified in the format string and has no default value. You must specify exactly one of these.
 The syntax for default values is: `#[sscanf(default)]` to use Default::default() or `#[sscanf(default = ...)]` to provide a custom value.",
-                    field.ident
+                    ident
                 );
-                error.with_spanned(field.ident, msg);
+                error.with_spanned(ident, msg);
             }
-            (false, Some(default)) => {
-                let ident = &field.ident;
-                regex_parts
-                    .from_matches_builder
-                    .push(quote!(#ident #default));
+            (None, Some(default)) => {
+                from_matches.push(quote! { #ident: #default });
             }
-            (true, None) => {
-                // all good: field is specified in format string and doesn't need a default
+            (Some(index), None) => {
+                let matcher = &regex_parts.matchers[index];
+                let mut value = quote! { #matcher };
+                if let Some(mapper) = field.mapper {
+                    value = quote! { { #mapper }( #value ) };
+                }
+                from_matches.push(quote! { #ident: #value });
             }
-            (true, Some(_)) => {
+            (Some(_), Some(_)) => {
                 let msg = format!(
                     "FromScanf: field `{}` has a default value but is also specified in the format string.
 Only one can be specified at a time",
-                    field.ident
+                    ident
                 );
-                error.with_spanned(field.ident, msg);
+                error.with_spanned(ident, msg);
             }
         }
     }
     error.ok_or_build()?;
 
-    Ok((regex_parts, str_lifetimes))
+    Ok((regex_parts, from_matches, str_lifetimes))
 }
 
 pub fn parse_struct(
@@ -173,9 +238,9 @@ pub fn parse_struct(
         Error::new_spanned(&name, msg)
     })?;
 
-    let mut configs = FormatAttribute::from_attrs(&attr)?;
+    let mut configs = AttributeArg::from_attrs(&attr)?;
 
-    let (regex_parts, str_lifetimes) = parse_format(&mut configs, attr, data.fields)?;
+    let (regex_parts, from_matches, str_lifetimes) = parse_format(&mut configs, attr, data.fields)?;
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
@@ -216,18 +281,19 @@ pub fn parse_struct(
     let (impl_generics, _, _) = lifetimed_generics.split_for_impl();
 
     let num_captures = regex_parts.num_captures();
-    let from_matches = regex_parts.from_matches();
     let from_sscanf_impl = quote!(
         impl #impl_generics ::sscanf::FromScanf<#lifetime> for #name #ty_generics #where_clause {
             type Err = ::sscanf::FromScanfFailedError;
             const NUM_CAPTURES: usize = #num_captures;
             fn from_matches(src: &mut ::sscanf::regex::SubCaptureMatches<'_, #lifetime>) -> ::std::result::Result<Self, Self::Err> {
                 let start_len = src.len();
-                src.next().unwrap(); // skip the full match
+                src.next().unwrap(); // skip the whole match
                 let mut len = src.len();
 
                 let mut catcher = || -> ::std::result::Result<Self, ::std::boxed::Box<dyn ::std::error::Error>> {
-                    ::std::result::Result::Ok(#name #from_matches)
+                    ::std::result::Result::Ok(#name {
+                        #(#from_matches),*
+                    })
                 };
                 let res = catcher().map_err(|error| ::sscanf::FromScanfFailedError {
                     type_name: stringify!(#name),
@@ -237,7 +303,7 @@ pub fn parse_struct(
                 if n != Self::NUM_CAPTURES {
                     panic!(
                         "{}::NUM_CAPTURES = {} but {} were taken{}",
-                        stringify!(#name), Self::NUM_CAPTURES, n, #WRONG_CAPTURES_HINT
+                        stringify!(#name), Self::NUM_CAPTURES, n, ::sscanf::WRONG_CAPTURES_HINT
                     );
                 }
                 Ok(res)
@@ -259,69 +325,7 @@ pub fn parse_enum(
     data: syn::DataEnum,
 ) -> Result<TokenStream> {
     let msg = "FromScanf: enum support will be added in the next version";
-    return Err(Error::new_spanned(name, msg)); // TODO: remove
-
-    if let Some(attr) = attr {
-        let msg = "FromScanf: enum formats have to be specified per-variant";
-        return Error::err_spanned(attr, msg);
-    }
-
-    let mut variants = vec![];
-    let mut error = Error::builder();
-    for variant in data.variants.into_iter() {
-        if let Some(attr) = find_attr(variant.attrs) {
-            variants.push((variant.ident, variant.fields, attr));
-        }
-    }
-    error.ok_or_build()?;
-
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-
-    let regex_parts = RegexParts::empty();
-
-    // TODO: fill regex_parts
-
-    let regex = regex_parts.regex();
-    let regex_impl = quote!(
-        impl #impl_generics ::sscanf::RegexRepresentation for #name #ty_generics #where_clause {
-            const REGEX: &'static ::std::primitive::str = #regex;
-        }
-    );
-
-    let num_captures = regex_parts.num_captures();
-    let from_matches = regex_parts.from_matches();
-    let from_sscanf_impl = quote!(
-        impl #impl_generics ::sscanf::FromScanf for #name #ty_generics #where_clause {
-            type Err = ::sscanf::FromScanfFailedError;
-            const NUM_CAPTURES: usize = #num_captures;
-            fn from_matches(src: &mut ::sscanf::regex::SubCaptureMatches) -> ::std::result::Result<Self, Self::Err> {
-                let start_len = src.len();
-                src.next().unwrap(); // skip the full match
-                let mut len = src.len();
-
-                let mut catcher = || -> ::std::result::Result<Self, ::std::boxed::Box<dyn ::std::error::Error>> {
-                    Ok(#name #from_matches)
-                };
-                let res = catcher().map_err(|error| ::sscanf::FromScanfFailedError {
-                    type_name: stringify!(#name),
-                    error,
-                })?;
-                let n = start_len - src.len();
-                if n != Self::NUM_CAPTURES {
-                    panic!(
-                        "{}::NUM_CAPTURES = {} but {} were taken{}",
-                        stringify!(#name), Self::NUM_CAPTURES, n, #WRONG_CAPTURES_HINT
-                    );
-                }
-                Ok(res)
-            }
-        }
-    );
-
-    Ok(quote!(
-        #regex_impl
-        #from_sscanf_impl
-    ))
+    Error::err_spanned(name, msg)
 }
 
 pub fn parse_union(
@@ -331,5 +335,5 @@ pub fn parse_union(
     _data: syn::DataUnion,
 ) -> Result<TokenStream> {
     let msg = "FromScanf: unions not supported yet";
-    return Err(Error::new_spanned(name, msg));
+    Error::err_spanned(name, msg)
 }

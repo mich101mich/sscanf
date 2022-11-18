@@ -1,207 +1,156 @@
-use proc_macro2::{Literal, TokenStream};
-use quote::{quote, quote_spanned};
-use syn::{Ident, Type};
+use proc_macro2::TokenStream;
+use quote::quote;
 
 use crate::*;
 
-pub const WRONG_CAPTURES_HINT: &str = r#"
-If you use ( ) in a custom Regex, please add a '?:' at the beginning to avoid forming a capture group like this:
-    "  (  )  "  =>  "  (?:  )  "
-"#;
+/// A workaround for Spans on stable Rust.
+///
+/// Span manipulation doesn't work on stable Rust, which also means that spans can't be joined
+/// together. This means that any compiler errors that occur would only point at the first token
+/// of the spanned expression, which is not very helpful.
+///
+/// The workaround, as demonstrated by `syn::Error::new_spanned`, is to have the first part of the
+/// spanned expression be spanned with the first part of the source span, and the second part of the
+/// spanned expression be spanned with the second part of the source span. The compiler only looks
+/// at the start and end of the span and underlines everything in between, so this works.
+#[derive(Copy, Clone)]
+pub struct FullSpan(Span, Span);
 
-pub struct Field<'a> {
-    pub ident: FieldIdent,
-    pub ty_source: TypeSource<'a>,
-}
-
-impl<'a> Field<'a> {
-    pub fn from_source(ty_source: TypeSource<'a>) -> Self {
-        Field {
-            ident: FieldIdent::None,
-            ty_source,
-        }
+impl FullSpan {
+    pub fn from_spanned<T: ToTokens + Spanned>(span: &T) -> Self {
+        let start = span.span();
+        let end = span
+            .to_token_stream()
+            .into_iter()
+            .last()
+            .map(|t| t.span())
+            .unwrap_or(start);
+        Self(start, end)
+    }
+    pub fn apply(&self, mut a: TokenStream, mut b: TokenStream) -> TokenStream {
+        a.set_span(self.0);
+        b.set_span(self.1);
+        quote! { #a #b }
     }
 }
 
-pub enum FieldIdent {
-    Named(Ident),
-    Index(Literal),
-    None,
-}
-impl FieldIdent {
-    pub fn from_index(i: usize, span: Span) -> FieldIdent {
-        let mut literal = Literal::usize_unsuffixed(i);
-        literal.set_span(span);
-        FieldIdent::Index(literal)
-    }
-}
-impl ToTokens for FieldIdent {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        match self {
-            FieldIdent::Named(ident) => tokens.extend(quote!(#ident:)),
-            FieldIdent::Index(index) => tokens.extend(quote!(#index:)),
-            FieldIdent::None => {}
-        }
-    }
-}
-impl std::fmt::Display for FieldIdent {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            FieldIdent::Named(ident) => write!(f, "{}", ident),
-            FieldIdent::Index(index) => write!(f, "{}", index),
-            FieldIdent::None => write!(f, "_"),
-        }
-    }
+pub struct TypeSource<'a> {
+    pub ty: syn::Type,
+    pub source: Option<StrLitSlice<'a>>,
 }
 
-pub enum TypeSource<'a> {
-    Inline { ty: Type, src: StrLitSlice<'a> },
-    External(usize),
-}
 #[allow(unused)]
 impl<'a> TypeSource<'a> {
-    pub fn ty<'b>(&'b self, types: &'b [Type]) -> &'b Type {
-        match self {
-            TypeSource::Inline { ty, .. } => ty,
-            TypeSource::External(index) => &types[*index],
+    pub fn full_span(&self) -> FullSpan {
+        if let Some(source) = self.source.as_ref() {
+            let span = source.span();
+            FullSpan(span, span)
+        } else {
+            FullSpan::from_spanned(&self.ty)
         }
     }
-    pub fn span(&self, types: &[Type]) -> Span {
-        match self {
-            TypeSource::Inline { src, .. } => src.span(),
-            TypeSource::External(index) => types[*index].span(),
-        }
+    pub fn err<T>(&self, message: &str) -> Result<T> {
+        Err(self.error(message))
     }
-    pub fn full_span(&self, types: &[Type]) -> (Span, Span) {
-        match self {
-            TypeSource::Inline { src, .. } => {
-                let span = src.span();
-                (span, span)
-            }
-            TypeSource::External(index) => full_span(&types[*index]),
-        }
-    }
-    pub fn err<T>(&self, types: &[Type], message: &str) -> Result<T> {
-        Err(self.error(types, message))
-    }
-    pub fn error(&self, types: &[Type], message: &str) -> Error {
-        match self {
-            TypeSource::Inline { src, .. } => src.error(message),
-            TypeSource::External(index) => Error::new_spanned(&types[*index], message),
+    pub fn error(&self, message: &str) -> Error {
+        if let Some(source) = self.source.as_ref() {
+            source.error(message)
+        } else {
+            Error::new_spanned(&self.ty, message)
         }
     }
 }
 
-pub struct RegexParts {
-    pub regex_builder: Vec<TokenStream>,
-    pub num_captures_builder: Vec<TokenStream>,
-    pub from_matches_builder: Vec<TokenStream>,
+pub enum NumCaptures {
+    One,
+    FromType(Type, FullSpan),
 }
 
-impl RegexParts {
-    pub fn empty() -> Self {
-        Self {
-            regex_builder: vec![],
-            num_captures_builder: vec![],
-            from_matches_builder: vec![],
+impl ToTokens for NumCaptures {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        match self {
+            NumCaptures::One => tokens.extend(quote!(1)),
+            NumCaptures::FromType(ty, span) => tokens.extend(span.apply(
+                quote! { <#ty as },
+                quote! { ::sscanf::FromScanf>::NUM_CAPTURES },
+            )),
         }
     }
+}
 
-    pub fn new(
-        format: &FormatString,
-        ph_indices: &[usize],
-        fields: &[Field],
-        types: &[Type],
-    ) -> Result<Self> {
-        let mut ret = RegexParts {
-            regex_builder: vec![],
-            num_captures_builder: vec![],
-            from_matches_builder: vec![],
-        };
-        ret.num_captures_builder.push(quote!(1)); // +1 for the whole match
+pub enum RegexPart {
+    Literal(String),
+    FromType(Type, FullSpan),
+    Custom(String),
+}
 
-        let mut error = Error::builder();
-
-        // if there are n types, there are n+1 regex_parts, so add the first n during this loop and
-        // add the last one afterwards
-        for ((prefix, ph), index) in format
-            .parts
-            .iter()
-            .zip(format.placeholders.iter())
-            .zip(ph_indices)
-        {
-            ret.regex_builder.push(quote!(#prefix));
-
-            let field = &fields[*index];
-            let ty = field.ty_source.ty(types);
-            let ty_string = ty.to_token_stream().to_string();
-            let (start, end) = field.ty_source.full_span(types);
-            let ident = &field.ident;
-
-            let mut converter = None;
-
-            let regex = if let Some(config) = ph.config.as_ref() {
-                use FormatOptionKind::*;
-                match &config.kind {
-                    Regex(regex) => quote!(#regex),
-                    Radix { radix, prefix } => {
-                        let (regex, conv) = regex_from_radix(
-                            *radix,
-                            *prefix,
-                            ty,
-                            &field.ty_source,
-                            &ty_string,
-                            types,
-                        )?;
-                        converter = Some(conv);
-                        regex
-                    }
-                    Hashtag => {
-                        return config.src.err("unsupported use of '#'");
-                    }
-                }
-            } else {
+impl ToTokens for RegexPart {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        match self {
+            RegexPart::Literal(literal) => tokens.extend(quote! { #literal }),
+            RegexPart::FromType(ty, span) => {
                 // proc_macros don't have any type information, so we can't check if the type
                 // implements the trait, so we wrap it in this verbose <#ty as Trait> code,
                 // so that the compiler can check if the trait is implemented, and, most importantly,
                 // tell the user if they forgot to implement the trait.
-                // The code is split into two quote_spanned calls in case the type consists of more
-                // than one token (like std::vec::Vec). Again, no span manipulation on stable and we
-                // obviously want the entire type underlined, so we have to map the start and end of
-                // the type's span to the start and end of the part that generates the error message.
-                // Yes, this works. No, this is not a good way to do this. ¯\_(ツ)_/¯
-                let mut s = quote_spanned!(start => <#ty as );
-                s.extend(quote_spanned!(end => ::sscanf::RegexRepresentation>::REGEX));
-                s
-            };
-            ret.regex_builder.push(regex);
+                // The code is split into two parts in case the type consists of more
+                // than one token (like `std::vec::Vec`), so that the FullSpan workaround can be
+                // applied.
+                tokens.extend(span.apply(
+                    quote! { <#ty as },
+                    quote! { ::sscanf::RegexRepresentation>::REGEX },
+                ));
+            }
+            RegexPart::Custom(custom) => tokens.extend(quote! { #custom }),
+        }
+    }
+}
 
-            let (num_captures, converter) = if ty_string == "str" {
-                // str is special, because the type is actually &str
-                let cap = quote_spanned!(start => 1);
-                let conv = quote_spanned!(start =>
-                    src.next()
-                       .expect(::sscanf::EXPECT_NEXT_HINT)
-                       .expect(::sscanf::EXPECT_CAPTURE_HINT)
-                       .as_str());
-                (cap, conv)
-            } else {
-                let mut cap = quote_spanned!(start => <#ty as );
-                cap.extend(quote_spanned!(end => ::sscanf::FromScanf>::NUM_CAPTURES));
+pub enum Converter {
+    Str,
+    FromType(Type, FullSpan),
+    Custom(TokenStream),
+}
 
-                let conv = converter.unwrap_or_else(|| {
-                    let mut conv = quote_spanned!(start => ::sscanf::FromScanf);
-                    conv.extend(quote_spanned!(end => ::from_matches(&mut *src)));
-                    quote!({
-                        let value: #ty = #conv?;
+impl ToTokens for Converter {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        match self {
+            Converter::Str => tokens.extend(quote! {
+                src.next()
+                   .expect(::sscanf::EXPECT_NEXT_HINT)
+                   .expect(::sscanf::EXPECT_CAPTURE_HINT)
+                   .as_str()
+            }),
+            Converter::FromType(ty, span) => {
+                let call = span.apply(
+                    quote! { ::sscanf::FromScanf },
+                    quote! { ::from_matches(&mut *src) },
+                );
+                tokens.extend(quote! {
+                    {
+                        let value: #ty = #call?;
                         value
-                    })
-                });
+                    }
+                })
+            }
+            Converter::Custom(custom) => tokens.extend(custom.clone()),
+        }
+    }
+}
 
-                (cap, conv)
-            };
+pub struct Matcher {
+    pub ty: Type,
+    pub num_captures: NumCaptures,
+    pub converter: Converter,
+}
 
-            let from_matches = quote!(#ident {
+impl ToTokens for Matcher {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let ty = &self.ty;
+        let num_captures = &self.num_captures;
+        let converter = &self.converter;
+        tokens.extend(quote! {
+            {
                 let value = #converter;
                 #[cfg(debug_assertions)]
                 {
@@ -210,16 +159,83 @@ impl RegexParts {
                     if n != expected {
                         panic!(
                             "{}::NUM_CAPTURES = {} but {} were taken{}",
-                            stringify!(#ty), expected, n, #WRONG_CAPTURES_HINT
+                            stringify!(#ty), expected, n, ::sscanf::WRONG_CAPTURES_HINT
                         );
                     }
                     len = src.len();
                 }
                 value
-            });
+            }
+        });
+    }
+}
 
-            ret.num_captures_builder.push(num_captures);
-            ret.from_matches_builder.push(from_matches);
+pub struct RegexParts {
+    pub regex_builder: Vec<RegexPart>,
+    pub matchers: Vec<Matcher>,
+}
+
+impl RegexParts {
+    pub fn empty() -> Self {
+        Self {
+            regex_builder: vec![],
+            matchers: vec![],
+        }
+    }
+
+    pub fn new(format: &FormatString, type_sources: &[TypeSource]) -> Result<Self> {
+        let mut ret = Self::empty();
+
+        let mut error = Error::builder();
+
+        // if there are n types, there are n+1 regex_parts, so add the first n during this loop and
+        // add the last one afterwards
+        for ((part, ph), ty_source) in format
+            .parts
+            .iter()
+            .zip(format.placeholders.iter())
+            .zip(type_sources)
+        {
+            ret.regex_builder.push(RegexPart::Literal(part.clone()));
+
+            let ty = &ty_source.ty;
+            let span = ty_source.full_span();
+
+            let mut converter = None;
+
+            let regex = if let Some(config) = ph.config.as_ref() {
+                use FormatOptionKind::*;
+                match &config.kind {
+                    Regex(regex) => RegexPart::Custom(regex.clone()),
+                    Radix { radix, prefix } => {
+                        let (regex, conv) = regex_from_radix(*radix, *prefix, ty_source)?;
+                        converter = Some(conv);
+                        regex
+                    }
+                    Hashtag => {
+                        return config.src.err("unsupported use of '#'");
+                    }
+                }
+            } else {
+                RegexPart::FromType(ty.clone(), span)
+            };
+            ret.regex_builder.push(regex);
+
+            let (num_captures, converter) = if ty.to_token_stream().to_string() == "str" {
+                // str is special, because the type is actually &str
+                (NumCaptures::One, converter.unwrap_or(Converter::Str))
+            } else {
+                (
+                    NumCaptures::FromType(ty.clone(), span),
+                    converter.unwrap_or_else(|| Converter::FromType(ty.clone(), span)),
+                )
+            };
+
+            ret.matchers.push(Matcher {
+                ty: ty.clone(),
+                num_captures,
+                converter,
+            });
         }
 
         error.ok_or_build()?;
@@ -227,7 +243,7 @@ impl RegexParts {
         // add the last regex_part
         {
             let suffix = format.parts.last().unwrap();
-            ret.regex_builder.push(quote!(#suffix));
+            ret.regex_builder.push(RegexPart::Literal(suffix.clone()));
         }
 
         Ok(ret)
@@ -238,28 +254,24 @@ impl RegexParts {
         quote!(::sscanf::const_format::concatcp!( #(#regex_builder),* ))
     }
     pub fn num_captures(&self) -> TokenStream {
-        let num_captures_builder = &self.num_captures_builder;
-        quote!(#(#num_captures_builder)+*)
-    }
-    pub fn from_matches(&self) -> TokenStream {
-        let from_matches_builder = &self.from_matches_builder;
-        quote!({
-            #(#from_matches_builder),*
-        })
+        let mut num_captures = vec![&NumCaptures::One]; // for the whole match
+        for matcher in &self.matchers {
+            num_captures.push(&matcher.num_captures);
+        }
+        quote! { #(#num_captures)+* }
     }
 }
 
 fn regex_from_radix(
     radix: u8,
     prefix_policy: PrefixPolicy,
-    ty: &Type,
     ty_source: &TypeSource,
-    ty_string: &str,
-    types: &[Type],
-) -> Result<(TokenStream, TokenStream)> {
+) -> Result<(RegexPart, Converter)> {
+    let ty_string = ty_source.ty.to_token_stream().to_string();
+
     let num_digits_binary = binary_length(&ty_string).ok_or_else(|| {
         let msg = "Radix options only work on primitive numbers from std with no path or alias";
-        ty_source.error(types, msg)
+        ty_source.error(msg)
     })?;
 
     let signed = ty_string.starts_with('i');
@@ -304,7 +316,8 @@ fn regex_from_radix(
 
     // we know ty is a primitive type without path, which are always just one token
     // => no Span voodoo necessary
-    let span = ty_source.span(types);
+    let span = ty_source.full_span().0;
+    let ty = &ty_source.ty;
 
     let get_input = quote!(src
         .next()
@@ -313,8 +326,8 @@ fn regex_from_radix(
         .as_str());
 
     let radix = radix as u32;
-    let converter = if prefix_policy == PrefixPolicy::Never {
-        quote_spanned!(span => {
+    let mut converter = if prefix_policy == PrefixPolicy::Never {
+        quote!({
             let input = #get_input;
             #ty::from_str_radix(input, #radix)?
         })
@@ -331,7 +344,7 @@ fn regex_from_radix(
         );
 
         if signed {
-            quote_spanned!(span => {
+            quote!({
                 let input = #get_input;
                 let (negative, s) = match input.strip_prefix('-') {
                     Some(s) => (true, s),
@@ -341,7 +354,7 @@ fn regex_from_radix(
                 #ty::from_str_radix(s, #radix).map(|i| if negative { -i } else { i })?
             })
         } else {
-            quote_spanned!(span => {
+            quote!({
                 let input = #get_input;
                 let s = input.strip_prefix('+').unwrap_or(input);
                 let s = #prefix_matcher.#no_prefix_handler;
@@ -350,7 +363,9 @@ fn regex_from_radix(
         }
     };
 
-    Ok((quote!(#regex), converter))
+    converter.set_span(span);
+
+    Ok((RegexPart::Custom(regex), Converter::Custom(converter)))
 }
 
 fn binary_length(ty: &str) -> Option<u32> {

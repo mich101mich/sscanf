@@ -15,21 +15,21 @@ error[E0277]: the trait bound `Vec<usize>: RegexRepresentation` is not satisfied
              NonZeroI8
            and $N others
 
-error[E0080]: evaluation of constant value failed
+note: erroneous constant used
   --> tests/fail/nightly/missing_trait_regex.rs:10:5
    |
 10 |     sscanf::sscanf!("hi", "{}", std::vec::Vec<usize>);
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ referenced constant has errors
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
-   = note: this error originates in the macro `$crate::pmr::__concatcp_impl` which comes from the expansion of the macro `sscanf::sscanf` (in Nightly builds, run with -Z macro-backtrace for more info)
+   = note: this note originates in the macro `$crate::pmr::__concatcp_impl` which comes from the expansion of the macro `sscanf::sscanf` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0080]: evaluation of constant value failed
+note: erroneous constant used
   --> tests/fail/nightly/missing_trait_regex.rs:10:5
    |
 10 |     sscanf::sscanf!("hi", "{}", std::vec::Vec<usize>);
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ referenced constant has errors
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
-   = note: this error originates in the macro `__cf_osRcTFl4A::__concatcp_inner` which comes from the expansion of the macro `sscanf::sscanf` (in Nightly builds, run with -Z macro-backtrace for more info)
+   = note: this note originates in the macro `__cf_osRcTFl4A::__concatcp_inner` which comes from the expansion of the macro `sscanf::sscanf` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `NoRegex: RegexRepresentation` is not satisfied
   --> tests/fail/nightly/missing_trait_regex.rs:11:33
@@ -48,18 +48,18 @@ error[E0277]: the trait bound `NoRegex: RegexRepresentation` is not satisfied
              NonZeroI8
            and $N others
 
-error[E0080]: evaluation of constant value failed
+note: erroneous constant used
   --> tests/fail/nightly/missing_trait_regex.rs:11:5
    |
 11 |     sscanf::sscanf!("hi", "{}", NoRegex);
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ referenced constant has errors
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
-   = note: this error originates in the macro `$crate::pmr::__concatcp_impl` which comes from the expansion of the macro `sscanf::sscanf` (in Nightly builds, run with -Z macro-backtrace for more info)
+   = note: this note originates in the macro `$crate::pmr::__concatcp_impl` which comes from the expansion of the macro `sscanf::sscanf` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0080]: evaluation of constant value failed
+note: erroneous constant used
   --> tests/fail/nightly/missing_trait_regex.rs:11:5
    |
 11 |     sscanf::sscanf!("hi", "{}", NoRegex);
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ referenced constant has errors
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
-   = note: this error originates in the macro `__cf_osRcTFl4A::__concatcp_inner` which comes from the expansion of the macro `sscanf::sscanf` (in Nightly builds, run with -Z macro-backtrace for more info)
+   = note: this note originates in the macro `__cf_osRcTFl4A::__concatcp_inner` which comes from the expansion of the macro `sscanf::sscanf` (in Nightly builds, run with -Z macro-backtrace for more info)

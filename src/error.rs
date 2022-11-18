@@ -2,13 +2,20 @@ use std::error;
 use std::str::FromStr;
 
 #[doc(hidden)]
-pub const EXPECT_NEXT_HINT: &str = r#"sscanf: Invalid number of capture groups in regex.
+pub static EXPECT_NEXT_HINT: &str = r#"sscanf: Invalid number of capture groups in regex.
 If you use ( ) in a custom Regex, please add a '?:' at the beginning to avoid forming a capture group like this:
     "  (  )  "  =>  "  (?:  )  ""#;
 
 #[doc(hidden)]
-pub const EXPECT_CAPTURE_HINT: &str = r#"sscanf: Non-optional capture group marked as optional.
+pub static EXPECT_CAPTURE_HINT: &str = r#"sscanf: Non-optional capture group marked as optional.
 This is either a problem with a custom regex or RegexRepresentation implementation or an internal error."#;
+
+#[doc(hidden)]
+pub static WRONG_CAPTURES_HINT: &str = r#"
+If you use ( ) in a custom Regex, please add a '?:' at the beginning to avoid forming a capture group like this:
+    "  (  )  "  =>  "  (?:  )  "
+"#;
+
 
 /// The Error returned by [`sscanf`](crate::sscanf).
 #[derive(Debug)]

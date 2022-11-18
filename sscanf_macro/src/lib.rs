@@ -2,7 +2,7 @@
 
 use proc_macro::TokenStream as TokenStream1;
 use proc_macro2::{Span, TokenStream};
-use quote::{quote, quote_spanned, ToTokens};
+use quote::{quote, ToTokens};
 use syn::{
     parse::{Parse, ParseStream},
     parse_macro_input,
@@ -160,9 +160,9 @@ fn sscanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
     };
     let src_str = {
         let src_str = input.src_str;
-        let (start, end) = full_span(&src_str);
-        let mut param = quote_spanned!(start => &);
-        param.extend(quote_spanned!(end => (#src_str)));
+        let span = FullSpan::from_spanned(&src_str);
+        let param = span.apply(quote! { & }, quote! { (#src_str) });
+
         // wrapping the input in a manual call to str::get ensures that the user
         // gets an appropriate error message if they try to use a non-string input
         quote!(::std::primitive::str::get(#param, ..).unwrap())
@@ -178,13 +178,13 @@ fn sscanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
                 .and_then(|cap| {
                     let mut src = cap.iter();
                     let src = &mut src;
-                    src.next().unwrap(); // skip the full match
+                    src.next().unwrap(); // skip the whole match
 
                     #[cfg(debug_assertions)]
                     let mut len = src.len();
 
                     let mut matcher = || -> ::std::result::Result<_, ::std::boxed::Box<dyn ::std::error::Error>> {
-                        ::std::result::Result::Ok(( #(#matcher),* ))
+                        ::std::result::Result::Ok( ( #(#matcher),* ) )
                     };
                     let res = matcher().map_err(|e| ::sscanf::Error::ParsingFailed(e));
 
@@ -200,15 +200,12 @@ fn sscanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
     .into()
 }
 
-fn generate_regex(
-    input: ScanfInner,
-    escape_input: bool,
-) -> Result<(TokenStream, Vec<TokenStream>)> {
+fn generate_regex(input: ScanfInner, escape_input: bool) -> Result<(TokenStream, Vec<Matcher>)> {
     let mut format = FormatString::new(input.fmt.to_slice(), escape_input)?;
     format.parts[0].insert(0, '^');
     format.parts.last_mut().unwrap().push('$');
 
-    let types = input
+    let external_types = input
         .type_tokens
         .into_iter()
         .map(|path| Type::Path(TypePath { qself: None, path }))
@@ -218,6 +215,7 @@ fn generate_regex(
         ph: &Placeholder<'a>,
         visited: &mut [bool],
         ph_index: &mut usize,
+        external_types: &[Type],
     ) -> Result<TypeSource<'a>> {
         let ty_source = if let Some(name) = ph.ident.as_ref() {
             if let Ok(n) = name.text().parse::<usize>() {
@@ -226,11 +224,14 @@ fn generate_regex(
                     return name.err(&msg);
                 }
                 visited[n] = true;
-                TypeSource::External(n)
+                TypeSource {
+                    ty: external_types[n].clone(),
+                    source: None,
+                }
             } else {
-                TypeSource::Inline {
+                TypeSource {
                     ty: to_type(name)?,
-                    src: name.clone(),
+                    source: Some(name.clone()),
                 }
             }
         } else {
@@ -241,24 +242,27 @@ fn generate_regex(
                 return ph.src.err(&msg);
             }
             visited[n] = true;
-            TypeSource::External(n)
+            TypeSource {
+                ty: external_types[n].clone(),
+                source: None,
+            }
         };
         Ok(ty_source)
     }
 
     let mut ph_index = 0;
-    let mut visited = vec![false; types.len()];
-    let mut fields = vec![];
+    let mut visited = vec![false; external_types.len()];
+    let mut types = vec![];
     let mut error = Error::builder();
 
     for ph in &format.placeholders {
-        match to_type_source(ph, &mut visited, &mut ph_index) {
-            Ok(ty_source) => fields.push(Field::from_source(ty_source)),
+        match to_type_source(ph, &mut visited, &mut ph_index, &external_types) {
+            Ok(ty_source) => types.push(ty_source),
             Err(e) => error.push(e),
         }
     }
 
-    for (visited, ty) in visited.iter().zip(types.iter()) {
+    for (visited, ty) in visited.iter().zip(external_types.iter()) {
         if !*visited {
             error.with_spanned(ty, "unused type");
         }
@@ -266,8 +270,7 @@ fn generate_regex(
 
     error.ok_or_build()?;
 
-    let ph_indices = (0..fields.len()).collect::<Vec<_>>();
-    let regex_parts = RegexParts::new(&format, &ph_indices, &fields, &types)?;
+    let regex_parts = RegexParts::new(&format, &types)?;
 
     let regex = regex_parts.regex();
     let num_captures = regex_parts.num_captures();
@@ -282,30 +285,27 @@ fn generate_regex(
             if regex.captures_len() != NUM_CAPTURES {
                 panic!(
                     "sscanf: Regex has {} capture groups, but {} were expected.{}",
-                    regex.captures_len(), NUM_CAPTURES, #WRONG_CAPTURES_HINT
+                    regex.captures_len(), NUM_CAPTURES, ::sscanf::WRONG_CAPTURES_HINT
                 );
             }
             regex
         };
     });
 
-    Ok((regex, regex_parts.from_matches_builder))
+    Ok((regex, regex_parts.matchers))
 }
 
-fn full_span<T: ToTokens + Spanned>(span: &T) -> (Span, Span) {
-    // dirty hack stolen from syn::Error::new_spanned
-    // because _once again_, spans don't really work on stable, so instead we set part of the
-    // target to the beginning of the type, part to the end, and then the rust compiler joins
-    // them for us.
-
-    let start = span.span();
-    let end = span
-        .to_token_stream()
-        .into_iter()
-        .last()
-        .map(|t| t.span())
-        .unwrap_or(start);
-    (start, end)
+trait TokenStreamExt {
+    fn set_span(&mut self, span: Span);
+}
+impl TokenStreamExt for TokenStream {
+    fn set_span(&mut self, span: Span) {
+        let old = std::mem::replace(self, TokenStream::new());
+        self.extend(old.into_iter().map(|mut t| {
+            t.set_span(span);
+            t
+        }));
+    }
 }
 
 fn to_type(src: &StrLitSlice) -> Result<Type> {
@@ -317,9 +317,11 @@ fn to_type(src: &StrLitSlice) -> Result<Type> {
     // many parts to it with variable stuff and incomplete constructors, that's too
     // much work.
     let catcher = || -> syn::Result<Type> {
-        let tokens = src.text().parse::<TokenStream>()?;
         let span = src.span();
-        let path = syn::parse2::<Path>(quote_spanned!(span => #tokens))?;
+        let mut tokens = src.text().parse::<TokenStream>()?;
+        tokens.set_span(span);
+        let path = syn::parse2::<Path>(tokens)?;
+
         // we don't parse directly to a Type to give better error messages:
         // Path says "expected identifier"
         // Type says "expected one of: `for`, parentheses, `fn`, `unsafe`, ..."

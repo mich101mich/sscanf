@@ -14,6 +14,22 @@ pub struct StrLit {
 }
 
 impl StrLit {
+    pub fn new(input: LitStr) -> Self {
+        // the full string with any ", r", r#", ... prefix and suffix
+        let text = input.to_token_stream().to_string();
+
+        // input has to be parsed as `syn::LitStr` to access the content as a string. But in order to
+        // call subspan, we need it as a `proc_macro2::Literal`. So: parse it as `LitStr` first and
+        // convert that to a `Literal` with the same content and span.
+        let mut span_provider = Literal::string(&text);
+        span_provider.set_span(input.span()); // input is a single Token so span() works even on stable
+
+        Self {
+            text,
+            span_provider,
+        }
+    }
+
     pub fn to_slice(&self) -> StrLitSlice {
         // find the position of the opening quote. raw strings may have a prefix of any length,
         // which needs to be skipped. This information used to be provided by syn, but was removed
@@ -138,21 +154,7 @@ impl<'a> StrLitSlice<'a> {
 
 impl syn::parse::Parse for StrLit {
     fn parse(input: &ParseBuffer<'_>) -> syn::Result<Self> {
-        let fmt: LitStr = input.parse()?;
-
-        // the full string with any ", r", r#", ... prefix and suffix
-        let text = fmt.to_token_stream().to_string();
-
-        // fmt has to be parsed as `syn::LitStr` to access the content as a string. But in order to
-        // call subspan, we need it as a `proc_macro2::Literal`. So: parse it as `LitStr` first and
-        // convert that to a `Literal` with the same content and span.
-        let mut span_provider = Literal::string(&text);
-        span_provider.set_span(fmt.span()); // fmt is a single Token so span() works even on stable
-
-        Ok(Self {
-            text,
-            span_provider,
-        })
+        input.parse().map(Self::new)
     }
 }
 

@@ -19,20 +19,16 @@ error: Invalid type in placeholder: expected identifier.
   |                           ^^^^^^^^^^
 
 error[E0412]: cannot find type `bob` in this scope
- --> tests/fail/stable/invalid_type_in_placeholder.rs:3:5
+ --> tests/fail/stable/invalid_type_in_placeholder.rs:3:27
   |
 3 |     sscanf::sscanf!("hi", "{bob}");
-  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not found in this scope
-  |
-  = note: this error originates in the macro `sscanf::sscanf` (in Nightly builds, run with -Z macro-backtrace for more info)
+  |                           ^^^^^^^ not found in this scope
 
 error[E0412]: cannot find type `bob` in this scope
- --> tests/fail/stable/invalid_type_in_placeholder.rs:5:5
+ --> tests/fail/stable/invalid_type_in_placeholder.rs:5:27
   |
 5 |     sscanf::sscanf!("hi", "{bob:/hi/}");
-  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ not found in this scope
-  |
-  = note: this error originates in the macro `sscanf::sscanf` (in Nightly builds, run with -Z macro-backtrace for more info)
+  |                           ^^^^^^^^^^^^ not found in this scope
 
 error: any use of this value will cause an error
  --> tests/fail/stable/invalid_type_in_placeholder.rs:3:5
