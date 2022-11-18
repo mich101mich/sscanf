@@ -244,3 +244,25 @@ impl RegexRepresentation for std::path::PathBuf {
     /// ```
     const REGEX: &'static str = r".+";
 }
+
+#[test]
+#[rustfmt::skip]
+fn no_capture_groups() {
+    macro_rules! check {
+        ($($ty: ty),+) => {
+            $(
+                let regex = regex::Regex::new(<$ty>::REGEX).unwrap();
+                assert_eq!(regex.captures_len(), 1, "Regex for {} >>{}<< has capture groups", stringify!($ty), <$ty>::REGEX);
+                // 1 for the whole match
+            )+ 
+        };
+    }
+
+    check!(u8, u16, u32, u64, u128, usize);
+    check!(i8, i16, i32, i64, i128, isize);
+    check!(NonZeroU8, NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU128, NonZeroUsize);
+    check!(NonZeroI8, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI128, NonZeroIsize);
+    check!(f32, f64);
+    check!(String, str, char, bool);
+    check!(std::path::PathBuf);
+}

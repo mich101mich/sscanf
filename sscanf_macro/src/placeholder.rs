@@ -19,6 +19,7 @@ impl<'a> Placeholder<'a> {
         input: &'_ mut std::iter::Peekable<I>,
         src: &'_ StrLitSlice<'a>,
         start: usize,
+        expect_lowercase_ident: bool,
     ) -> Result<Self> {
         let mut ident_start = None;
         let mut ident = None;
@@ -47,7 +48,7 @@ impl<'a> Placeholder<'a> {
             let (cfg, end_i) = FormatOption::new(input, src, start)?;
             config = Some(cfg);
             end = Some(end_i);
-        } else {
+        } else if !expect_lowercase_ident {
             // check if ident looks like the old format
             if let Some(ident) = ident.as_ref() {
                 if ident.text().starts_with('/')

@@ -140,7 +140,10 @@ pub fn derive_from_sscanf(input: TokenStream1) -> TokenStream1 {
 
     let ident = input.ident;
     let generics = input.generics;
-    let attr = derive::find_attr(input.attrs);
+    let attr = match derive::find_attr(input.attrs) {
+        Ok(v) => v,
+        Err(e) => return e.into(),
+    };
 
     let res = match input.data {
         syn::Data::Struct(data) => derive::parse_struct(ident, generics, attr, data),
@@ -188,7 +191,7 @@ fn sscanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
                     };
                     let res = matcher().map_err(|e| ::sscanf::Error::ParsingFailed(e));
 
-                    if src.len() != 0 {
+                    if res.is_ok() && src.len() != 0 {
                         panic!("{} captures generated, but {} were taken",
                             REGEX.captures_len(), REGEX.captures_len() - src.len()
                         );
@@ -201,7 +204,8 @@ fn sscanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
 }
 
 fn generate_regex(input: ScanfInner, escape_input: bool) -> Result<(TokenStream, Vec<Matcher>)> {
-    let mut format = FormatString::new(input.fmt.to_slice(), escape_input)?;
+    let expect_lowercase_ident = false;
+    let mut format = FormatString::new(input.fmt.to_slice(), escape_input, expect_lowercase_ident)?;
     format.parts[0].insert(0, '^');
     format.parts.last_mut().unwrap().push('$');
 

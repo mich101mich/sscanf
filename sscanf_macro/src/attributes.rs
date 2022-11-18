@@ -10,6 +10,8 @@ pub struct AttributeArg {
     pub value: Option<syn::Expr>,
 }
 
+pub type AttributeArgMap = HashMap<String, AttributeArg>;
+
 impl Parse for AttributeArg {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let name = input.parse::<syn::Ident>()?;
@@ -42,7 +44,7 @@ impl Parse for AttributeArg {
 }
 
 impl AttributeArg {
-    pub fn from_attrs(attr: &syn::Attribute) -> Result<HashMap<String, AttributeArg>> {
+    pub fn from_attrs(attr: &syn::Attribute) -> Result<AttributeArgMap> {
         struct VecWrapper(Vec<AttributeArg>);
         impl Parse for VecWrapper {
             fn parse(input: ParseStream) -> syn::Result<Self> {
@@ -54,7 +56,7 @@ impl AttributeArg {
             }
         }
         let list = attr.parse_args::<VecWrapper>()?.0;
-        let mut ret = HashMap::<String, AttributeArg>::new();
+        let mut ret = AttributeArgMap::new();
         let mut error = Error::builder();
         for option in list {
             let name = option.name.to_string();
@@ -69,17 +71,23 @@ impl AttributeArg {
     }
 }
 
-pub struct DefaultAttribute(Option<Expr>);
+pub struct DefaultAttribute {
+    pub src: TokenStream,
+    pub value: Option<Expr>,
+}
 
 impl From<AttributeArg> for DefaultAttribute {
     fn from(arg: AttributeArg) -> Self {
-        Self(arg.value)
+        Self {
+            src: arg.src,
+            value: arg.value,
+        }
     }
 }
 
 impl ToTokens for DefaultAttribute {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        if let Some(expr) = &self.0 {
+        if let Some(expr) = &self.value {
             expr.to_tokens(tokens);
         } else {
             tokens.extend(quote! { ::std::default::Default::default() });
@@ -88,6 +96,7 @@ impl ToTokens for DefaultAttribute {
 }
 
 pub struct MapperAttribute {
+    pub src: TokenStream,
     pub mapper: syn::ExprClosure,
     pub ty: syn::Type,
 }
@@ -126,7 +135,11 @@ impl std::convert::TryFrom<AttributeArg> for MapperAttribute {
             return Err(Error::new_spanned(param, msg));
         };
 
-        Ok(Self { mapper, ty })
+        Ok(Self {
+            src: arg.src,
+            mapper,
+            ty,
+        })
     }
 }
 

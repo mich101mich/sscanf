@@ -5,8 +5,28 @@ use quote::quote;
 
 use crate::*;
 
-pub fn find_attr(attrs: Vec<syn::Attribute>) -> Option<syn::Attribute> {
-    attrs.into_iter().find(|a| a.path.is_ident("sscanf"))
+pub fn find_attr(attrs: Vec<syn::Attribute>) -> Result<AttributeArgMap> {
+    let mut ret = AttributeArgMap::new();
+    let iter = attrs.into_iter().filter(|a| a.path.is_ident("sscanf"));
+    for attr in iter {
+        let map = AttributeArg::from_attrs(&attr)?;
+        for (k, v) in map {
+            use std::collections::hash_map::Entry;
+            match ret.entry(k) {
+                Entry::Occupied(e) => {
+                    let msg = format!("duplicate attribute `{}`", e.key());
+                    return Error::builder()
+                        .with_spanned(v.src, &msg)
+                        .with_spanned(&e.get().src, msg)
+                        .build_err();
+                }
+                Entry::Vacant(e) => {
+                    e.insert(v);
+                }
+            }
+        }
+    }
+    Ok(ret)
 }
 
 pub struct Field {
@@ -46,8 +66,7 @@ impl std::fmt::Display for FieldIdent {
 }
 
 fn parse_format(
-    configs: &mut HashMap<String, AttributeArg>,
-    configs_src: syn::Attribute,
+    mut configs: HashMap<String, AttributeArg>,
     raw_fields: syn::Fields,
 ) -> Result<(RegexParts, Vec<TokenStream>, Vec<syn::Lifetime>)> {
     let found = [
@@ -61,7 +80,7 @@ fn parse_format(
 
     let (format_src, escape) = match found.as_slice() {
         [] => {
-            return Error::err_spanned(configs_src, "FromScanf: missing `format` attribute");
+            return Error::err(Span::call_site(), "FromScanf: missing `format` attribute");
         }
         [x] => x,
         found => {
@@ -83,7 +102,8 @@ fn parse_format(
 
     let format_src = syn::parse2::<StrLit>(format_src.value.to_token_stream())?;
 
-    let format = FormatString::new(format_src.to_slice(), *escape)?;
+    let expect_lowercase_ident = true;
+    let format = FormatString::new(format_src.to_slice(), *escape, expect_lowercase_ident)?;
 
     let mut fields = vec![];
     let mut field_map = HashMap::new();
@@ -97,34 +117,33 @@ fn parse_format(
 
         field_map.insert(ident.to_string(), i);
 
-        let mut default = None;
-        let mut mapper = None;
+        let mut attr = find_attr(field.attrs)?;
 
-        if let Some(attr) = find_attr(field.attrs) {
-            let mut args = AttributeArg::from_attrs(&attr)?;
-
-            default = args.remove("default").map(DefaultAttribute::from);
-
-            if let Some(map) = args.remove("map") {
-                let map = MapperAttribute::try_from(map)?;
-                ty = map.ty.clone();
-                mapper = Some(map);
-            }
-
-            if default.is_some() && mapper.is_some() {
-                let msg = "FromScanf: cannot use both `default` and `map` on the same field";
-                return Error::err_spanned(attr, msg);
-            }
-
-            if !args.is_empty() {
-                let mut error = Error::builder();
-                for (name, attr) in args {
-                    error.with_spanned(&attr.src, format!("unknown attribute arg: {}", name));
-                }
-                return error.build_err();
-            }
-        };
+        let default = attr.remove("default").map(DefaultAttribute::from);
         let has_default = default.is_some();
+
+        let mut mapper = None;
+        if let Some(map) = attr.remove("map") {
+            let map = MapperAttribute::try_from(map)?;
+            ty = map.ty.clone();
+            mapper = Some(map);
+        }
+
+        if let (Some(def), Some(map)) = (default.as_ref(), mapper.as_ref()) {
+            let msg = "FromScanf: cannot use both `default` and `map` on the same field";
+            return Error::builder()
+                .with_spanned(&def.src, msg)
+                .with_spanned(&map.src, msg)
+                .build_err();
+        }
+
+        if !attr.is_empty() {
+            let mut error = Error::builder();
+            for (name, attr) in attr {
+                error.with_spanned(&attr.src, format!("unknown attribute arg: {}", name));
+            }
+            return error.build_err();
+        }
 
         let ty = match ty {
             syn::Type::Reference(r) if r.elem.to_token_stream().to_string() == "str" => {
@@ -187,7 +206,8 @@ fn parse_format(
 
     let regex_parts = RegexParts::new(&format, &ph_types)?;
 
-    let mut from_matches = vec![];
+    let mut unordered_matches = vec![];
+    let mut ordered_matches = vec![];
 
     error = Error::builder();
     for field in fields {
@@ -202,7 +222,7 @@ The syntax for default values is: `#[sscanf(default)]` to use Default::default()
                 error.with_spanned(ident, msg);
             }
             (None, Some(default)) => {
-                from_matches.push(quote! { #ident: #default });
+                unordered_matches.push(quote! { #ident: #default });
             }
             (Some(index), None) => {
                 let matcher = &regex_parts.matchers[index];
@@ -210,7 +230,7 @@ The syntax for default values is: `#[sscanf(default)]` to use Default::default()
                 if let Some(mapper) = field.mapper {
                     value = quote! { { #mapper }( #value ) };
                 }
-                from_matches.push(quote! { #ident: #value });
+                ordered_matches.push((index, quote! { #ident: #value }));
             }
             (Some(_), Some(_)) => {
                 let msg = format!(
@@ -224,23 +244,23 @@ Only one can be specified at a time",
     }
     error.ok_or_build()?;
 
+    ordered_matches.sort_by_key(|(i, _)| *i);
+    let from_matches = ordered_matches
+        .into_iter()
+        .map(|(_, m)| m)
+        .chain(unordered_matches)
+        .collect();
+
     Ok((regex_parts, from_matches, str_lifetimes))
 }
 
 pub fn parse_struct(
     name: syn::Ident,
     generics: syn::Generics,
-    attr: Option<syn::Attribute>,
+    attr: AttributeArgMap,
     data: syn::DataStruct,
 ) -> Result<TokenStream> {
-    let attr = attr.ok_or_else(|| {
-        let msg = "FromScanf: structs must have a #[sscanf(format=\"...\")] attribute";
-        Error::new_spanned(&name, msg)
-    })?;
-
-    let mut configs = AttributeArg::from_attrs(&attr)?;
-
-    let (regex_parts, from_matches, str_lifetimes) = parse_format(&mut configs, attr, data.fields)?;
+    let (regex_parts, from_matches, str_lifetimes) = parse_format(attr, data.fields)?;
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
@@ -321,7 +341,7 @@ pub fn parse_struct(
 pub fn parse_enum(
     name: syn::Ident,
     generics: syn::Generics,
-    attr: Option<syn::Attribute>,
+    attr: AttributeArgMap,
     data: syn::DataEnum,
 ) -> Result<TokenStream> {
     let msg = "FromScanf: enum support will be added in the next version";
@@ -331,7 +351,7 @@ pub fn parse_enum(
 pub fn parse_union(
     name: syn::Ident,
     _generics: syn::Generics,
-    _attr: Option<syn::Attribute>,
+    _attr: AttributeArgMap,
     _data: syn::DataUnion,
 ) -> Result<TokenStream> {
     let msg = "FromScanf: unions not supported yet";

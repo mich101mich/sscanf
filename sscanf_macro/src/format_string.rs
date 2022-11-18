@@ -7,7 +7,11 @@ pub struct FormatString<'a> {
 }
 
 impl<'a> FormatString<'a> {
-    pub fn new(src: StrLitSlice<'a>, escape_input: bool) -> Result<Self> {
+    pub fn new(
+        src: StrLitSlice<'a>,
+        escape_input: bool,
+        expect_lowercase_ident: bool,
+    ) -> Result<Self> {
         let mut placeholders = vec![];
         let mut parts = vec![];
         let mut current_part = String::new();
@@ -20,7 +24,12 @@ impl<'a> FormatString<'a> {
                 if iter.next_if(|(_, c)| *c == '{').is_some() {
                     // escaped '{{', will be handled like a regular char by the following code
                 } else {
-                    placeholders.push(Placeholder::new(&mut iter, &src, i)?);
+                    placeholders.push(Placeholder::new(
+                        &mut iter,
+                        &src,
+                        i,
+                        expect_lowercase_ident,
+                    )?);
                     current_part.push('(');
                     parts.push(current_part);
                     current_part = String::from(")");

@@ -20,7 +20,6 @@ macro_rules! impl_wrapper_ops {
                 self.0.eq(rhs)
             }
         }
-        #[allow(rustdoc::missing_doc_code_examples)]
         impl PartialEq<$name> for $target {
             fn eq(&self, rhs: &$name) -> bool {
                 self.eq(&rhs.0)

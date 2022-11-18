@@ -15,7 +15,7 @@
     rustdoc::invalid_codeblock_attributes,
     rustdoc::bare_urls
 )]
-// TODO: derive: add tests
+// TODO: derive: add failing tests
 // TODO: fail tests for type index, format options, derive, :#r16
 // TODO: multiline format strings
 // TODO: check for option in derive
