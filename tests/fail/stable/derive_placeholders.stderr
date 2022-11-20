@@ -1,0 +1,78 @@
+error: field index 5 out of range of 2 fields:
+       At "{5} {x} {} {} {b} {} {} {b}"
+            ^
+ --> tests/fail/stable/derive_placeholders.rs:2:19
+  |
+2 | #[sscanf(format = "{5} {x} {} {} {b} {} {} {b}")]
+  |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: field `x` does not exist:
+       At "{5} {x} {} {} {b} {} {} {b}"
+                ^
+ --> tests/fail/stable/derive_placeholders.rs:2:19
+  |
+2 | #[sscanf(format = "{5} {x} {} {} {b} {} {} {b}")]
+  |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: field `b` specified more than once:
+       At "{5} {x} {} {} {b} {} {} {b}"
+                      ^^
+ --> tests/fail/stable/derive_placeholders.rs:2:19
+  |
+2 | #[sscanf(format = "{5} {x} {} {} {b} {} {} {b}")]
+  |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: field `b` specified more than once:
+       At "{5} {x} {} {} {b} {} {} {b}"
+                         ^^^
+ --> tests/fail/stable/derive_placeholders.rs:2:19
+  |
+2 | #[sscanf(format = "{5} {x} {} {} {b} {} {} {b}")]
+  |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: too many placeholders:
+       At "{5} {x} {} {} {b} {} {} {b}"
+                             ^^
+ --> tests/fail/stable/derive_placeholders.rs:2:19
+  |
+2 | #[sscanf(format = "{5} {x} {} {} {b} {} {} {b}")]
+  |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: too many placeholders:
+       At "{5} {x} {} {} {b} {} {} {b}"
+                                ^^
+ --> tests/fail/stable/derive_placeholders.rs:2:19
+  |
+2 | #[sscanf(format = "{5} {x} {} {} {b} {} {} {b}")]
+  |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: field `b` specified more than once:
+       At "{5} {x} {} {} {b} {} {} {b}"
+                                   ^^^
+ --> tests/fail/stable/derive_placeholders.rs:2:19
+  |
+2 | #[sscanf(format = "{5} {x} {} {} {b} {} {} {b}")]
+  |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: FromScanf: field `a` is not specified in the format string and has no default value. You must specify exactly one of these.
+       The syntax for default values is: `#[sscanf(default)]` to use Default::default() or `#[sscanf(default = ...)]` to provide a custom value.
+  --> tests/fail/stable/derive_placeholders.rs:11:5
+   |
+11 |     a: u8,
+   |     ^
+
+error: field `b` has a default value but is also specified in the format string.
+       Only one can be specified at a time:
+       At "{b}"
+           ^^^
+ --> tests/fail/stable/derive_placeholders.rs:9:19
+  |
+9 | #[sscanf(format = "{b}")]
+  |                   ^^^^^
+
+error: field `b` has a default value but is also specified in the format string.
+       Only one can be specified at a time
+  --> tests/fail/stable/derive_placeholders.rs:12:14
+   |
+12 |     #[sscanf(default = 5)]
+   |              ^^^^^^^^^^^

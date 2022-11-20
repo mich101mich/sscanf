@@ -27,10 +27,8 @@ impl Parse for AttributeArg {
         let eq_sign = input.parse::<Token![=]>()?;
 
         if input.is_empty() || input.peek(syn::Token![,]) {
-            return Err(syn::Error::new_spanned(
-                eq_sign,
-                "expected expression after `=`",
-            ));
+            let msg = "expected expression after `=`";
+            return Err(syn::Error::new_spanned(eq_sign, msg));  // checked in tests/fail/derive_field_attributes.rs
         }
 
         let value = input.parse::<Expr>()?;
@@ -61,8 +59,9 @@ impl AttributeArg {
         for option in list {
             let name = option.name.to_string();
             if let Some(existing) = ret.get(&name) {
-                error.with_spanned(&existing.src, format!("duplicate config option: {}", name));
-                error.with_spanned(&option.src, format!("duplicate config option: {}", name));
+                let msg = format!("duplicate attribute arg: {}", name);
+                error.with_spanned(&existing.src, &msg); // checked in tests/fail/derive_field_attributes.rs
+                error.with_spanned(&option.src, &msg); // checked in tests/fail/derive_field_attributes.rs
             }
             ret.insert(name, option);
         }
@@ -107,24 +106,30 @@ impl std::convert::TryFrom<AttributeArg> for MapperAttribute {
         let mapper = match arg.value {
             Some(Expr::Closure(closure)) => closure,
             Some(expr) => {
-                return Err(Error::new_spanned(
-                    expr,
-                    "expected closure expression for `map`",
-                ))
+                let msg = "expected closure expression for `map`";
+                return Error::err_spanned(expr, msg); // checked in tests/fail/derive_field_attributes.rs
             }
             None => {
-                return Err(Error::new_spanned(
-                    arg.src,
-                    "expected closure expression for `map`",
-                ))
+                let msg = "expected closure expression for `map`";
+                return Error::err_spanned(arg.src, msg); // checked in tests/fail/derive_field_attributes.rs
             }
         };
 
         let param = match mapper.inputs.len() {
             1 => mapper.inputs.first().unwrap(),
+            0 => {
+                let msg = "expected `map` closure to take exactly one argument";
+                let mut span_src = mapper.or1_token.to_token_stream();
+                mapper.or2_token.to_tokens(&mut span_src);
+                return Error::err_spanned(span_src, msg); // checked in tests/fail/derive_field_attributes.rs
+            }
             _ => {
                 let msg = "expected `map` closure to take exactly one argument";
-                return Err(Error::new_spanned(mapper, msg));
+                let mut span_src = TokenStream::new();
+                for param in mapper.inputs.pairs().skip(1) {
+                    param.to_tokens(&mut span_src);
+                }
+                return Error::err_spanned(span_src, msg); // checked in tests/fail/derive_field_attributes.rs
             }
         };
 
@@ -132,7 +137,7 @@ impl std::convert::TryFrom<AttributeArg> for MapperAttribute {
             (*ty.ty).clone()
         } else {
             let msg = "`map` closure has to specify the type of the argument";
-            return Err(Error::new_spanned(param, msg));
+            return Error::err_spanned(param, msg); // checked in tests/fail/derive_field_attributes.rs
         };
 
         Ok(Self {

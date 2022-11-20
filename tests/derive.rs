@@ -15,7 +15,7 @@ macro_rules! correct_result {
     };
 }
 
-static WRONG_INPUTS: [&str; 6] = [
+static WRONG_INPUTS: &[&str] = &[
     "Testing with (3.4,1,-2)!",
     "Testing with (3.-4,1,-2,0)!",
     "Testing with (3.4,,-2,0)!",
@@ -171,7 +171,6 @@ fn mapper() {
         res.unwrap_err();
     }
 }
-
 
 #[test]
 fn lifetimes() {

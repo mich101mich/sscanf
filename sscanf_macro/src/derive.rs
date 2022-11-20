@@ -14,10 +14,10 @@ pub fn find_attr(attrs: Vec<syn::Attribute>) -> Result<AttributeArgMap> {
             use std::collections::hash_map::Entry;
             match ret.entry(k) {
                 Entry::Occupied(e) => {
-                    let msg = format!("duplicate attribute `{}`", e.key());
+                    let msg = format!("duplicate attribute arg: {}", e.key());
                     return Error::builder()
+                        .with_spanned(&e.get().src, &msg)
                         .with_spanned(v.src, &msg)
-                        .with_spanned(&e.get().src, msg)
                         .build_err();
                 }
                 Entry::Vacant(e) => {
@@ -65,40 +65,76 @@ impl std::fmt::Display for FieldIdent {
     }
 }
 
+const VALID_STRUCT_ATTRS: &[&str] = &["format", "format_unescaped"];
+const VALID_FIELD_ATTRS: &[&str] = &["default", "map"];
+
+fn valid_struct_attrs_hint() -> String {
+    format!(
+        "Hint: valid attribute args on structs are: {}",
+        VALID_STRUCT_ATTRS.join(", ")
+    )
+}
+fn valid_field_attrs_hint() -> String {
+    format!(
+        "Hint: valid attribute args on fields are: {}",
+        VALID_FIELD_ATTRS.join(", ")
+    )
+}
+
 fn parse_format(
     mut configs: HashMap<String, AttributeArg>,
     raw_fields: syn::Fields,
 ) -> Result<(RegexParts, Vec<TokenStream>, Vec<syn::Lifetime>)> {
-    let found = [
-        ("format", true),
-        ("format_unescaped", false),
-        ("format_x", false),
-    ]
-    .iter()
-    .filter_map(|(name, escape)| configs.remove(*name).map(|a| (a, *escape)))
-    .collect::<Vec<_>>();
+    let found = [("format", true), ("format_unescaped", false)]
+        .iter()
+        .filter_map(|(name, escape)| configs.remove(*name).map(|a| (a, *escape)))
+        .collect::<Vec<_>>();
+
+    let mut error = Error::builder();
+
+    if !configs.is_empty() {
+        for (name, attr) in configs {
+            if VALID_FIELD_ATTRS.contains(&name.as_str()) {
+                let msg = format!(
+                    "attribute arg `{}` can only be used on fields.\n{}",
+                    name,
+                    valid_struct_attrs_hint()
+                );
+                error.with_spanned(&attr.src, &msg); // checked in tests/fail/derive_struct_attributes.rs
+            } else {
+                let msg = format!(
+                    "unknown attribute arg: {}.\n{}",
+                    name,
+                    valid_struct_attrs_hint()
+                );
+                error.with_spanned(&attr.src, &msg); // checked in tests/fail/derive_struct_attributes.rs
+            }
+        }
+    }
 
     let (format_src, escape) = match found.as_slice() {
         [] => {
-            return Error::err(Span::call_site(), "FromScanf: missing `format` attribute");
+            let msg = "missing `format` attribute.
+Please annotate the struct with #[sscanf(format = \"...\")]";
+            // arrange the error messages in the correct order
+            let mut sorted_error = Error::builder();
+            sorted_error.with(Span::call_site(), msg); // checked in tests/fail/derive_struct_attributes.rs
+            sorted_error.with_error(error.build());
+            return sorted_error.build_err();
         }
         [x] => x,
-        found => {
-            let mut error = Error::builder();
-            for (a, _) in found {
-                error.with_spanned(&a.name, "only one format attribute allowed");
+        multiple => {
+            let mut sorted_error = Error::builder();
+            for (a, _) in multiple {
+                let msg = "only one format attribute allowed";
+                sorted_error.with_spanned(&a.name, msg); // checked in tests/fail/derive_struct_attributes.rs
             }
-            return error.build_err();
+            sorted_error.with_error(error.build());
+            return sorted_error.build_err();
         }
     };
 
-    if !configs.is_empty() {
-        let mut error = Error::builder();
-        for (name, attr) in configs {
-            error.with_spanned(&attr.src, format!("unknown attribute arg: {}", name));
-        }
-        return error.build_err();
-    }
+    error.ok_or_build()?;
 
     let format_src = syn::parse2::<StrLit>(format_src.value.to_token_stream())?;
 
@@ -130,17 +166,31 @@ fn parse_format(
         }
 
         if let (Some(def), Some(map)) = (default.as_ref(), mapper.as_ref()) {
-            let msg = "FromScanf: cannot use both `default` and `map` on the same field";
+            let msg = "cannot use both `default` and `map` on the same field";
             return Error::builder()
-                .with_spanned(&def.src, msg)
-                .with_spanned(&map.src, msg)
+                .with_spanned(&def.src, msg) // checked in tests/fail/derive_field_attributes.rs
+                .with_spanned(&map.src, msg) // checked in tests/fail/derive_field_attributes.rs
                 .build_err();
         }
 
         if !attr.is_empty() {
             let mut error = Error::builder();
             for (name, attr) in attr {
-                error.with_spanned(&attr.src, format!("unknown attribute arg: {}", name));
+                if VALID_STRUCT_ATTRS.contains(&name.as_str()) {
+                    let msg = format!(
+                        "attribute arg `{}` can only be used on the struct itself.\n{}",
+                        name,
+                        valid_field_attrs_hint()
+                    );
+                    error.with_spanned(&attr.src, &msg); // checked in tests/fail/derive_field_attributes.rs
+                } else {
+                    let msg = format!(
+                        "unknown attribute arg: {}.\n{}",
+                        name,
+                        valid_field_attrs_hint()
+                    );
+                    error.with_spanned(&attr.src, &msg); // checked in tests/fail/derive_field_attributes.rs
+                }
             }
             return error.build_err();
         }
@@ -172,27 +222,34 @@ fn parse_format(
             if let Ok(n) = name.text().parse::<usize>() {
                 if n >= fields.len() {
                     let msg = format!("field index {} out of range of {} fields", n, fields.len());
-                    error.push(name.error(&msg));
+                    error.push(name.error(&msg)); // checked in tests/fail/derive_placeholders.rs
                     continue;
                 }
                 n
             } else if let Some(i) = field_map.get(name.text()) {
                 *i
             } else {
-                error.push(name.error(&format!("field `{}` not found", name.text())));
+                let msg = format!("field `{}` does not exist", name.text());
+                error.push(name.error(&msg)); // checked in tests/fail/derive_placeholders.rs
                 continue;
             }
         } else {
             let n = ph_counter;
+            if n >= fields.len() {
+                let msg = format!("too many placeholders");
+                error.push(ph.src.error(&msg)); // checked in tests/fail/derive_placeholders.rs
+                continue;
+            }
             ph_counter += 1;
             n
         };
 
         let field = &mut fields[index];
 
-        if field.ph_index.is_some() {
+        if let Some(existing) = field.ph_index.as_ref() {
             let msg = format!("field `{}` specified more than once", field.ident);
-            error.push(ph.src.error(&msg));
+            error.push(format.placeholders[*existing].src.error(&msg)); // checked in tests/fail/derive_placeholders.rs
+            error.push(ph.src.error(&msg)); // checked in tests/fail/derive_placeholders.rs
             continue;
         }
         field.ph_index = Some(ph_index);
@@ -206,8 +263,9 @@ fn parse_format(
 
     let regex_parts = RegexParts::new(&format, &ph_types)?;
 
-    let mut unordered_matches = vec![];
-    let mut ordered_matches = vec![];
+    // types from placeholders have to be extracted in order, since they rely on the iterator
+    // => assign them by placeholder index; push the defaults to the end
+    let mut from_matches = vec![TokenStream::new(); ph_types.len()];
 
     error = Error::builder();
     for field in fields {
@@ -219,37 +277,32 @@ fn parse_format(
 The syntax for default values is: `#[sscanf(default)]` to use Default::default() or `#[sscanf(default = ...)]` to provide a custom value.",
                     ident
                 );
-                error.with_spanned(ident, msg);
+                error.with_spanned(ident, msg); // checked in tests/fail/<channel>/derive_placeholders.rs
             }
             (None, Some(default)) => {
-                unordered_matches.push(quote! { #ident: #default });
+                from_matches.push(quote! { #ident: #default });
             }
             (Some(index), None) => {
                 let matcher = &regex_parts.matchers[index];
                 let mut value = quote! { #matcher };
                 if let Some(mapper) = field.mapper {
-                    value = quote! { { #mapper }( #value ) };
+                    let span = mapper.mapper.body.span();
+                    value = quote::quote_spanned! {span=> { #mapper }( #value ) };
                 }
-                ordered_matches.push((index, quote! { #ident: #value }));
+                from_matches[index] = quote! { #ident: #value };
             }
-            (Some(_), Some(_)) => {
+            (Some(index), Some(def)) => {
                 let msg = format!(
-                    "FromScanf: field `{}` has a default value but is also specified in the format string.
+                    "field `{}` has a default value but is also specified in the format string.
 Only one can be specified at a time",
                     ident
                 );
-                error.with_spanned(ident, msg);
+                error.push(format.placeholders[index].src.error(&msg)); // checked in tests/fail/<channel>/derive_placeholders.rs
+                error.with_spanned(def.src, &msg); // checked in tests/fail/<channel>/derive_placeholders.rs
             }
         }
     }
     error.ok_or_build()?;
-
-    ordered_matches.sort_by_key(|(i, _)| *i);
-    let from_matches = ordered_matches
-        .into_iter()
-        .map(|(_, m)| m)
-        .chain(unordered_matches)
-        .collect();
 
     Ok((regex_parts, from_matches, str_lifetimes))
 }
@@ -337,12 +390,11 @@ pub fn parse_struct(
     ))
 }
 
-#[allow(unused)] // TODO: remove
 pub fn parse_enum(
     name: syn::Ident,
-    generics: syn::Generics,
-    attr: AttributeArgMap,
-    data: syn::DataEnum,
+    _generics: syn::Generics,
+    _attr: AttributeArgMap,
+    _data: syn::DataEnum,
 ) -> Result<TokenStream> {
     let msg = "FromScanf: enum support will be added in the next version";
     Error::err_spanned(name, msg)

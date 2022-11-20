@@ -16,7 +16,7 @@
     rustdoc::bare_urls
 )]
 // TODO: derive: add failing tests
-// TODO: fail tests for type index, format options, derive, :#r16
+// TODO: fail tests for type index, format options, derive, :#r16, missing Default
 // TODO: multiline format strings
 // TODO: check for option in derive
 // TODO: #[sscanf(filter_map = ...)]

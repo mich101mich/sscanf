@@ -7,12 +7,10 @@ error: At least 2 Parameters required: Input and format string
   = note: this error originates in the macro `sscanf::sscanf` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error: At least 2 Parameters required: Missing format string
- --> tests/fail/missing_params.rs:3:5
+ --> tests/fail/missing_params.rs:3:21
   |
 3 |     sscanf::sscanf!("5");
-  |     ^^^^^^^^^^^^^^^^^^^^
-  |
-  = note: this error originates in the macro `sscanf::sscanf` (in Nightly builds, run with -Z macro-backtrace for more info)
+  |                     ^^^
 
 error: At least 2 Parameters required: Missing format string
  --> tests/fail/missing_params.rs:4:24
@@ -20,18 +18,22 @@ error: At least 2 Parameters required: Missing format string
 4 |     sscanf::sscanf!("5",);
   |                        ^
 
-error: Missing format string
- --> tests/fail/missing_params.rs:5:5
+error: expected string literal
+ --> tests/fail/missing_params.rs:5:26
   |
-5 |     sscanf::sscanf_get_regex!();
+5 |     sscanf::sscanf!("5", 'x');
+  |                          ^^^
+
+error: expected string literal
+ --> tests/fail/missing_params.rs:6:26
+  |
+6 |     sscanf::sscanf!("5", usize);
+  |                          ^^^^^
+
+error: Missing parameter: format string
+ --> tests/fail/missing_params.rs:7:5
+  |
+7 |     sscanf::sscanf_get_regex!();
   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
   |
   = note: this error originates in the macro `sscanf::sscanf_get_regex` (in Nightly builds, run with -Z macro-backtrace for more info)
-
-error: At least 2 Parameters required: Input and format string
- --> tests/fail/missing_params.rs:6:5
-  |
-6 |     sscanf::sscanf_unescaped!();
-  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  |
-  = note: this error originates in the macro `sscanf::sscanf_unescaped` (in Nightly builds, run with -Z macro-backtrace for more info)

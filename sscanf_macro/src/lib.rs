@@ -46,7 +46,8 @@ struct Scanf {
 impl Parse for ScanfInner {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         if input.is_empty() {
-            return Err(syn::Error::new(Span::call_site(), "Missing format string"));
+            let msg = "Missing parameter: format string";
+            return Err(syn::Error::new(Span::call_site(), msg)); // checked in tests/fail/missing_params.rs
         }
 
         let fmt = input.parse::<StrLit>()?;
@@ -80,27 +81,21 @@ impl Parse for Scanf {
             // was expected, but since there is nothing there it has no span to point to so it
             // just points at the entire thing."
             // I love writing error messages in proc macros :D (not)
-            return Err(syn::Error::new(
-                Span::call_site(),
-                "At least 2 Parameters required: Input and format string",
-            ));
+            let msg = "At least 2 Parameters required: Input and format string";
+            return Err(syn::Error::new(Span::call_site(), msg)); // checked in tests/fail/missing_params.rs
         }
         let src_str = input.parse()?;
         if input.is_empty() {
-            return Err(syn::Error::new(
-                Span::call_site(),
-                "At least 2 Parameters required: Missing format string",
-            ));
+            let msg = "At least 2 Parameters required: Missing format string";
+            return Err(syn::Error::new_spanned(src_str, msg)); // checked in tests/fail/missing_params.rs
         }
         let comma = input.parse::<Token![,]>()?;
         if input.is_empty() {
             // Addition to the comment above: here we actually have a comma to point to to say:
             // "Hey, you put a comma here, put something after it". syn doesn't do this
             // because it can't rewind the input stream to check this.
-            return Err(syn::Error::new_spanned(
-                comma,
-                "At least 2 Parameters required: Missing format string",
-            ));
+            let msg = "At least 2 Parameters required: Missing format string";
+            return Err(syn::Error::new_spanned(comma, msg)); // checked in tests/fail/missing_params.rs
         }
         let inner = input.parse()?;
 
@@ -243,7 +238,7 @@ fn generate_regex(input: ScanfInner, escape_input: bool) -> Result<(TokenStream,
             *ph_index += 1;
             if n >= visited.len() {
                 let msg = format!("more placeholders than types provided");
-                return ph.src.err(&msg);
+                return ph.src.err(&msg); // checked in tests/fail/<channel>/missing_type.rs
             }
             visited[n] = true;
             TypeSource {
@@ -268,7 +263,7 @@ fn generate_regex(input: ScanfInner, escape_input: bool) -> Result<(TokenStream,
 
     for (visited, ty) in visited.iter().zip(external_types.iter()) {
         if !*visited {
-            error.with_spanned(ty, "unused type");
+            error.with_spanned(ty, "unused type"); // checked in tests/fail/missing_placeholder.rs
         }
     }
 
@@ -335,8 +330,7 @@ fn to_type(src: &StrLitSlice) -> Result<Type> {
     catcher().map_err(|err| {
         let hint =  "The syntax for placeholders is {<type>} or {<type>:<config>}. Make sure <type> is a valid type or index.";
         let hint2 = "If you want syntax highlighting and better errors, place the type in the arguments after the format string while debugging";
-        src.error(
-            &format!("Invalid type in placeholder: {}.\nHint: {}\n{}", err, hint, hint2),
-        )
+        let msg = format!("invalid type in placeholder: {}.\nHint: {}\n{}", err, hint, hint2);
+        src.error(&msg) // checked in tests/fail/<channel>/invalid_type_in_placeholder.rs
     })
 }

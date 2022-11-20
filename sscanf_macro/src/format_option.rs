@@ -76,7 +76,7 @@ Either make them non-capturing by adding '?:' after the '(' or remove/escape the
                     }
                     Err(err) => {
                         let msg = format!("{}\n\nIn custom Regex format option", err);
-                        return src.err(&msg);
+                        return src.err(&msg); // checked in tests/fail/<channel>/invalid_custom_regex.rs
                     }
                 }
 
@@ -136,7 +136,7 @@ Either make them non-capturing by adding '?:' after the '(' or remove/escape the
                 } else {
                     let msg = "unrecognized format option.
 Hint: Regex format options must start and end with '/'";
-                    return src.err(msg);
+                    return src.err(msg); // checked in tests/fail/<channel>/raw_string.rs
                 }
             }
         };

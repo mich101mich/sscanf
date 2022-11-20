@@ -1,0 +1,128 @@
+error: expected expression after `=`
+ --> tests/fail/derive_field_attributes.rs:3:31
+  |
+3 | struct Test1(#[sscanf(default =)] u8);
+  |                               ^
+
+error: expected `=`
+ --> tests/fail/derive_field_attributes.rs:7:31
+  |
+7 | struct Test2(#[sscanf(default 5)] u8);
+  |                               ^
+
+error: expected identifier
+  --> tests/fail/derive_field_attributes.rs:11:23
+   |
+11 | struct Test3(#[sscanf(= 5)] u8);
+   |                       ^
+
+error: attribute arg `format` can only be used on the struct itself.
+       Hint: valid attribute args on fields are: default, map
+  --> tests/fail/derive_field_attributes.rs:19:23
+   |
+19 | struct Test5(#[sscanf(format = "")] u8);
+   |                       ^^^^^^^^^^^
+
+error: unknown attribute arg: bob.
+       Hint: valid attribute args on fields are: default, map
+  --> tests/fail/derive_field_attributes.rs:23:23
+   |
+23 | struct Test6(#[sscanf(bob = 5)] u8);
+   |                       ^^^^^^^
+
+error: duplicate attribute arg: default
+  --> tests/fail/derive_field_attributes.rs:27:23
+   |
+27 | struct Test7(#[sscanf(default = 5, default = 5)] u8);
+   |                       ^^^^^^^^^^^
+
+error: duplicate attribute arg: default
+  --> tests/fail/derive_field_attributes.rs:27:36
+   |
+27 | struct Test7(#[sscanf(default = 5, default = 5)] u8);
+   |                                    ^^^^^^^^^^^
+
+error: duplicate attribute arg: default
+  --> tests/fail/derive_field_attributes.rs:31:23
+   |
+31 | struct Test8(#[sscanf(default = 5)] #[sscanf(default = 5)] u8);
+   |                       ^^^^^^^^^^^
+
+error: duplicate attribute arg: default
+  --> tests/fail/derive_field_attributes.rs:31:46
+   |
+31 | struct Test8(#[sscanf(default = 5)] #[sscanf(default = 5)] u8);
+   |                                              ^^^^^^^^^^^
+
+error: cannot use both `default` and `map` on the same field
+  --> tests/fail/derive_field_attributes.rs:35:23
+   |
+35 | struct Test9(#[sscanf(default = 5, map = |x: usize| { x as u8 })] u8);
+   |                       ^^^^^^^^^^^
+
+error: cannot use both `default` and `map` on the same field
+  --> tests/fail/derive_field_attributes.rs:35:36
+   |
+35 | struct Test9(#[sscanf(default = 5, map = |x: usize| { x as u8 })] u8);
+   |                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: cannot use both `default` and `map` on the same field
+  --> tests/fail/derive_field_attributes.rs:39:24
+   |
+39 | struct Test10(#[sscanf(default = 5)] #[sscanf(map = |x: usize| { x as u8 })] u8);
+   |                        ^^^^^^^^^^^
+
+error: cannot use both `default` and `map` on the same field
+  --> tests/fail/derive_field_attributes.rs:39:47
+   |
+39 | struct Test10(#[sscanf(default = 5)] #[sscanf(map = |x: usize| { x as u8 })] u8);
+   |                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: FromScanf: field `0` is not specified in the format string and has no default value. You must specify exactly one of these.
+       The syntax for default values is: `#[sscanf(default)]` to use Default::default() or `#[sscanf(default = ...)]` to provide a custom value.
+  --> tests/fail/derive_field_attributes.rs:43:55
+   |
+43 | struct Test11(#[sscanf(map = |x: usize| { x as u8 })] u8);
+   |                                                       ^^
+
+error: expected closure expression for `map`
+  --> tests/fail/derive_field_attributes.rs:47:30
+   |
+47 | struct Test12(#[sscanf(map = "")] u8);
+   |                              ^^
+
+error: expected closure expression for `map`
+  --> tests/fail/derive_field_attributes.rs:51:24
+   |
+51 | struct Test13(#[sscanf(map)] u8);
+   |                        ^^^
+
+error: expected `map` closure to take exactly one argument
+  --> tests/fail/derive_field_attributes.rs:55:30
+   |
+55 | struct Test14(#[sscanf(map = || { x as u8 })] u8);
+   |                              ^^
+
+error: `map` closure has to specify the type of the argument
+  --> tests/fail/derive_field_attributes.rs:59:31
+   |
+59 | struct Test15(#[sscanf(map = |x| { x as u8 })] u8);
+   |                               ^
+
+error: expected `map` closure to take exactly one argument
+  --> tests/fail/derive_field_attributes.rs:63:41
+   |
+63 | struct Test16(#[sscanf(map = |x: usize, y: usize| { x as u8 })] u8);
+   |                                         ^^^^^^^^
+
+error[E0308]: mismatched types
+  --> tests/fail/derive_field_attributes.rs:15:33
+   |
+15 | struct Test4(#[sscanf(default = "")] u8);
+   |                                 ^^ expected `u8`, found `&str`
+
+error[E0308]: mismatched types
+  --> tests/fail/derive_field_attributes.rs:67:41
+   |
+67 | struct Test17(#[sscanf(map = |x: usize| { x })] u8);
+   |                                         ^^^^^ expected `u8`, found `usize`

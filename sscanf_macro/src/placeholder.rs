@@ -66,7 +66,7 @@ If this is actually a type whose name happens to match the old format, sorry.
 Please create an UpperCamelCased wrapper type for it.",
                         ident.text()
                     );
-                    return ident.err(&msg);
+                    return ident.err(&msg); // checked in tests/fail/<channel>/old_formats.rs
                 }
             }
         }

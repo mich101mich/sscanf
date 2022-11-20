@@ -39,9 +39,8 @@ impl<'a> FormatString<'a> {
                 if iter.next_if(|(_, c)| *c == '}').is_some() {
                     // escaped '}}', will be handled like a regular char by the following code
                 } else {
-                    return src
-                        .slice(i..=i)
-                        .err("Unexpected standalone '}'. Literal '}' need to be escaped as '}}'");
+                    let msg = "Unexpected standalone '}'. Literal '}' need to be escaped as '}}'";
+                    return src.slice(i..=i).err(msg); // checked in tests/fail/<channel>/missing_bracket.rs
                 }
             }
 
