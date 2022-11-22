@@ -15,6 +15,7 @@
     rustdoc::invalid_codeblock_attributes,
     rustdoc::bare_urls
 )]
+// TODO: replace /^0.4.0-alpha/ in doc links with /latest/ when 0.4.0 is released
 // TODO: multiline format strings
 // TODO: check for option in derive
 // TODO: #[sscanf(filter_map = ...)]

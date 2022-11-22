@@ -90,7 +90,7 @@ assert_eq!((r, g, b), (0xD4, 0xAF, 0x37));
 ```
 The input in this case is a `&'static str`, but it can be `String`, `&str`, `&String`, ...
 Basically anything with [`Deref<Target=str>`](https://doc.rust-lang.org/std/ops/trait.Deref.html).
-and without taking ownership. See [here](https://docs.rs/sscanf/latest/sscanf/macro.sscanf.html#examples)
+and without taking ownership. See [here](https://docs.rs/sscanf/^0.4.0-alpha/sscanf/macro.sscanf.html#examples)
 for a few examples of possible inputs.
 
 The parsing part of this macro has very few limitations, since it replaces the `{}` with a
@@ -182,12 +182,12 @@ More uses for `#` may be added in the future. Let me know if you have a suggesti
 # Custom Types
 
 `sscanf` works with most primitive Types from `std` as well as `String` by default. The
-full list can be seen here: [Implementations of `RegexRepresentation`](https://docs.rs/sscanf/latest/sscanf/trait.RegexRepresentation.html#foreign-impls).
+full list can be seen here: [Implementations of `RegexRepresentation`](https://docs.rs/sscanf/^0.4.0-alpha/sscanf/trait.RegexRepresentation.html#foreign-impls).
 
 To add more types there are three options:
-- Derive [`FromScanf`](https://docs.rs/sscanf/latest/sscanf/trait.FromScanf.html) for your type (recommended)
-- Implement **both** [`RegexRepresentation`](https://docs.rs/sscanf/latest/sscanf/trait.RegexRepresentation.html) and [`std::str::FromStr`](https://doc.rust-lang.org/std/str/trait.FromStr.html) for your type
-- Implement [`RegexRepresentation`](https://docs.rs/sscanf/latest/sscanf/trait.RegexRepresentation.html) and manually implement [`FromScanf`](https://docs.rs/sscanf/latest/sscanf/trait.FromScanf.html) for your type (highly discouraged)
+- Derive [`FromScanf`](https://docs.rs/sscanf/^0.4.0-alpha/sscanf/trait.FromScanf.html) for your type (recommended)
+- Implement **both** [`RegexRepresentation`](https://docs.rs/sscanf/^0.4.0-alpha/sscanf/trait.RegexRepresentation.html) and [`std::str::FromStr`](https://doc.rust-lang.org/std/str/trait.FromStr.html) for your type
+- Implement [`RegexRepresentation`](https://docs.rs/sscanf/^0.4.0-alpha/sscanf/trait.RegexRepresentation.html) and manually implement [`FromScanf`](https://docs.rs/sscanf/^0.4.0-alpha/sscanf/trait.FromScanf.html) for your type (highly discouraged)
 
 ```rust
 use sscanf::{sscanf, FromScanf};
@@ -205,4 +205,4 @@ let parsed = sscanf!(input, "color: {Color}").unwrap();
 assert!(matches!(parsed, Color { r: 0xff, g: 0x00, b: 0xcc }));
 ```
 
-More details can be found in the [`FromScanf documentation`](https://docs.rs/sscanf/latest/sscanf/trait.FromScanf.html)
+More details can be found in the [`FromScanf documentation`](https://docs.rs/sscanf/^0.4.0-alpha/sscanf/trait.FromScanf.html)
