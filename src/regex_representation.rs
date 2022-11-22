@@ -58,7 +58,7 @@ use const_format::formatcp;
 ///     }
 /// }
 /// ```
-/// Now we can use this `Fraction` struct in `scanf`:
+/// Now we can use this `Fraction` struct in `sscanf`:
 /// ```
 /// # #[derive(Debug, PartialEq)]
 /// # struct Fraction(isize, usize);

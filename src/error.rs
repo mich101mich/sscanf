@@ -35,6 +35,7 @@ pub enum Error {
 }
 
 impl error::Error for Error {
+    /// Returns the underlying error if this is a [`ParsingFailed`](Error::ParsingFailed) error.
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
             Error::MatchFailed => None,
@@ -57,10 +58,10 @@ pub struct FromStrFailedError<T: FromStr>
 where
     <T as FromStr>::Err: error::Error + 'static,
 {
-    /// Type name of the type that failed to parse
-    type_name: &'static str,
+    /// Type name of the type that failed to parse (for display purposes only)
+    pub type_name: &'static str,
     /// Error that was returned by the [`FromStr`] impl
-    error: <T as FromStr>::Err,
+    pub error: <T as FromStr>::Err,
 }
 
 impl<T: FromStr> FromStrFailedError<T>
@@ -105,6 +106,7 @@ impl<T: FromStr> error::Error for FromStrFailedError<T>
 where
     <T as FromStr>::Err: error::Error + 'static,
 {
+    /// Returns the underlying error
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         Some(&self.error)
     }
@@ -113,7 +115,7 @@ where
 /// Error type for derived [`FromScanf`](crate::FromScanf) implementations
 #[derive(Debug)]
 pub struct FromScanfFailedError {
-    /// Type name of the type that failed to parse
+    /// Type name of the type that failed to parse (for display purposes only)
     pub type_name: &'static str,
     /// Error that was returned by the underlying impl
     pub error: Box<dyn error::Error>,
@@ -121,11 +123,12 @@ pub struct FromScanfFailedError {
 
 impl std::fmt::Display for FromScanfFailedError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "type {} failed to parse: {}", self.type_name, self.error)
+        write!(f, "type {} failed to parse from sscanf: {}", self.type_name, self.error)
     }
 }
 
 impl error::Error for FromScanfFailedError {
+    /// Returns the underlying error
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         Some(self.error.as_ref())
     }

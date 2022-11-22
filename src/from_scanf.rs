@@ -7,13 +7,13 @@ use crate::FromStrFailedError;
 ///
 /// There are three options to implement this trait:
 /// - `#[derive(FromScanf)]` (recommended)
-/// - implement [`std::str::FromStr`] and use the [blanket implementation](#impl-FromScanf)
+/// - implement [`std::str::FromStr`] and relying on the [blanket implementation](#impl-FromScanf<%27t>)
 /// - manual implementation (highly discouraged)
 ///
 /// The second and third options also require you to implement [`RegexRepresentation`](crate::RegexRepresentation),
 /// unless you **always** use a custom regex `{:/.../}`, but that tends to make the code less readable.
 ///
-/// ## Deriving
+/// ## Option 1: Deriving
 /// ```
 /// #[derive(sscanf::FromScanf)]
 /// #[sscanf(format = "#{r:r16}{g:r16}{b:r16}")] // matches '#' followed by 3 hexadecimal u8s
@@ -32,7 +32,7 @@ use crate::FromStrFailedError;
 ///
 /// A detailed description of the syntax and options can be found [here](derive.FromScanf.html)
 ///
-/// ## Implementing [`FromStr`]
+/// ## Option 2: Implementing [`FromStr`]
 /// ```
 /// struct Color {
 ///     r: u8,
@@ -76,9 +76,9 @@ use crate::FromStrFailedError;
 /// This option gives a lot more control over the parsing process, but requires more code and
 /// manual error handling.
 ///
-/// ## Manual implementation
-/// This should only be done if absolutely necessary, since it requires upholding several invariants
-/// that cannot be properly checked by `sscanf`.
+/// ## Option 3: Manual implementation
+/// This should only be done if absolutely necessary, since it requires upholding several
+/// conditions that cannot be properly checked by `sscanf`.
 /// ```
 /// # #[derive(Debug, PartialEq)]
 /// struct Color {
@@ -98,7 +98,9 @@ use crate::FromStrFailedError;
 /// }
 ///
 /// impl sscanf::FromScanf<'_> for Color {
-///     type Err = std::num::ParseIntError;
+///     /// The Error type in case parsing fails. In this case it is set to never fail (Infallible),
+///     /// since if the above regex matches, the parsing cannot fail.
+///     type Err = std::convert::Infallible;
 ///     const NUM_CAPTURES: usize = 4; // 3 capture groups + the whole match
 ///     fn from_matches(src: &mut regex::SubCaptureMatches) -> Result<Self, Self::Err> {
 ///         let _ = src.next().unwrap().unwrap(); // skip the whole match
@@ -107,14 +109,15 @@ use crate::FromStrFailedError;
 ///         // checking the prefix is not necessary here, since the regex already enforces it
 ///
 ///         let r_str = src.next().unwrap().unwrap().as_str(); // unwrap is ok because the regex only matches if all capture groups match
-///         let r = u8::from_str_radix(r_str, 16)?;
+///         let r = u8::from_str_radix(r_str, 16).unwrap();
 ///         let g_str = src.next().unwrap().unwrap().as_str();
-///         let g = u8::from_str_radix(g_str, 16)?;
+///         let g = u8::from_str_radix(g_str, 16).unwrap();
 ///         let b_str = src.next().unwrap().unwrap().as_str();
-///         let b = u8::from_str_radix(b_str, 16)?;
-///         // instead of using '?' it is also technically possible to simply unwrap and set the
-///         // Err-type to std::convert::Infallible, since the regex only allows valid hex u8s,
-///         // meaning that this conversion cannot fail
+///         let b = u8::from_str_radix(b_str, 16).unwrap();
+///         // note that every result can be unwrapped here:
+///         // This is possible because this trait is only used on a match to the RegexRepresentation::REGEX,
+///         // which guarantees that everything is in the correct format. This means that the matched
+///         // text for each capture group is guaranteed to be a valid u8 in hexadecimal format.
 ///
 ///         Ok(Color { r, g, b })
 ///     }
@@ -129,12 +132,12 @@ use crate::FromStrFailedError;
 /// [`FromStr`] implementation.
 ///
 /// The downside is that it requires manually upholding the [`NUM_CAPTURES`](FromScanf::NUM_CAPTURES)
-/// invariant, which cannot be checked at compile time. It is also mostly not checked at runtime,
+/// contract, which cannot be checked at compile time. It is also mostly not checked at runtime,
 /// since this would require overhead that is unnecessary in all intended cases. This means that
 /// an error in one implementation might cause a panic in another implementation, which is
 /// near-impossible to debug.
 ///
-/// The invariant is:
+/// The contract is:
 /// - `NUM_CAPTURES` **IS EQUAL TO**
 /// - the number of consumed elements from the iterator passed to [`from_matches`](FromScanf::from_matches) **IS EQUAL TO**
 /// -  1 + the number of unescaped capture groups in [`RegexRepresentation`](crate::RegexRepresentation) (or `{:/.../}`).
@@ -146,7 +149,7 @@ use crate::FromStrFailedError;
 /// #### Lifetime Parameter
 /// The lifetime parameter of `FromScanf` is the borrow from the input string given to `sscanf`.
 /// If your type borrows parts of that string, like `&str` does, you need to specify the lifetime
-/// parameter and match it with the _second_ lifetime parameter of [`regex::SubCaptureMatches`]:
+/// parameter and match it with the _second_ lifetime parameter of [`regex::SubCaptureMatches`](https://docs.rs/regex/latest/regex/struct.SubCaptureMatches.html):
 /// ```
 /// struct Name<'a, 'b> {
 ///     first: &'a str,
@@ -176,7 +179,7 @@ use crate::FromStrFailedError;
 ///
 /// This allows custom borrows from the input string to avoid unnecessary allocations. The lifetime
 /// of the returned value is that of the input string:
-/// 
+///
 /// ```compile_fail
 /// # #[derive(sscanf::FromScanf)]
 /// # #[sscanf(format = "{} {}")]

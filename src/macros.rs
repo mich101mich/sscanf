@@ -173,7 +173,7 @@ pub use sscanf_macro::sscanf_unescaped as scanf_unescaped;
 /// struct MyTupleStruct(<type>, #[sscanf(default)] <type>, ...);
 /// ```
 ///
-/// **<format>**: The format string to parse the struct from. Similar to the format string for
+/// **\<format>**: The format string to parse the struct from. Similar to the format string for
 /// [`sscanf`], but with field names/indices instead of types for the placeholders. So, if you have
 /// a struct with fields `a`, `b` and `c`, the format string could be something like
 /// `"{a} {b:/.*?/} {c}"`. All fields that are not annotated with `default` must appear exactly
@@ -190,9 +190,9 @@ pub use sscanf_macro::sscanf_unescaped as scanf_unescaped;
 /// in the format string.
 ///
 /// Mapping allows matching against a different type than the field type. The `map` attribute takes
-/// a closure that takes the matched type as input and returns the field type. The type parameter
-/// of the closure has to be explicitly specified, since it is needed to generate the matching
-/// code.
+/// a closure that takes the matched type as input and returns the field type. The type of the
+/// parameter of the closure has to be explicitly specified, since it is needed to generate the
+/// matching code.
 ///
 /// The types of the used fields of their matching types have to implement [`FromScanf`](crate::FromScanf)
 /// and either [`RegexRepresentation`](crate::RegexRepresentation) or have a `{<field>:/<regex>/}`
