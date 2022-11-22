@@ -1,0 +1,77 @@
+error: end of regex '/' has to be followed by end of placeholder '}':
+       At "{://g}"
+               ^
+ --> tests/fail/stable/invalid_custom_regex.rs:2:25
+  |
+2 |     sscanf::sscanf!("", "{://g}", str);
+  |                         ^^^^^^^^
+
+error: missing '/' to end regex:
+       At "{:/}"
+             ^^
+ --> tests/fail/stable/invalid_custom_regex.rs:3:25
+  |
+3 |     sscanf::sscanf!("", "{:/}", str);
+  |                         ^^^^^^
+
+error: missing '/' to end regex:
+       At "{:/"
+             ^
+ --> tests/fail/stable/invalid_custom_regex.rs:4:25
+  |
+4 |     sscanf::sscanf!("", "{:/", str);
+  |                         ^^^^^
+
+error: unexpected end of regex:
+       At r"{:/\"
+               ^
+ --> tests/fail/stable/invalid_custom_regex.rs:6:25
+  |
+6 |     sscanf::sscanf!("", r"{:/\", str);
+  |                         ^^^^^^^
+
+error: unexpected end of regex:
+       At "{:/\\"
+              ^^
+ --> tests/fail/stable/invalid_custom_regex.rs:7:25
+  |
+7 |     sscanf::sscanf!("", "{:/\\", str);
+  |                         ^^^^^^^
+
+error: missing '/' to end regex:
+       At r"{:/\/"
+              ^^^
+ --> tests/fail/stable/invalid_custom_regex.rs:8:25
+  |
+8 |     sscanf::sscanf!("", r"{:/\/", str);
+  |                         ^^^^^^^^
+
+error: missing '/' to end regex:
+       At "{:/\\/"
+             ^^^^
+ --> tests/fail/stable/invalid_custom_regex.rs:9:25
+  |
+9 |     sscanf::sscanf!("", "{:/\\/", str);
+  |                         ^^^^^^^^
+
+error: regex parse error:
+           ab(ab
+             ^
+       error: unclosed group
+
+       In custom Regex format option:
+       At "{:/ab(ab/}"
+             ^^^^^^^
+  --> tests/fail/stable/invalid_custom_regex.rs:11:25
+   |
+11 |     sscanf::sscanf!("", "{:/ab(ab/}", str);
+   |                         ^^^^^^^^^^^^
+
+error: custom regex can't contain capture groups '(...)'.
+       Either make them non-capturing by adding '?:' after the '(' or remove/escape the '(' and ')':
+       At "{:/ab()ab/}"
+             ^^^^^^^^
+  --> tests/fail/stable/invalid_custom_regex.rs:12:25
+   |
+12 |     sscanf::sscanf!("", "{:/ab()ab/}", str);
+   |                         ^^^^^^^^^^^^^

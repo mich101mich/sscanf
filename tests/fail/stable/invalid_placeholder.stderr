@@ -1,0 +1,71 @@
+error: missing '}' to close a placeholder. If the '{' was intended to be a literal, escape it with '{{':
+       At "{"
+           ^
+ --> tests/fail/stable/invalid_placeholder.rs:2:25
+  |
+2 |     sscanf::sscanf!("", "{", str);
+  |                         ^^^
+
+error: missing '}' to close a placeholder. If the '{' was intended to be a literal, escape it with '{{':
+       At "{str"
+           ^^^^
+ --> tests/fail/stable/invalid_placeholder.rs:3:25
+  |
+3 |     sscanf::sscanf!("", "{str");
+  |                         ^^^^^^
+
+error: missing '}' to close a placeholder. If the '{' was intended to be a literal, escape it with '{{':
+       At "{:"
+           ^^
+ --> tests/fail/stable/invalid_placeholder.rs:4:25
+  |
+4 |     sscanf::sscanf!("", "{:", str);
+  |                         ^^^^
+
+error: missing '}' to close a placeholder. If the '{' was intended to be a literal, escape it with '{{':
+       At "{:b"
+           ^^^
+ --> tests/fail/stable/invalid_placeholder.rs:5:25
+  |
+5 |     sscanf::sscanf!("", "{:b", str);
+  |                         ^^^^^
+
+error: missing '}' to close a placeholder. If the '{' was intended to be a literal, escape it with '{{':
+       At "{://"
+           ^^^^
+ --> tests/fail/stable/invalid_placeholder.rs:6:25
+  |
+6 |     sscanf::sscanf!("", "{://", str);
+  |                         ^^^^^^
+
+error: format options cannot be empty. Consider removing the ':':
+       At "{:}}"
+             ^
+ --> tests/fail/stable/invalid_placeholder.rs:7:25
+  |
+7 |     sscanf::sscanf!("", "{:}}", str);
+  |                         ^^^^^^
+
+error: Unexpected standalone '}'. Literal '}' need to be escaped as '}}':
+       At "}"
+           ^
+ --> tests/fail/stable/invalid_placeholder.rs:8:25
+  |
+8 |     sscanf::sscanf!("", "}", str);
+  |                         ^^^
+
+error: Unexpected standalone '}'. Literal '}' need to be escaped as '}}':
+       At ":}"
+            ^
+ --> tests/fail/stable/invalid_placeholder.rs:9:25
+  |
+9 |     sscanf::sscanf!("", ":}", str);
+  |                         ^^^^
+
+error: Unexpected standalone '}'. Literal '}' need to be escaped as '}}':
+       At "{{:}"
+              ^
+  --> tests/fail/stable/invalid_placeholder.rs:10:25
+   |
+10 |     sscanf::sscanf!("", "{{:}", str);
+   |                         ^^^^^^

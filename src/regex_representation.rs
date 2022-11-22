@@ -1,49 +1,64 @@
-/// A Trait used by `scanf` to obtain the Regex of a Type
+use const_format::formatcp;
+
+/// A Trait used by `sscanf` to obtain the Regex of a Type
 ///
 /// Has one associated Constant: `REGEX`, which should be set to a regular Expression.
-/// Implement this trait for a Type that you want to be parsed using scanf.
+/// Implement this trait for a Type that you want to be parsed using sscanf.
 ///
 /// The Regular Expression should match the string representation as exactly as possible.
 /// Any incorrect matches might be caught in the from_str parsing, but that might cause this
 /// regex to take characters that could have been matched by other placeholders, leading to
 /// unexpected parsing failures.
-/// 
-/// **Note:** The parser uses indexing to access capture groups. To avoid messing with the
-/// indexing, the regex should not contain any capture groups by using the `(?:)` syntax
-/// on any round brackets:
-/// 
-/// Any `(<content>)` should be replaced with `(?:<content>)`
+///
+/// ## Implementing the Trait
+///
+/// A manual implementation of this trait is only necessary if you
+/// - want to use a custom Type that is not supported by default **AND**
+/// - can't use [`#[derive(FromScanf)]`](derive.FromScanf.html) on your Type
+///
+/// Deriving [`FromScanf`](crate::FromScanf) will automatically implement this trait for your Type,
+/// and should be preferred in most cases.
+///
+/// If you do need to implement this trait yourself, note the following:
+/// - The regex can't contain any capture groups (round brackets). If you need to use `( )` in your
+///  regex, use `(?: )` instead to make it non-capturing.
+/// - Using a raw string literal (`r"..."`) is recommended to avoid having to escape backslashes.
+/// - The [`const_format`](https://docs.rs/const_format) crate can be used to combine multiple
+/// strings into one, which is useful for complex regexes. This can also be used to combine the
+/// existing regex implementation of other types. `sscanf` internally uses `const_format` as well,
+/// so a version of it is re-exported under `sscanf::const_format`.
 ///
 /// ## Example
 /// Let's say we want to add a Fraction parser
 /// ```
-/// # #[derive(Debug, PartialEq)]
 /// struct Fraction(isize, usize);
 /// ```
 /// Which can be obtained from any string of the kind `±X/Y` or just `X`
 /// ```
-/// # #[derive(Debug, PartialEq)]
 /// # struct Fraction(isize, usize);
 /// impl sscanf::RegexRepresentation for Fraction {
 ///     /// matches an optional '-' or '+' followed by a number.
 ///     /// possibly with a '/' and another Number
 ///     const REGEX: &'static str = r"[-+]?\d+(?:/\d+)?";
 ///     //                                     ^^ escapes the group. Has to be used on any ( ) in a regex.
+///
+///     // alternatively, we could use const_format to reuse existing regexes:
+///     // REGEX = const_format::concatcp!(isize::REGEX, "(?:", "/", usize::REGEX, ")?");
 /// }
 /// impl std::str::FromStr for Fraction {
 ///     type Err = std::num::ParseIntError;
 ///     fn from_str(s: &str) -> Result<Self, Self::Err> {
 ///         let mut iter = s.split('/');
-///         let num = iter.next().unwrap().parse::<isize>()?;
+///         let num = iter.next().unwrap().parse()?;
 ///         let mut denom = 1;
 ///         if let Some(d) = iter.next() {
-///             denom = d.parse::<usize>()?;
-///         }
+///             denom = d.parse()?;
+///         };
 ///         Ok(Fraction(num, denom))
 ///     }
 /// }
 /// ```
-/// Now we can use this `Fraction` struct in `scanf`:
+/// Now we can use this `Fraction` struct in `sscanf`:
 /// ```
 /// # #[derive(Debug, PartialEq)]
 /// # struct Fraction(isize, usize);
@@ -54,38 +69,48 @@
 /// #     type Err = std::num::ParseIntError;
 /// #     fn from_str(s: &str) -> Result<Self, Self::Err> {
 /// #         let mut iter = s.split('/');
-/// #         let num = iter.next().unwrap().parse::<isize>()?;
-/// #         let mut denom = 1;
-/// #         if let Some(d) = iter.next() {
-/// #             denom = d.parse::<usize>()?;
-/// #         }
+/// #         let num = iter.next().unwrap().parse()?;
+/// #         let denom = iter.next().map(|d| d.parse()).transpose()?.unwrap_or(1);
 /// #         Ok(Fraction(num, denom))
 /// #     }
 /// # }
-/// use sscanf::scanf;
+/// # use sscanf::sscanf;
 ///
-/// let output = scanf!("2/5", "{}", Fraction);
-/// assert_eq!(output, Ok(Fraction(2, 5)));
+/// let output = sscanf!("2/5", "{}", Fraction);
+/// assert_eq!(output.unwrap(), Fraction(2, 5));
 ///
-/// let output = scanf!("-25/3", "{}", Fraction);
-/// assert_eq!(output, Ok(Fraction(-25, 3)));
+/// let output = sscanf!("-25/3", "{}", Fraction);
+/// assert_eq!(output.unwrap(), Fraction(-25, 3));
 ///
-/// let output = scanf!("8", "{}", Fraction);
-/// assert_eq!(output, Ok(Fraction(8, 1)));
+/// let output = sscanf!("8", "{}", Fraction);
+/// assert_eq!(output.unwrap(), Fraction(8, 1));
 ///
-/// let output = scanf!("6e/3", "{}", Fraction);
+/// let output = sscanf!("6e/3", "{}", Fraction);
 /// assert!(output.is_err());
 ///
-/// let output = scanf!("6/-3", "{}", Fraction);
+/// let output = sscanf!("6/-3", "{}", Fraction);
 /// assert!(output.is_err()); // only first number can be negative
 ///
-/// let output = scanf!("6/3", "{}", Fraction);
-/// assert_eq!(output, Ok(Fraction(6, 3)));
+/// let output = sscanf!("6/3", "{}", Fraction);
+/// assert_eq!(output.unwrap(), Fraction(6, 3));
 /// ```
 pub trait RegexRepresentation {
     /// A regular Expression that exactly matches any String representation of the implementing Type
     const REGEX: &'static str;
 }
+
+// float syntax: https://doc.rust-lang.org/std/primitive.f32.html#grammar
+//
+// Float  ::= Sign? ( 'inf' | 'infinity' | 'nan' | Number )
+const FLOAT: &str = formatcp!(r"{SIGN}?(?i:inf|infinity|nan|{NUMBER})",);
+// Number ::= ( Digit+ | Digit+ '.' Digit* | Digit* '.' Digit+ ) Exp?
+const NUMBER: &str = formatcp!(r"(?:{DIGIT}+|{DIGIT}+\.{DIGIT}*|{DIGIT}*\.{DIGIT}+)(?:{EXP})?",);
+// Exp    ::= 'e' Sign? Digit+
+const EXP: &str = formatcp!(r"e{SIGN}?{DIGIT}+");
+// Sign   ::= [+-]
+const SIGN: &str = r"[+-]";
+// Digit  ::= [0-9]
+const DIGIT: &str = r"\d";
 
 macro_rules! doc_concat {
     ($target: item, $($doc: expr),+) => {
@@ -115,11 +140,13 @@ macro_rules! impl_num {
     (f64; $($ty: ty),+) => {
         $(impl RegexRepresentation for $ty {
             doc_concat!{
-                const REGEX: &'static str = r"[-+]?\d+\.?\d*";,
+                const REGEX: &'static str = FLOAT;,
                 "Matches any floating point number",
+                "",
+                concat!("See See [FromStr on ", stringify!($ty), "](https://doc.rust-lang.org/std/primitive.", stringify!($ty), ".html#method.from_str) for details"),
                 "```",
                 "# use sscanf::RegexRepresentation;",
-                concat!("assert_eq!(", stringify!($ty), r#"::REGEX, r"[-+]?\d+\.?\d*");"#),
+                concat!("assert_eq!(", stringify!($ty), r#"::REGEX, r"[+-]?(?i:inf|infinity|nan|(?:\d+|\d+\.\d*|\d*\.\d+)(?:e[+-]?\d+)?)");"#),
                 "```"
             }
         })+
@@ -177,7 +204,7 @@ impl RegexRepresentation for str {
     /// Matches any sequence of Characters.
     ///
     /// Note that this is the non-borrowed form of the usual `&str`. This is the type that should be
-    /// used when calling scanf!() because of proc-macro limitations. The type returned by scanf!()
+    /// used when calling sscanf!() because of proc-macro limitations. The type returned by sscanf!()
     /// is `&str` as one would expect.
     ///
     /// This is also currently the only type that borrows part of the input string, so you need to
@@ -218,43 +245,24 @@ impl RegexRepresentation for std::path::PathBuf {
     const REGEX: &'static str = r".+";
 }
 
-#[cfg(feature = "chrono")]
-#[cfg_attr(doc_cfg, doc(cfg(feature = "chrono")))]
-mod chrono_integration {
-    use super::RegexRepresentation;
-    use chrono::prelude::*;
+#[test]
+#[rustfmt::skip]
+fn no_capture_groups() {
+    macro_rules! check {
+        ($($ty: ty),+) => {
+            $(
+                let regex = regex::Regex::new(<$ty>::REGEX).unwrap();
+                assert_eq!(regex.captures_len(), 1, "Regex for {} >>{}<< has capture groups", stringify!($ty), <$ty>::REGEX);
+                // 1 for the whole match
+            )+ 
+        };
+    }
 
-    impl RegexRepresentation for DateTime<Utc> {
-        /// Matches a DateTime
-        ///
-        /// Format according to [chrono](https://docs.rs/chrono/^0.4/chrono/index.html#formatting-and-parsing):
-        /// `year-month-dayThour:minute:secondZ`
-        /// ```
-        /// # use sscanf::RegexRepresentation; use chrono::*;
-        /// assert_eq!(DateTime::<Utc>::REGEX, r"\d\d\d\d-(?:0\d|1[0-2])-(?:[0-2]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:(?:[0-5]\d|60)(?:Z|\+\d\d:[0-5]\d)")
-        /// ```
-        const REGEX: &'static str = r"\d\d\d\d-(?:0\d|1[0-2])-(?:[0-2]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:(?:[0-5]\d|60)(?:Z|\+\d\d:[0-5]\d)";
-    }
-    impl RegexRepresentation for DateTime<Local> {
-        /// Matches a DateTime
-        ///
-        /// Format according to [chrono](https://docs.rs/chrono/^0.4/chrono/index.html#formatting-and-parsing):
-        /// `year-month-dayThour:minute:second+timezone`
-        /// ```
-        /// # use sscanf::RegexRepresentation; use chrono::*;
-        /// assert_eq!(DateTime::<Local>::REGEX, r"\d\d\d\d-(?:0\d|1[0-2])-(?:[0-2]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:(?:[0-5]\d|60)\+\d\d:[0-5]\d")
-        /// ```
-        const REGEX: &'static str = r"\d\d\d\d-(?:0\d|1[0-2])-(?:[0-2]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:(?:[0-5]\d|60)\+\d\d:[0-5]\d";
-    }
-    impl RegexRepresentation for DateTime<FixedOffset> {
-        /// Matches a DateTime
-        ///
-        /// Format according to [chrono](https://docs.rs/chrono/^0.4/chrono/index.html#formatting-and-parsing):
-        /// `year-month-dayThour:minute:second+timezone`
-        /// ```
-        /// # use sscanf::RegexRepresentation; use chrono::*;
-        /// assert_eq!(DateTime::<FixedOffset>::REGEX, r"\d\d\d\d-(?:0\d|1[0-2])-(?:[0-2]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:(?:[0-5]\d|60)\+\d\d:[0-5]\d")
-        /// ```
-        const REGEX: &'static str = r"\d\d\d\d-(?:0\d|1[0-2])-(?:[0-2]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:(?:[0-5]\d|60)\+\d\d:[0-5]\d";
-    }
+    check!(u8, u16, u32, u64, u128, usize);
+    check!(i8, i16, i32, i64, i128, isize);
+    check!(NonZeroU8, NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU128, NonZeroUsize);
+    check!(NonZeroI8, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI128, NonZeroIsize);
+    check!(f32, f64);
+    check!(String, str, char, bool);
+    check!(std::path::PathBuf);
 }

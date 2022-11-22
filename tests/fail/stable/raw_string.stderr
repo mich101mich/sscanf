@@ -1,0 +1,51 @@
+error: more placeholders than types provided:
+       At r"asdf{}asdf"
+                ^^
+ --> tests/fail/stable/raw_string.rs:2:27
+  |
+2 |     sscanf::sscanf!("hi", r"asdf{}asdf");
+  |                           ^^^^^^^^^^^^^
+
+error: unrecognized format option.
+       Hint: Regex format options must start and end with '/':
+       At r"asdf{:bob}asdf"
+                  ^^^
+ --> tests/fail/stable/raw_string.rs:3:27
+  |
+3 |     sscanf::sscanf!("hi", r"asdf{:bob}asdf", usize);
+  |                           ^^^^^^^^^^^^^^^^^
+
+error: unrecognized format option.
+       Hint: Regex format options must start and end with '/':
+       At r"asdf{usize:bob}asdf"
+                       ^^^
+ --> tests/fail/stable/raw_string.rs:4:27
+  |
+4 |     sscanf::sscanf!("hi", r"asdf{usize:bob}asdf");
+  |                           ^^^^^^^^^^^^^^^^^^^^^^
+
+error: more placeholders than types provided:
+       At r##"asdf{}asdf"##
+                  ^^
+ --> tests/fail/stable/raw_string.rs:5:27
+  |
+5 |     sscanf::sscanf!("hi", r##"asdf{}asdf"##);
+  |                           ^^^^^^^^^^^^^^^^^
+
+error: unrecognized format option.
+       Hint: Regex format options must start and end with '/':
+       At r##"asdf{:bob}asdf"##
+                    ^^^
+ --> tests/fail/stable/raw_string.rs:6:27
+  |
+6 |     sscanf::sscanf!("hi", r##"asdf{:bob}asdf"##, usize);
+  |                           ^^^^^^^^^^^^^^^^^^^^^
+
+error: unrecognized format option.
+       Hint: Regex format options must start and end with '/':
+       At r##"asdf{usize:bob}asdf"##
+                         ^^^
+ --> tests/fail/stable/raw_string.rs:7:27
+  |
+7 |     sscanf::sscanf!("hi", r##"asdf{usize:bob}asdf"##);
+  |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^

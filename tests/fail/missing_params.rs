@@ -1,7 +1,8 @@
 fn main() {
-    sscanf::scanf!();
-    sscanf::scanf!("5");
-    sscanf::scanf!("5",);
-    sscanf::scanf_get_regex!();
-    sscanf::scanf_unescaped!();
+    sscanf::sscanf!();
+    sscanf::sscanf!("5");
+    sscanf::sscanf!("5",);
+    sscanf::sscanf!("5", 'x');
+    sscanf::sscanf!("5", usize);
+    sscanf::sscanf_get_regex!();
 }

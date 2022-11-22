@@ -1,0 +1,23 @@
+error: more placeholders than types provided:
+       At "asdf{}{}asdf{}"
+                 ^^
+ --> tests/fail/stable/missing_type.rs:2:27
+  |
+2 |     sscanf::sscanf!("hi", "asdf{}{}asdf{}", usize);
+  |                           ^^^^^^^^^^^^^^^^
+
+error: more placeholders than types provided:
+       At "asdf{}{}asdf{}"
+                       ^^
+ --> tests/fail/stable/missing_type.rs:2:27
+  |
+2 |     sscanf::sscanf!("hi", "asdf{}{}asdf{}", usize);
+  |                           ^^^^^^^^^^^^^^^^
+
+error: more placeholders than types provided:
+       At "asdf{}{usize}as{}df{i32}"
+                          ^^
+ --> tests/fail/stable/missing_type.rs:3:27
+  |
+3 |     sscanf::sscanf!("hi", "asdf{}{usize}as{}df{i32}", usize);
+  |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^

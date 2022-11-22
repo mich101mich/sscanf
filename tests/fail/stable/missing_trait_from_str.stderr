@@ -1,0 +1,71 @@
+error[E0277]: the trait bound `NoFromStr: FromStr` is not satisfied
+ --> tests/fail/stable/missing_trait_from_str.rs:9:33
+  |
+9 |     sscanf::sscanf!("hi", "{}", module::NoFromStr);
+  |                                 ^^^^^^^^^^^^^^^^^ the trait `FromStr` is not implemented for `NoFromStr`
+  |
+  = help: the following other types implement trait `FromStr`:
+            FullF32
+            FullF64
+            HexNumber
+            IpAddr
+            Ipv4Addr
+            Ipv6Addr
+            NonZeroI128
+            NonZeroI16
+          and 34 others
+  = note: required for `NoFromStr` to implement `FromScanf<'_>`
+
+error[E0277]: the trait bound `NoFromStr: FromStr` is not satisfied
+  --> tests/fail/stable/missing_trait_from_str.rs:10:27
+   |
+10 |     sscanf::sscanf!("hi", "{module::NoFromStr}");
+   |                           ^^^^^^^^^^^^^^^^^^^^^ the trait `FromStr` is not implemented for `NoFromStr`
+   |
+   = help: the following other types implement trait `FromStr`:
+             FullF32
+             FullF64
+             HexNumber
+             IpAddr
+             Ipv4Addr
+             Ipv6Addr
+             NonZeroI128
+             NonZeroI16
+           and 34 others
+   = note: required for `NoFromStr` to implement `FromScanf<'_>`
+
+error[E0277]: the trait bound `NoFromStr: FromStr` is not satisfied
+  --> tests/fail/stable/missing_trait_from_str.rs:12:33
+   |
+12 |     sscanf::sscanf!("hi", "{}", NoFromStr);
+   |                                 ^^^^^^^^^ the trait `FromStr` is not implemented for `NoFromStr`
+   |
+   = help: the following other types implement trait `FromStr`:
+             FullF32
+             FullF64
+             HexNumber
+             IpAddr
+             Ipv4Addr
+             Ipv6Addr
+             NonZeroI128
+             NonZeroI16
+           and 34 others
+   = note: required for `NoFromStr` to implement `FromScanf<'_>`
+
+error[E0277]: the trait bound `NoFromStr: FromStr` is not satisfied
+  --> tests/fail/stable/missing_trait_from_str.rs:13:27
+   |
+13 |     sscanf::sscanf!("hi", "{NoFromStr}");
+   |                           ^^^^^^^^^^^^^ the trait `FromStr` is not implemented for `NoFromStr`
+   |
+   = help: the following other types implement trait `FromStr`:
+             FullF32
+             FullF64
+             HexNumber
+             IpAddr
+             Ipv4Addr
+             Ipv6Addr
+             NonZeroI128
+             NonZeroI16
+           and 34 others
+   = note: required for `NoFromStr` to implement `FromScanf<'_>`

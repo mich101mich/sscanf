@@ -1,0 +1,65 @@
+error: invalid type in placeholder: expected identifier.
+       Hint: The syntax for placeholders is {<type>} or {<type>:<config>}. Make sure <type> is a valid type or index.
+       If you want syntax highlighting and better errors, place the type in the arguments after the format string while debugging
+ --> tests/fail/nightly/invalid_type_in_placeholder.rs:2:29
+  |
+2 |     sscanf::sscanf!("hi", "{.}");
+  |                             ^
+
+error: invalid type in placeholder: expected identifier.
+       Hint: The syntax for placeholders is {<type>} or {<type>:<config>}. Make sure <type> is a valid type or index.
+       If you want syntax highlighting and better errors, place the type in the arguments after the format string while debugging
+ --> tests/fail/nightly/invalid_type_in_placeholder.rs:4:29
+  |
+4 |     sscanf::sscanf!("hi", "{.:/hi/}");
+  |                             ^
+
+error: type index 99 out of range of 0 types
+ --> tests/fail/nightly/invalid_type_in_placeholder.rs:6:29
+  |
+6 |     sscanf::sscanf!("hi", "{99}");
+  |                             ^^
+
+error[E0412]: cannot find type `bob` in this scope
+ --> tests/fail/nightly/invalid_type_in_placeholder.rs:3:29
+  |
+3 |     sscanf::sscanf!("hi", "{bob}");
+  |                             ^^^ not found in this scope
+
+error[E0412]: cannot find type `bob` in this scope
+ --> tests/fail/nightly/invalid_type_in_placeholder.rs:5:29
+  |
+5 |     sscanf::sscanf!("hi", "{bob:/hi/}");
+  |                             ^^^ not found in this scope
+
+note: erroneous constant used
+ --> tests/fail/nightly/invalid_type_in_placeholder.rs:3:5
+  |
+3 |     sscanf::sscanf!("hi", "{bob}");
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this note originates in the macro `$crate::pmr::__concatcp_impl` which comes from the expansion of the macro `sscanf::sscanf` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+note: erroneous constant used
+ --> tests/fail/nightly/invalid_type_in_placeholder.rs:3:5
+  |
+3 |     sscanf::sscanf!("hi", "{bob}");
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this note originates in the macro `__cf_osRcTFl4A::__concatcp_inner` which comes from the expansion of the macro `sscanf::sscanf` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+note: erroneous constant used
+ --> tests/fail/nightly/invalid_type_in_placeholder.rs:3:5
+  |
+3 |     sscanf::sscanf!("hi", "{bob}");
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this note originates in the macro `__cf_osRcTFl4A::__concatcp_inner` which comes from the expansion of the macro `sscanf::sscanf` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+note: erroneous constant used
+ --> tests/fail/nightly/invalid_type_in_placeholder.rs:3:5
+  |
+3 |     sscanf::sscanf!("hi", "{bob}");
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this note originates in the macro `__cf_osRcTFl4A::__concatcp_inner` which comes from the expansion of the macro `sscanf::sscanf` (in Nightly builds, run with -Z macro-backtrace for more info)

@@ -1,9 +1,19 @@
 error[E0597]: `input` does not live long enough
- --> $DIR/str_lifetime.rs:5:28
+ --> tests/fail/str_lifetime.rs:5:29
   |
-5 |         s = sscanf::scanf!(input, "{str}").unwrap();
-  |                            ^^^^^ borrowed value does not live long enough
+5 |         s = sscanf::sscanf!(input, "{str}").unwrap();
+  |                             ^^^^^ borrowed value does not live long enough
 6 |     }
   |     - `input` dropped here while still borrowed
 7 |     println!("{}", s);
   |                    - borrow later used here
+
+error[E0597]: `input` does not live long enough
+  --> tests/fail/str_lifetime.rs:16:29
+   |
+16 |         w = sscanf::sscanf!(input, "{Wrapper}").unwrap();
+   |                             ^^^^^ borrowed value does not live long enough
+17 |     }
+   |     - `input` dropped here while still borrowed
+18 |     println!("{}", w.0);
+   |                    --- borrow later used here

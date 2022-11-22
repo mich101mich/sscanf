@@ -1,17 +1,17 @@
-error: More Types than '{}' Placeholders provided
- --> $DIR/missing_placeholder.rs:2:43
+error: unused type
+ --> tests/fail/missing_placeholder.rs:2:44
   |
-2 |     sscanf::scanf!("hi", "asdf{}", usize, std::vec::Vec<std::string::String>, u32);
-  |                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2 |     sscanf::sscanf!("hi", "asdf{}", usize, std::vec::Vec<std::string::String>, u32);
+  |                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-error: More Types than '{}' Placeholders provided
- --> $DIR/missing_placeholder.rs:2:79
+error: unused type
+ --> tests/fail/missing_placeholder.rs:2:80
   |
-2 |     sscanf::scanf!("hi", "asdf{}", usize, std::vec::Vec<std::string::String>, u32);
-  |                                                                               ^^^
+2 |     sscanf::sscanf!("hi", "asdf{}", usize, std::vec::Vec<std::string::String>, u32);
+  |                                                                                ^^^
 
-error: More Types than '{}' Placeholders provided
- --> $DIR/missing_placeholder.rs:3:55
+error: unused type
+ --> tests/fail/missing_placeholder.rs:3:56
   |
-3 |     sscanf::scanf!("hi", "asdf{u32}{}{usize}", usize, u32);
-  |                                                       ^^^
+3 |     sscanf::sscanf!("hi", "asdf{u32}{}{usize}", usize, u32);
+  |                                                        ^^^

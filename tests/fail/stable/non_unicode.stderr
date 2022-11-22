@@ -1,0 +1,17 @@
+error: unrecognized format option.
+       Hint: Regex format options must start and end with '/':
+       At "y̆😛y̆{Ay̆y̆y̆:😛}y̆😛y̆"
+                     ^^
+ --> tests/fail/stable/non_unicode.rs:3:27
+  |
+3 |     sscanf::sscanf!("Hi", "y̆😛y̆{Ay̆y̆y̆:😛}y̆😛y̆");
+  |                           ^^^^^^^^^^^^^^^^^^^
+
+error: unrecognized format option.
+       Hint: Regex format options must start and end with '/':
+       At r##"y̆😛y̆{Ay̆y̆y̆:😛}y̆😛y̆"##
+                        ^^
+ --> tests/fail/stable/non_unicode.rs:4:27
+  |
+4 |     sscanf::sscanf!("Hi", r##"y̆😛y̆{Ay̆y̆y̆:😛}y̆😛y̆"##);
+  |                           ^^^^^^^^^^^^^^^^^^^^^^^^

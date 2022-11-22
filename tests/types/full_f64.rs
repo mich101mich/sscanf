@@ -1,13 +1,14 @@
+#![allow(deprecated)]
 use sscanf::*;
 
 #[test]
 fn full_f64() {
     let input = "-Nan";
-    let output = scanf!(input, "{}", FullF64).unwrap();
+    let output = sscanf!(input, "{}", FullF64).unwrap();
     assert!(output.is_nan());
 
     let input = "nanNaN-Naninf-inf";
-    let output = scanf!(
+    let output = sscanf!(
         input,
         "{}{}{}{}{}",
         FullF64,
@@ -25,19 +26,19 @@ fn full_f64() {
     assert!(*output.3 > 0.0);
     assert!(*output.4 < 0.0);
 
-    let output = scanf!("-2.0e4 2.0e4", "{} {}", FullF64, FullF64).unwrap();
+    let output = sscanf!("-2.0e4 2.0e4", "{} {}", FullF64, FullF64).unwrap();
     assert_eq!(output, (FullF64(-2.0e4), FullF64(2.0e4)));
 
-    let output = scanf!("-.1e-4 .1e-4", "{} {}", FullF64, FullF64).unwrap();
+    let output = sscanf!("-.1e-4 .1e-4", "{} {}", FullF64, FullF64).unwrap();
     assert_eq!(output, (FullF64(-0.1e-4), FullF64(0.1e-4)));
 
     let expected = (FullF64(-2.0e-4), FullF64(2.0e-4));
-    let output = scanf!("-2e-4 2e-4", "{} {}", FullF64, FullF64).unwrap();
+    let output = sscanf!("-2e-4 2e-4", "{} {}", FullF64, FullF64).unwrap();
     assert_eq!(output, expected);
 
-    let output = scanf!("-2.e-4 2.e-4", "{} {}", FullF64, FullF64).unwrap();
+    let output = sscanf!("-2.e-4 2.e-4", "{} {}", FullF64, FullF64).unwrap();
     assert_eq!(output, expected);
 
-    let output = scanf!("-2.0e-4 2.0e-4", "{} {}", FullF64, FullF64).unwrap();
+    let output = sscanf!("-2.0e-4 2.0e-4", "{} {}", FullF64, FullF64).unwrap();
     assert_eq!(output, expected);
 }
