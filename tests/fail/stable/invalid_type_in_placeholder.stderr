@@ -18,6 +18,14 @@ error: invalid type in placeholder: expected identifier.
 4 |     sscanf::sscanf!("hi", "{.:/hi/}");
   |                           ^^^^^^^^^^
 
+error: type index 99 out of range of 0 types:
+       At "{99}"
+            ^^
+ --> tests/fail/stable/invalid_type_in_placeholder.rs:6:27
+  |
+6 |     sscanf::sscanf!("hi", "{99}");
+  |                           ^^^^^^
+
 error[E0412]: cannot find type `bob` in this scope
  --> tests/fail/stable/invalid_type_in_placeholder.rs:3:27
   |

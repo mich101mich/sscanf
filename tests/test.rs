@@ -148,7 +148,7 @@ fn custom_regex() {
 
     let input = r"({(\}*[\{";
     let parsed = sscanf!(input, r"{:/\(\{\(\\\}\*/}{:/\[\\\{/}", str, str);
-    assert_eq!(parsed.unwrap(), ("({(\\}*", "[\\{"));
+    assert_eq!(parsed.unwrap(), (r"({(\}*", r"[\{"));
 
     #[derive(Debug, PartialEq)]
     struct NoRegex;

@@ -63,3 +63,36 @@ note: erroneous constant used
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
    |
    = note: this note originates in the macro `__cf_osRcTFl4A::__concatcp_inner` which comes from the expansion of the macro `sscanf::sscanf` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `&[u8]: RegexRepresentation` is not satisfied
+  --> tests/fail/nightly/missing_trait_regex.rs:19:47
+   |
+19 | struct TestMapParamNoScanf(#[sscanf(map = |x: &[u8]| { x[0] })] u8);
+   |                                               ^^^^^ the trait `RegexRepresentation` is not implemented for `&[u8]`
+   |
+   = help: the following other types implement trait `RegexRepresentation`:
+             FullF32
+             FullF64
+             HexNumber
+             NonZeroI128
+             NonZeroI16
+             NonZeroI32
+             NonZeroI64
+             NonZeroI8
+           and $N others
+
+note: erroneous constant used
+  --> tests/fail/nightly/missing_trait_regex.rs:17:10
+   |
+17 | #[derive(sscanf::FromScanf)]
+   |          ^^^^^^^^^^^^^^^^^
+   |
+   = note: this note originates in the macro `$crate::pmr::__concatcp_impl` which comes from the expansion of the derive macro `sscanf::FromScanf` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+note: erroneous constant used
+  --> tests/fail/nightly/missing_trait_regex.rs:17:10
+   |
+17 | #[derive(sscanf::FromScanf)]
+   |          ^^^^^^^^^^^^^^^^^
+   |
+   = note: this note originates in the macro `__cf_osRcTFl4A::__concatcp_inner` which comes from the expansion of the derive macro `sscanf::FromScanf` (in Nightly builds, run with -Z macro-backtrace for more info)

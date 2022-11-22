@@ -220,7 +220,7 @@ fn generate_regex(input: ScanfInner, escape_input: bool) -> Result<(TokenStream,
             if let Ok(n) = name.text().parse::<usize>() {
                 if n >= visited.len() {
                     let msg = format!("type index {} out of range of {} types", n, visited.len());
-                    return name.err(&msg);
+                    return name.err(&msg); // checked in tests/fail/<channel>/invalid_type_in_placeholder.rs
                 }
                 visited[n] = true;
                 TypeSource {

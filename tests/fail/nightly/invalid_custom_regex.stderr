@@ -1,10 +1,59 @@
+error: end of regex '/' has to be followed by end of placeholder '}'
+ --> tests/fail/nightly/invalid_custom_regex.rs:2:30
+  |
+2 |     sscanf::sscanf!("", "{://g}", str);
+  |                              ^
+
+error: missing '/' to end regex
+ --> tests/fail/nightly/invalid_custom_regex.rs:3:28
+  |
+3 |     sscanf::sscanf!("", "{:/}", str);
+  |                            ^^
+
+error: missing '/' to end regex
+ --> tests/fail/nightly/invalid_custom_regex.rs:4:28
+  |
+4 |     sscanf::sscanf!("", "{:/", str);
+  |                            ^
+
+error: unexpected end of regex
+ --> tests/fail/nightly/invalid_custom_regex.rs:6:30
+  |
+6 |     sscanf::sscanf!("", r"{:/\", str);
+  |                              ^
+
+error: unexpected end of regex
+ --> tests/fail/nightly/invalid_custom_regex.rs:7:29
+  |
+7 |     sscanf::sscanf!("", "{:/\\", str);
+  |                             ^^
+
+error: missing '/' to end regex
+ --> tests/fail/nightly/invalid_custom_regex.rs:8:29
+  |
+8 |     sscanf::sscanf!("", r"{:/\/", str);
+  |                             ^^^
+
+error: missing '/' to end regex
+ --> tests/fail/nightly/invalid_custom_regex.rs:9:28
+  |
+9 |     sscanf::sscanf!("", "{:/\\/", str);
+  |                            ^^^^
+
 error: regex parse error:
            ab(ab
              ^
        error: unclosed group
 
        In custom Regex format option
- --> tests/fail/nightly/invalid_custom_regex.rs:2:31
-  |
-2 |     sscanf::sscanf!("", "   {:/ab(ab/}   ", String).unwrap();
-  |                               ^^^^^^^
+  --> tests/fail/nightly/invalid_custom_regex.rs:11:28
+   |
+11 |     sscanf::sscanf!("", "{:/ab(ab/}", str);
+   |                            ^^^^^^^
+
+error: custom regex can't contain capture groups '(...)'.
+       Either make them non-capturing by adding '?:' after the '(' or remove/escape the '(' and ')'
+  --> tests/fail/nightly/invalid_custom_regex.rs:12:28
+   |
+12 |     sscanf::sscanf!("", "{:/ab()ab/}", str);
+   |                            ^^^^^^^^

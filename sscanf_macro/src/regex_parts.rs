@@ -271,7 +271,7 @@ fn regex_from_radix(
 
     let num_digits_binary = binary_length(&ty_string).ok_or_else(|| {
         let msg = "Radix options only work on primitive numbers from std with no path or alias";
-        ty_source.error(msg)
+        ty_source.error(msg) // checked in tests/fail/<channel>/invalid_radix_option.rs
     })?;
 
     let signed = ty_string.starts_with('i');

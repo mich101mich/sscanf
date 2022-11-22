@@ -71,7 +71,7 @@ Please create an UpperCamelCased wrapper type for it.",
             }
         }
 
-        let end = end.ok_or_else(|| src.slice(start..).error(MISSING_CLOSE_STRING))?;
+        let end = end.ok_or_else(|| src.slice(start..).error(MISSING_CLOSE_STRING))?; // checked in tests/fail/<channel>/invalid_placeholder.rs
 
         let src = src.slice(start..=end);
 

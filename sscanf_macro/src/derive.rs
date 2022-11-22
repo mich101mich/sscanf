@@ -155,7 +155,7 @@ Please annotate the struct with #[sscanf(format = \"...\")]";
 
         let mut attr = find_attr(field.attrs)?;
 
-        let default = attr.remove("default").map(DefaultAttribute::from);
+        let default = attr.remove("default").map(|arg| DefaultAttribute::new(arg, &ty));
         let has_default = default.is_some();
 
         let mut mapper = None;
@@ -255,7 +255,7 @@ Please annotate the struct with #[sscanf(format = \"...\")]";
         field.ph_index = Some(ph_index);
         ph_types.push(TypeSource {
             ty: field.ty.clone(),
-            source: Some(ph.src.clone()),
+            source: None,
         });
     }
 

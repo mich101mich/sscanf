@@ -27,41 +27,69 @@ impl<'a> FormatOption<'a> {
     ) -> Result<(Self, usize)> {
         let (start, c) = input
             .next()
-            .ok_or_else(|| src.slice(outer_start..).error(MISSING_CLOSE_STRING))?;
+            .ok_or_else(|| src.slice(outer_start..).error(MISSING_CLOSE_STRING))?; // checked in tests/fail/<channel>/invalid_placeholder.rs
 
         match c {
             '/' => {
                 let mut end = None;
                 let mut regex = String::new();
+                let mut escape = None;
                 while let Some((i, c)) = input.next() {
                     if c == '/' {
-                        end = Some(i);
-                        break;
+                        if escape.take().is_some() {
+                            regex.push('/');
+                        } else {
+                            end = Some(i);
+                            break;
+                        }
                     } else if c == '\\' {
-                        let (_, next) = input
-                            .next()
-                            .ok_or_else(|| src.slice(i..).error("unexpected end of regex"))?;
-                        if next != '/' {
+                        if !src.is_raw() {
+                            let (_, next) = input
+                                .next()
+                                .ok_or_else(|| src.slice(i..).error("unexpected end of regex"))?;
+                            // the above error is probably not possible, since a single \ at
+                            // the end of a non-raw string would escape the closing " and the
+                            // compiler would already complain about that.
+                            // the check is still here just in case
+
+                            if next != '\\' {
+                                // regular escaped char (\n, \t, etc)
+                                if escape.take().is_some() {
+                                    regex.push('\\');
+                                }
+                                regex.push('\\');
+                                regex.push(next);
+                                continue;
+                            }
+                        }
+                        if escape.take().is_some() {
+                            regex.push('\\');
+                            regex.push('\\');
+                        } else {
+                            escape = Some(i);
+                        }
+                    } else {
+                        if escape.take().is_some() {
                             regex.push('\\');
                         }
-                        regex.push(next);
-                    } else {
                         regex.push(c);
                     }
                 }
+                if let Some(i) = escape {
+                    return src.slice(i..).err("unexpected end of regex"); // checked in tests/fail/<channel>/invalid_custom_regex.rs
+                }
                 let end =
-                    end.ok_or_else(|| src.slice(start..).error("missing '/' to end regex"))?;
+                    end.ok_or_else(|| src.slice(start..).error("missing '/' to end regex"))?; // checked in tests/fail/<channel>/invalid_custom_regex.rs
 
                 // take } from input
                 let close_bracket_index = if let Some((i, c)) = input.next() {
                     if c != '}' {
-                        return src
-                            .slice(i..=i)
-                            .err("end of regex '/' has to be followed by end of placeholder '}'");
+                        let msg = "end of regex '/' has to be followed by end of placeholder '}'";
+                        return src.slice(i..=i).err(msg); // checked in tests/fail/<channel>/invalid_custom_regex.rs
                     }
                     i
                 } else {
-                    return src.slice(outer_start..).err(MISSING_CLOSE_STRING);
+                    return src.slice(outer_start..).err(MISSING_CLOSE_STRING); // checked in tests/fail/<channel>/invalid_placeholder.rs
                 };
 
                 let src = src.slice(start..=end);
@@ -69,7 +97,7 @@ impl<'a> FormatOption<'a> {
                 match regex_syntax::Parser::new().parse(&regex) {
                     Ok(hir) => {
                         if contains_capture_group(&hir) {
-                            let msg = "custom regex can't contain capture groups.
+                            let msg = "custom regex can't contain capture groups '(...)'.
 Either make them non-capturing by adding '?:' after the '(' or remove/escape the '(' and ')'";
                             return src.err(msg);
                         }
@@ -85,7 +113,7 @@ Either make them non-capturing by adding '?:' after the '(' or remove/escape the
             }
             '}' => {
                 let msg = "format options cannot be empty. Consider removing the ':'";
-                src.slice(start..=start).err(msg)
+                src.slice(start..=start).err(msg) // checked in tests/fail/<channel>/invalid_placeholder.rs
             }
             _ => Self::from_radix(input, src, start, outer_start),
         }
@@ -99,7 +127,7 @@ Either make them non-capturing by adding '?:' after the '(' or remove/escape the
     ) -> Result<(Self, usize)> {
         let (close_bracket_index, _) = input
             .find(|(_, c)| *c == '}')
-            .ok_or_else(|| src.slice(outer_start..).error(MISSING_CLOSE_STRING))?;
+            .ok_or_else(|| src.slice(outer_start..).error(MISSING_CLOSE_STRING))?; // checked in tests/fail/<channel>/invalid_placeholder.rs
 
         let src = src.slice(start..close_bracket_index);
 
@@ -114,25 +142,23 @@ Either make them non-capturing by adding '?:' after the '(' or remove/escape the
             "#x" | "x#" => (16, PrefixPolicy::Forced),
             "#o" | "o#" => (8, PrefixPolicy::Forced),
             "#b" | "b#" => (2, PrefixPolicy::Forced),
-            mut s => {
-                let mut prefix = PrefixPolicy::Never;
-                if let Some(inner) = s.strip_prefix('#').or_else(|| s.strip_suffix('#')) {
-                    prefix = PrefixPolicy::Forced;
-                    s = inner;
+            s => {
+                if let Some(_) = s.strip_prefix('#').or_else(|| s.strip_suffix('#')) {
+                    let msg = "config modifier '#' can only be used with 'x', 'o' or 'b'";
+                    return src.err(msg); // checked in tests/fail/<channel>/invalid_radix_option.rs
                 }
 
                 if let Some(n) = s.strip_prefix('r') {
                     let radix = n.parse::<u8>().map_err(|_| {
-                        src.error("radix option 'r' has to be followed by a number")
+                        let msg = "radix option 'r' has to be followed by a number";
+                        src.error(msg) // checked in tests/fail/<channel>/invalid_radix_option.rs
                     })?;
                     if radix < 2 || radix > 36 {
                         // Range taken from: https://doc.rust-lang.org/std/primitive.usize.html#panics
-                        return src.err("radix has to be a number between 2 and 36");
+                        let msg = "radix has to be a number between 2 and 36";
+                        return src.err(msg); // checked in tests/fail/<channel>/invalid_radix_option.rs
                     }
-                    if prefix == PrefixPolicy::Forced && !matches!(radix, 2 | 8 | 16) {
-                        return src.err("radix option '#' can only be used with base 2, 8 or 16");
-                    }
-                    (radix, prefix)
+                    (radix, PrefixPolicy::Never)
                 } else {
                     let msg = "unrecognized format option.
 Hint: Regex format options must start and end with '/'";

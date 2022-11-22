@@ -10,3 +10,10 @@ fn main() {
     sscanf::sscanf!("hi", "{}", std::vec::Vec<usize>);
     sscanf::sscanf!("hi", "{}", NoRegex);
 }
+
+// should be in tests/fail/derive_field_attributes.rs, but causes other error
+// messages to go missing
+
+#[derive(sscanf::FromScanf)]
+#[sscanf(format = "{}")]
+struct TestMapParamNoScanf(#[sscanf(map = |x: &[u8]| { x[0] })] u8);

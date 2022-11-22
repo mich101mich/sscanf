@@ -28,7 +28,7 @@ impl Parse for AttributeArg {
 
         if input.is_empty() || input.peek(syn::Token![,]) {
             let msg = "expected expression after `=`";
-            return Err(syn::Error::new_spanned(eq_sign, msg));  // checked in tests/fail/derive_field_attributes.rs
+            return Err(syn::Error::new_spanned(eq_sign, msg)); // checked in tests/fail/derive_field_attributes.rs
         }
 
         let value = input.parse::<Expr>()?;
@@ -73,13 +73,15 @@ impl AttributeArg {
 pub struct DefaultAttribute {
     pub src: TokenStream,
     pub value: Option<Expr>,
+    ty_span: FullSpan,
 }
 
-impl From<AttributeArg> for DefaultAttribute {
-    fn from(arg: AttributeArg) -> Self {
+impl DefaultAttribute {
+    pub fn new(arg: AttributeArg, ty: &syn::Type) -> Self {
         Self {
             src: arg.src,
             value: arg.value,
+            ty_span: FullSpan::from_spanned(ty),
         }
     }
 }
@@ -89,7 +91,9 @@ impl ToTokens for DefaultAttribute {
         if let Some(expr) = &self.value {
             expr.to_tokens(tokens);
         } else {
-            tokens.extend(quote! { ::std::default::Default::default() });
+            self.ty_span
+                .apply(quote! { ::std::default::Default }, quote! { ::default() })
+                .to_tokens(tokens);
         }
     }
 }

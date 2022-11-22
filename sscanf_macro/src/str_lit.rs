@@ -30,6 +30,10 @@ impl StrLit {
         }
     }
 
+    pub fn is_raw(&self) -> bool {
+        self.text.starts_with("r")
+    }
+
     pub fn to_slice(&self) -> StrLitSlice {
         // find the position of the opening quote. raw strings may have a prefix of any length,
         // which needs to be skipped. This information used to be provided by syn, but was removed
@@ -68,6 +72,9 @@ pub struct StrLitSlice<'a> {
 impl<'a> StrLitSlice<'a> {
     pub fn text(&self) -> &str {
         &self.src.text[self.range.clone()]
+    }
+    pub fn is_raw(&self) -> bool {
+        self.src.is_raw()
     }
 
     #[track_caller]
