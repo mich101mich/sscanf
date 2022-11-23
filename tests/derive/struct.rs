@@ -209,36 +209,3 @@ fn lifetime_static() {
     assert_eq!(bob.age, 42);
     assert_eq!(bob.address, "here");
 }
-
-// #[derive(FromScanf, Debug, PartialEq)]
-// enum Number {
-//     #[sscanf(format = "{}")]
-//     Whole(isize),
-//     #[sscanf(format = "{numerator}/{denominator}")]
-//     Fraction {
-//         numerator: isize,
-//         denominator: isize,
-//     },
-// }
-
-// #[test]
-// fn test_from_regex() {
-//     let input = "Hi, I'm (Bob,42)!. I have 5 dollars and -1/2 pennies.";
-//     let (bob, dollars, pennies) = sscanf!(
-//         input,
-//         "Hi, I'm {Person}! I have {Number} dollars and {Number} pennies."
-//     )
-//     .unwrap();
-
-//     assert_eq!(
-//         bob,
-//         Person {
-//             name: "Bob".to_string(),
-//             age: 42
-//         }
-//     );
-
-//     assert_eq!(dollars, Number::Whole(5));
-
-//     assert_eq!(pennies, Number::Fraction(-1, 2));
-// }

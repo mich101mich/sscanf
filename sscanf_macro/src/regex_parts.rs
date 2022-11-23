@@ -61,6 +61,7 @@ impl<'a> TypeSource<'a> {
     }
 }
 
+#[derive(Clone)]
 pub enum NumCaptures {
     One,
     FromType(Type, FullSpan),
@@ -69,7 +70,7 @@ pub enum NumCaptures {
 impl ToTokens for NumCaptures {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match self {
-            NumCaptures::One => tokens.extend(quote!(1)),
+            NumCaptures::One => tokens.extend(quote! { 1 }),
             NumCaptures::FromType(ty, span) => tokens.extend(span.apply(
                 quote! { <#ty as },
                 quote! { ::sscanf::FromScanf>::NUM_CAPTURES },
@@ -151,18 +152,21 @@ impl ToTokens for Matcher {
         let converter = &self.converter;
         tokens.extend(quote! {
             {
+                #[cfg(debug_assertions)]
+                let start_len = src.len();
+
                 let value = #converter;
+
                 #[cfg(debug_assertions)]
                 {
-                    let n = len - src.len();
+                    let n = start_len - src.len();
                     let expected = #num_captures;
                     if n != expected {
                         panic!(
-                            "{}::NUM_CAPTURES = {} but {} were taken{}",
+                            "sscanf: {}::NUM_CAPTURES = {} but {} were taken{}",
                             stringify!(#ty), expected, n, ::sscanf::WRONG_CAPTURES_HINT
                         );
                     }
-                    len = src.len();
                 }
                 value
             }
@@ -183,6 +187,10 @@ impl RegexParts {
         }
     }
 
+    pub fn push_literal(&mut self, literal: impl Into<String>) {
+        self.regex_builder.push(RegexPart::Literal(literal.into()));
+    }
+
     pub fn new(format: &FormatString, type_sources: &[TypeSource]) -> Result<Self> {
         let mut ret = Self::empty();
 
@@ -196,7 +204,7 @@ impl RegexParts {
             .zip(format.placeholders.iter())
             .zip(type_sources)
         {
-            ret.regex_builder.push(RegexPart::Literal(part.clone()));
+            ret.push_literal(part);
 
             let ty = &ty_source.ty;
             let span = ty_source.full_span();
@@ -243,7 +251,7 @@ impl RegexParts {
         // add the last regex_part
         {
             let suffix = format.parts.last().unwrap();
-            ret.regex_builder.push(RegexPart::Literal(suffix.clone()));
+            ret.push_literal(suffix);
         }
 
         Ok(ret)
@@ -253,11 +261,15 @@ impl RegexParts {
         let regex_builder = &self.regex_builder;
         quote!(::sscanf::const_format::concatcp!( #(#regex_builder),* ))
     }
-    pub fn num_captures(&self) -> TokenStream {
-        let mut num_captures = vec![&NumCaptures::One]; // for the whole match
+    pub fn num_captures_list(&self) -> Vec<NumCaptures> {
+        let mut num_captures = vec![NumCaptures::One]; // for the whole match
         for matcher in &self.matchers {
-            num_captures.push(&matcher.num_captures);
+            num_captures.push(matcher.num_captures.clone());
         }
+        num_captures
+    }
+    pub fn num_captures(&self) -> TokenStream {
+        let num_captures = self.num_captures_list();
         quote! { #(#num_captures)+* }
     }
 }

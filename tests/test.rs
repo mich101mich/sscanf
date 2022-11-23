@@ -7,7 +7,10 @@ mod types {
     mod hex_number;
 }
 
-mod derive;
+mod derive {
+    mod r#enum;
+    mod r#struct;
+}
 
 use sscanf::RegexRepresentation;
 

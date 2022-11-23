@@ -178,16 +178,13 @@ fn sscanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
                     let src = &mut src;
                     src.next().unwrap(); // skip the whole match
 
-                    #[cfg(debug_assertions)]
-                    let mut len = src.len();
-
                     let mut matcher = || -> ::std::result::Result<_, ::std::boxed::Box<dyn ::std::error::Error>> {
                         ::std::result::Result::Ok( ( #(#matcher),* ) )
                     };
                     let res = matcher().map_err(|e| ::sscanf::Error::ParsingFailed(e));
 
                     if res.is_ok() && src.len() != 0 {
-                        panic!("{} captures generated, but {} were taken",
+                        panic!("sscanf: {} captures generated, but {} were taken",
                             REGEX.captures_len(), REGEX.captures_len() - src.len()
                         );
                     }

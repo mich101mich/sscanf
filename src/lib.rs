@@ -19,6 +19,8 @@
 // TODO: multiline format strings
 // TODO: check for option in derive
 // TODO: #[sscanf(filter_map = ...)]
+// TODO: enum derive
+// TODO: tests for generics, lifetimes, where clauses, etc
 #![doc = include_str!("../Readme.md")]
 //! # A Note on Compiler Errors
 //!
