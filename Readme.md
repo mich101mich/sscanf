@@ -206,3 +206,7 @@ assert!(matches!(parsed, Color { r: 0xff, g: 0x00, b: 0xcc }));
 ```
 
 More details can be found in the [`FromScanf documentation`](https://docs.rs/sscanf/^0.4.0-alpha/sscanf/trait.FromScanf.html)
+
+# License
+Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or
+[MIT license](LICENSE-MIT) at your option.
