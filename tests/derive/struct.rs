@@ -209,3 +209,27 @@ fn lifetime_static() {
     assert_eq!(bob.age, 42);
     assert_eq!(bob.address, "here");
 }
+
+#[test]
+fn generics() {
+    use std::str::FromStr;
+
+    #[derive(FromScanf, Debug, PartialEq)]
+    #[sscanf(format = "({name},{age},{data:/[a-z]+/})")]
+    struct Person<T>
+    where
+        T: FromStr + 'static,
+        <T as FromStr>::Err: std::error::Error + 'static,
+    {
+        name: String,
+        age: u8,
+        data: T,
+    }
+
+    let input = "Hi, I'm (Bob,42,here)!";
+    let bob = sscanf!(input, "Hi, I'm {Person<String>}!").unwrap();
+
+    assert_eq!(bob.name, "Bob");
+    assert_eq!(bob.age, 42);
+    assert_eq!(bob.data, "here");
+}

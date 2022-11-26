@@ -1,159 +1,266 @@
-use std::collections::HashMap;
-
-use quote::ToTokens;
-
 use crate::*;
 
-pub struct AttributeArg {
+pub struct StructAttributes {
     pub src: TokenStream,
-    pub name: syn::Ident,
-    pub value: Option<syn::Expr>,
+    pub format: StrLit,
+    pub escape: bool,
 }
 
-pub type AttributeArgMap = HashMap<String, AttributeArg>;
+impl StructAttributes {
+    pub fn from_attributes(attrs: Vec<syn::Attribute>) -> Result<Option<Self>> {
+        let mut ret = None;
+        let mut empty_attrs = None;
+        for attr in attrs {
+            if !attr.path.is_ident("sscanf") {
+                continue;
+            }
+            if attr.tokens.is_empty() {
+                empty_attrs.get_or_insert(attr);
+                continue;
+            }
+            let parsed = attr.parse_args::<Self>();
+            match (ret.as_ref(), parsed) {
+                (None, Ok(parsed)) => ret = Some(parsed),
+                (None, Err(err)) => return Err(err.into()),
+                (Some(prev), Ok(cur)) => {
+                    let msg = "format attribute specified multiple times";
+                    return Error::builder()
+                        .with_spanned(&prev.src, msg)
+                        .with_spanned(cur.src, msg)
+                        .build_err();
+                }
+                (Some(_), Err(_)) => {
+                    let msg = "unneeded and invalid sscanf attribute";
+                    return Error::err_spanned(attr, msg);
+                }
+            }
+        }
+        match (ret, empty_attrs) {
+            (Some(ret), _) => Ok(Some(ret)),
+            (None, Some(attr)) => {
+                let msg = "expected attribute to take a format string as an argument.
+Valid arguments: #[sscanf(format = \"...\")], #[sscanf(format_unescaped = \"...\")] or #[sscanf(\"...\")]";
+                Error::err_spanned(attr, msg)
+            }
+            (None, None) => Ok(None),
+        }
+    }
+}
 
-impl Parse for AttributeArg {
+impl Parse for StructAttributes {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let name = input.parse::<syn::Ident>()?;
+        let mut src = TokenStream::new();
+        let format: StrLit;
+        let mut escape = true;
+        if input.peek(syn::LitStr) {
+            format = input.parse()?;
+        } else if input.peek(syn::Ident) {
+            let ident = input.parse::<syn::Ident>()?;
+            ident.to_tokens(&mut src);
+            match ident.to_string().as_str() {
+                "format" => {}
+                "format_unescaped" => {
+                    escape = false;
+                }
+                "map" | "default" => {
+                    let msg = format!("`{}` arguments are only valid on fields", ident);
+                    return Err(syn::Error::new_spanned(ident, msg));
+                }
+                s => {
+                    let msg = if let Some(did_you_mean) =
+                        find_similar(s, &["format", "format_unescaped"])
+                    {
+                        format!(
+                            "unknown attribute `{}`. Did you mean `{}`?",
+                            s, did_you_mean
+                        )
+                    } else {
+                        format!(
+                            "expected either `format` or `format_unescaped`, got `{}`",
+                            s
+                        )
+                    };
+                    return Err(syn::Error::new_spanned(ident, msg));
+                }
+            }
+            if input.is_empty() {
+                let msg = format!("expected `= \"...\"` after `{}`", ident);
+                return Err(syn::Error::new_spanned(ident, msg));
+            }
+            let eq_sign = input.parse::<syn::Token![=]>()?;
+            eq_sign.to_tokens(&mut src);
+            if input.is_empty() {
+                let msg = "expected `\"...\"` after `=`";
+                return Err(syn::Error::new_spanned(eq_sign, msg));
+            }
+            format = input.parse()?;
+        } else {
+            let tokens = input.parse::<TokenStream>()?;
+            let msg = "expected a format string as either `format = \"...\"`, `format_unescaped = \"...\"`, or just `\"...\"`";
+            return Err(syn::Error::new_spanned(tokens, msg));
+        }
+        format.to_tokens(&mut src);
 
-        if input.is_empty() || input.peek(syn::Token![,]) {
-            return Ok(Self {
-                src: name.to_token_stream(),
-                name,
-                value: None,
-            });
+        let remaining = input.parse::<TokenStream>()?;
+        if !remaining.is_empty() {
+            let msg = "unrecognized arguments";
+            return Err(syn::Error::new_spanned(remaining, msg));
         }
 
-        let eq_sign = input.parse::<Token![=]>()?;
-
-        if input.is_empty() || input.peek(syn::Token![,]) {
-            let msg = "expected expression after `=`";
-            return Err(syn::Error::new_spanned(eq_sign, msg)); // checked in tests/fail/derive_field_attributes.rs
-        }
-
-        let value = input.parse::<Expr>()?;
-
-        Ok(Self {
-            src: quote! { #name #eq_sign #value },
-            name,
-            value: Some(value),
+        Ok(StructAttributes {
+            src,
+            format,
+            escape,
         })
     }
 }
 
-impl AttributeArg {
-    pub fn from_attrs(attr: &syn::Attribute) -> Result<AttributeArgMap> {
-        struct VecWrapper(Vec<AttributeArg>);
-        impl Parse for VecWrapper {
-            fn parse(input: ParseStream) -> syn::Result<Self> {
-                let content = input
-                    .parse_terminated::<_, Token![,]>(AttributeArg::parse)?
-                    .into_iter()
-                    .collect();
-                Ok(VecWrapper(content))
+pub struct FieldAttributes {
+    pub src: TokenStream,
+    pub kind: FieldAttributeKind,
+}
+pub enum FieldAttributeKind {
+    Default(Option<syn::Expr>),
+    Map {
+        mapper: syn::ExprClosure,
+        ty: syn::Type,
+    },
+}
+
+impl FieldAttributes {
+    pub fn from_attributes(attrs: Vec<syn::Attribute>) -> Result<Option<Self>> {
+        let mut ret = None;
+        for attr in attrs {
+            if !attr.path.is_ident("sscanf") {
+                continue;
             }
-        }
-        let list = attr.parse_args::<VecWrapper>()?.0;
-        let mut ret = AttributeArgMap::new();
-        let mut error = Error::builder();
-        for option in list {
-            let name = option.name.to_string();
-            if let Some(existing) = ret.get(&name) {
-                let msg = format!("duplicate attribute arg: {}", name);
-                error.with_spanned(&existing.src, &msg); // checked in tests/fail/derive_field_attributes.rs
-                error.with_spanned(&option.src, &msg); // checked in tests/fail/derive_field_attributes.rs
+            if attr.tokens.is_empty() {
+                continue;
             }
-            ret.insert(name, option);
+            if ret.is_some() {
+                let msg = "fields can only have one `sscanf` attribute";
+                return Error::err_spanned(attr, msg);
+            }
+            ret = Some(attr.parse_args::<Self>()?);
         }
-        error.ok_or_build()?;
         Ok(ret)
     }
 }
 
-pub struct DefaultAttribute {
-    pub src: TokenStream,
-    pub value: Option<Expr>,
-    ty_span: FullSpan,
-}
-
-impl DefaultAttribute {
-    pub fn new(arg: AttributeArg, ty: &syn::Type) -> Self {
-        Self {
-            src: arg.src,
-            value: arg.value,
-            ty_span: FullSpan::from_spanned(ty),
+impl Parse for FieldAttributes {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        if input.peek(syn::LitStr) {
+            let token = input.parse::<syn::LitStr>()?;
+            let msg = "format string specified on a field, but only structs and struct variants can have format strings";
+            return Err(syn::Error::new_spanned(token, msg));
         }
-    }
-}
 
-impl ToTokens for DefaultAttribute {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        if let Some(expr) = &self.value {
-            expr.to_tokens(tokens);
-        } else {
-            self.ty_span
-                .apply(quote! { ::std::default::Default }, quote! { ::default() })
-                .to_tokens(tokens);
-        }
-    }
-}
+        let mut src = TokenStream::new();
 
-pub struct MapperAttribute {
-    pub src: TokenStream,
-    pub mapper: syn::ExprClosure,
-    pub ty: syn::Type,
-}
-
-impl std::convert::TryFrom<AttributeArg> for MapperAttribute {
-    type Error = Error;
-    fn try_from(arg: AttributeArg) -> Result<Self> {
-        let mapper = match arg.value {
-            Some(Expr::Closure(closure)) => closure,
-            Some(expr) => {
-                let msg = "expected closure expression for `map`";
-                return Error::err_spanned(expr, msg); // checked in tests/fail/derive_field_attributes.rs
-            }
-            None => {
-                let msg = "expected closure expression for `map`";
-                return Error::err_spanned(arg.src, msg); // checked in tests/fail/derive_field_attributes.rs
-            }
-        };
-
-        let param = match mapper.inputs.len() {
-            1 => mapper.inputs.first().unwrap(),
-            0 => {
-                let msg = "expected `map` closure to take exactly one argument";
-                let mut span_src = mapper.or1_token.to_token_stream();
-                mapper.or2_token.to_tokens(&mut span_src);
-                return Error::err_spanned(span_src, msg); // checked in tests/fail/derive_field_attributes.rs
-            }
-            _ => {
-                let msg = "expected `map` closure to take exactly one argument";
-                let mut span_src = TokenStream::new();
-                for param in mapper.inputs.pairs().skip(1) {
-                    param.to_tokens(&mut span_src);
+        let ident = input.parse::<syn::Ident>()?;
+        ident.to_tokens(&mut src);
+        let kind = match ident.to_string().as_str() {
+            "default" => {
+                if input.is_empty() {
+                    FieldAttributeKind::Default(None)
+                } else {
+                    let eq_sign = input.parse::<syn::Token![=]>()?;
+                    eq_sign.to_tokens(&mut src);
+                    if input.is_empty() {
+                        let msg = "expected an expression after `=`";
+                        return Err(syn::Error::new_spanned(eq_sign, msg));
+                    }
+                    let expr = input.parse::<syn::Expr>()?;
+                    expr.to_tokens(&mut src);
+                    FieldAttributeKind::Default(Some(expr))
                 }
-                return Error::err_spanned(span_src, msg); // checked in tests/fail/derive_field_attributes.rs
+            }
+            "map" => {
+                if input.is_empty() {
+                    let msg = "format for map attributes is `#[sscanf(map = |<arg>: <type>| <conversion>`)]";
+                    return Err(syn::Error::new_spanned(ident, msg));
+                }
+                let eq_sign = input.parse::<syn::Token![=]>()?;
+                eq_sign.to_tokens(&mut src);
+                if input.is_empty() {
+                    let msg = "map attribute expects a closure like `|<arg>: <type>| <conversion>` after `=`";
+                    return Err(syn::Error::new_spanned(eq_sign, msg));
+                }
+
+                if !input.peek(Token![|]) {
+                    let tokens = input.parse::<TokenStream>()?;
+                    let msg = "map attribute expects a closure like `|<arg>: <type>| <conversion>` after `=`";
+                    return Err(syn::Error::new_spanned(tokens, msg));
+                }
+
+                let mapper = input.parse::<syn::ExprClosure>()?;
+                mapper.to_tokens(&mut src);
+
+                let param = if mapper.inputs.len() == 1 {
+                    mapper.inputs.first().unwrap()
+                } else {
+                    let msg = "expected `map` closure to take exactly one argument";
+                    let mut span_src = TokenStream::new();
+                    for param in mapper.inputs.pairs().skip(1) {
+                        param.to_tokens(&mut span_src);
+                    }
+                    if span_src.is_empty() {
+                        // no arguments were given => point to the empty `||`
+                        mapper.or1_token.to_tokens(&mut span_src);
+                        mapper.or2_token.to_tokens(&mut span_src);
+                    }
+                    return Err(syn::Error::new_spanned(span_src, msg)); // checked in tests/fail/derive_field_attributes.rs
+                };
+
+                let ty = if let syn::Pat::Type(ty) = param {
+                    (*ty.ty).clone()
+                } else {
+                    let msg = "`map` closure has to specify the type of the argument";
+                    return Err(syn::Error::new_spanned(param, msg)); // checked in tests/fail/derive_field_attributes.rs
+                };
+
+                FieldAttributeKind::Map { mapper, ty }
+            }
+            "format" | "format_unescaped" => {
+                let msg = "format strings can only be specified on structs and struct variants, not fields";
+                return Err(syn::Error::new_spanned(ident, msg));
+            }
+            s => {
+                let msg = if let Some(did_you_mean) = find_similar(s, &["default", "map"]) {
+                    format!(
+                        "unknown attribute `{}`. Did you mean `{}`?",
+                        s, did_you_mean
+                    )
+                } else {
+                    format!("expected either `default` or `map`, got `{}`", s)
+                };
+                return Err(syn::Error::new_spanned(ident, msg));
             }
         };
 
-        let ty = if let syn::Pat::Type(ty) = param {
-            (*ty.ty).clone()
-        } else {
-            let msg = "`map` closure has to specify the type of the argument";
-            return Error::err_spanned(param, msg); // checked in tests/fail/derive_field_attributes.rs
-        };
+        let remaining = input.parse::<TokenStream>()?;
+        if !remaining.is_empty() {
+            let msg = "unrecognized arguments";
+            return Err(syn::Error::new_spanned(remaining, msg));
+        }
 
-        Ok(Self {
-            src: arg.src,
-            mapper,
-            ty,
-        })
+        Ok(FieldAttributes { src, kind })
     }
 }
 
-impl ToTokens for MapperAttribute {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        self.mapper.to_tokens(tokens);
+fn find_similar<'a>(s: &str, compare: &[&'a str]) -> Option<&'a str> {
+    let mut best_confidence = 0.0;
+    let mut best_match = None;
+    for valid in compare {
+        let confidence = strsim::jaro_winkler(s, valid);
+        if confidence > best_confidence {
+            best_confidence = confidence;
+            best_match = Some(*valid);
+        }
+    }
+    if best_confidence > 0.8 {
+        best_match
+    } else {
+        None
     }
 }

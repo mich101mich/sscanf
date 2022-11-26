@@ -19,8 +19,13 @@
 // TODO: multiline format strings
 // TODO: check for option in derive
 // TODO: #[sscanf(filter_map = ...)]
-// TODO: enum derive
+// TODO: comparison to other crates
 // TODO: tests for generics, lifetimes, where clauses, etc
+// TODO: enum tests
+// TODO: enum docs
+// TODO: derive docs about generics
+// TODO: derive docs about {CustomType:/.../} not working
+// TODO: new attribute features tests: fuzzy, optional format
 #![doc = include_str!("../Readme.md")]
 //! # A Note on Compiler Errors
 //!

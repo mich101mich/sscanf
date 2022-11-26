@@ -1,11 +1,9 @@
 use std::fmt::Write;
 
 use proc_macro2::{Literal, Span};
-use quote::ToTokens;
-use syn::{parse::ParseBuffer, LitStr};
 use unicode_width::UnicodeWidthStr;
 
-use crate::{Error, Result};
+use crate::*;
 
 /// A wrapper around a string literal
 pub struct StrLit {
@@ -14,7 +12,7 @@ pub struct StrLit {
 }
 
 impl StrLit {
-    pub fn new(input: LitStr) -> Self {
+    pub fn new(input: syn::LitStr) -> Self {
         // the full string with any ", r", r#", ... prefix and suffix
         let text = input.to_token_stream().to_string();
 
@@ -159,8 +157,8 @@ impl<'a> StrLitSlice<'a> {
     }
 }
 
-impl syn::parse::Parse for StrLit {
-    fn parse(input: &ParseBuffer<'_>) -> syn::Result<Self> {
+impl Parse for StrLit {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
         input.parse().map(Self::new)
     }
 }

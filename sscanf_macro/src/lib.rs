@@ -1,13 +1,12 @@
 //! Crate with proc_macros for [sscanf](https://crates.io/crates/sscanf). Not usable as a standalone crate.
 
 use proc_macro::TokenStream as TokenStream1;
-use proc_macro2::{Span, TokenStream};
-use quote::{quote, ToTokens};
-use syn::{
+pub(crate) use proc_macro2::{Span, TokenStream};
+pub(crate) use quote::{quote, ToTokens};
+pub(crate) use syn::{
     parse::{Parse, ParseStream},
-    parse_macro_input,
     spanned::Spanned,
-    DeriveInput, Expr, Path, Token, Type, TypePath,
+    Token,
 };
 
 mod attributes;
@@ -33,12 +32,12 @@ struct ScanfInner {
     /// the format string
     fmt: StrLit,
     /// Types after the format string
-    type_tokens: Vec<Path>,
+    type_tokens: Vec<syn::Path>,
 }
 /// Input string, format string and types for sscanf and sscanf_unescaped
 struct Scanf {
     /// input to run the sscanf on
-    src_str: Expr,
+    src_str: syn::Expr,
     /// format string and types
     inner: ScanfInner,
 }
@@ -58,7 +57,7 @@ impl Parse for ScanfInner {
             input.parse::<Token![,]>()?; // the comma after the format string
 
             input
-                .parse_terminated::<_, Token![,]>(Path::parse)?
+                .parse_terminated::<_, Token![,]>(syn::Path::parse)?
                 .into_iter()
                 .collect()
         };
@@ -105,19 +104,19 @@ impl Parse for Scanf {
 
 #[proc_macro]
 pub fn sscanf(input: TokenStream1) -> TokenStream1 {
-    let input = parse_macro_input!(input as Scanf);
+    let input = syn::parse_macro_input!(input as Scanf);
     sscanf_internal(input, true)
 }
 
 #[proc_macro]
 pub fn sscanf_unescaped(input: TokenStream1) -> TokenStream1 {
-    let input = parse_macro_input!(input as Scanf);
+    let input = syn::parse_macro_input!(input as Scanf);
     sscanf_internal(input, false)
 }
 
 #[proc_macro]
 pub fn sscanf_get_regex(input: TokenStream1) -> TokenStream1 {
-    let input = parse_macro_input!(input as ScanfInner);
+    let input = syn::parse_macro_input!(input as ScanfInner);
     let (regex, _) = match generate_regex(input, true) {
         Ok(v) => v,
         Err(e) => return e.into(),
@@ -131,19 +130,16 @@ pub fn sscanf_get_regex(input: TokenStream1) -> TokenStream1 {
 
 #[proc_macro_derive(FromScanf, attributes(sscanf))]
 pub fn derive_from_sscanf(input: TokenStream1) -> TokenStream1 {
-    let input = parse_macro_input!(input as DeriveInput);
+    let input = syn::parse_macro_input!(input as syn::DeriveInput);
 
     let ident = input.ident;
     let generics = input.generics;
-    let attr = match derive::find_attr(input.attrs) {
-        Ok(v) => v,
-        Err(e) => return e.into(),
-    };
+    let attrs = input.attrs;
 
     let res = match input.data {
-        syn::Data::Struct(data) => derive::parse_struct(ident, generics, attr, data),
-        syn::Data::Enum(data) => derive::parse_enum(ident, generics, attr, data),
-        syn::Data::Union(data) => derive::parse_union(ident, generics, attr, data),
+        syn::Data::Struct(data) => derive::parse_struct(ident, generics, attrs, data),
+        syn::Data::Enum(data) => derive::parse_enum(ident, generics, attrs, data),
+        syn::Data::Union(data) => derive::parse_union(ident, generics, attrs, data),
     };
     match res {
         Ok(res) => res.into(),
@@ -204,14 +200,14 @@ fn generate_regex(input: ScanfInner, escape_input: bool) -> Result<(TokenStream,
     let external_types = input
         .type_tokens
         .into_iter()
-        .map(|path| Type::Path(TypePath { qself: None, path }))
+        .map(|path| syn::Type::Path(syn::TypePath { qself: None, path }))
         .collect::<Vec<_>>();
 
     fn to_type_source<'a>(
         ph: &Placeholder<'a>,
         visited: &mut [bool],
         ph_index: &mut usize,
-        external_types: &[Type],
+        external_types: &[syn::Type],
     ) -> Result<TypeSource<'a>> {
         let ty_source = if let Some(name) = ph.ident.as_ref() {
             if let Ok(n) = name.text().parse::<usize>() {
@@ -304,7 +300,7 @@ impl TokenStreamExt for TokenStream {
     }
 }
 
-fn to_type(src: &StrLitSlice) -> Result<Type> {
+fn to_type(src: &StrLitSlice) -> Result<syn::Type> {
     // dirty hack #493: a type in a string needs to be converted to a Type token, because quote
     // would surround a String with '"', and we don't want that. And we can't change that
     // other than changing the type of the variable.
@@ -312,17 +308,17 @@ fn to_type(src: &StrLitSlice) -> Result<Type> {
     // The alternative would be to construct the Path ourselves, but path has _way_ too
     // many parts to it with variable stuff and incomplete constructors, that's too
     // much work.
-    let catcher = || -> syn::Result<Type> {
+    let catcher = || -> syn::Result<syn::Type> {
         let span = src.span();
         let mut tokens = src.text().parse::<TokenStream>()?;
         tokens.set_span(span);
-        let path = syn::parse2::<Path>(tokens)?;
+        let path = syn::parse2::<syn::Path>(tokens)?;
 
         // we don't parse directly to a Type to give better error messages:
         // Path says "expected identifier"
         // Type says "expected one of: `for`, parentheses, `fn`, `unsafe`, ..."
         // because syn::Type contains too many other variants.
-        Ok(Type::Path(TypePath { qself: None, path }))
+        Ok(syn::Type::Path(syn::TypePath { qself: None, path }))
     };
     catcher().map_err(|err| {
         let hint =  "The syntax for placeholders is {<type>} or {<type>:<config>}. Make sure <type> is a valid type or index.";

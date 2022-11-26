@@ -17,7 +17,7 @@ use crate::*;
 pub struct FullSpan(Span, Span);
 
 impl FullSpan {
-    pub fn from_spanned<T: ToTokens + Spanned>(span: &T) -> Self {
+    pub fn from_spanned<T: ToTokens + syn::spanned::Spanned>(span: &T) -> Self {
         let start = span.span();
         let end = span
             .to_token_stream()
@@ -64,7 +64,7 @@ impl<'a> TypeSource<'a> {
 #[derive(Clone)]
 pub enum NumCaptures {
     One,
-    FromType(Type, FullSpan),
+    FromType(syn::Type, FullSpan),
 }
 
 impl ToTokens for NumCaptures {
@@ -81,7 +81,7 @@ impl ToTokens for NumCaptures {
 
 pub enum RegexPart {
     Literal(String),
-    FromType(Type, FullSpan),
+    FromType(syn::Type, FullSpan),
     Custom(String),
 }
 
@@ -109,7 +109,7 @@ impl ToTokens for RegexPart {
 
 pub enum Converter {
     Str,
-    FromType(Type, FullSpan),
+    FromType(syn::Type, FullSpan),
     Custom(TokenStream),
 }
 
@@ -140,7 +140,7 @@ impl ToTokens for Converter {
 }
 
 pub struct Matcher {
-    pub ty: Type,
+    pub ty: syn::Type,
     pub num_captures: NumCaptures,
     pub converter: Converter,
 }
