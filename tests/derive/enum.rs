@@ -50,3 +50,19 @@ fn order() {
     assert_eq!(whole, Number::Whole(5));
     assert_eq!(fraction, Number::Fraction(-1, 2));
 }
+
+#[test]
+fn not_constructible() {
+    #[allow(dead_code)]
+    #[derive(FromScanf, Debug, PartialEq)]
+    enum Number {
+        #[sscanf(format = "0")]
+        Zero,
+        Whole(isize),
+        Fraction(isize, usize),
+    }
+
+    assert_eq!(sscanf!("0", "{Number}").unwrap(), Number::Zero);
+    assert!(sscanf!("5", "{Number}").is_err());
+    assert!(sscanf!("-1/2", "{Number}").is_err());
+}

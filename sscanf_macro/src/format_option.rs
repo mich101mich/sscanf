@@ -97,7 +97,7 @@ impl<'a> FormatOption<'a> {
                 match regex_syntax::Parser::new().parse(&regex) {
                     Ok(hir) => {
                         if contains_capture_group(&hir) {
-                            let msg = "custom regex can't contain capture groups '(...)'.
+                            let msg = "custom regex cannot contain capture groups '(...)'.
 Either make them non-capturing by adding '?:' after the '(' or remove/escape the '(' and ')'";
                             return src.err(msg);
                         }

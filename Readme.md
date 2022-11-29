@@ -158,6 +158,9 @@ Note: If you use any unescaped ( ) in your regex, you have to prevent them from 
 group by adding a `?:` at the beginning: `{:/..(..)../}` becomes `{:/..(?:..)../}`. This won't
 change their functionality in any way, but is necessary for `sscanf`'s parsing process to work.
 
+This also means that custom regexes cannot be used on custom types that [`derive FromScanf`](https://docs.rs/sscanf/^0.4.0-alpha/sscanf/derive.FromScanf.html)
+since those rely on having an exact number of capture groups inside of their regex.
+
 **Radix Options:**
 
 Only work on primitive integer types (`u8`, ..., `u128`, `i8`, ..., `i128`, `usize`, `isize`).
@@ -205,7 +208,8 @@ let parsed = sscanf!(input, "color: {Color}").unwrap();
 assert!(matches!(parsed, Color { r: 0xff, g: 0x00, b: 0xcc }));
 ```
 
-More details can be found in the [`FromScanf documentation`](https://docs.rs/sscanf/^0.4.0-alpha/sscanf/trait.FromScanf.html)
+More details can be found in the [`FromScanf` documentation](https://docs.rs/sscanf/^0.4.0-alpha/sscanf/trait.FromScanf.html)
+and the [`derive` documentation](https://docs.rs/sscanf/^0.4.0-alpha/sscanf/derive.FromScanf.html)
 
 # License
 Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or

@@ -5,7 +5,7 @@ use crate::*;
 
 /// A workaround for Spans on stable Rust.
 ///
-/// Span manipulation doesn't work on stable Rust, which also means that spans can't be joined
+/// Span manipulation doesn't work on stable Rust, which also means that spans cannot be joined
 /// together. This means that any compiler errors that occur would only point at the first token
 /// of the spanned expression, which is not very helpful.
 ///
@@ -90,7 +90,7 @@ impl ToTokens for RegexPart {
         match self {
             RegexPart::Literal(literal) => tokens.extend(quote! { #literal }),
             RegexPart::FromType(ty, span) => {
-                // proc_macros don't have any type information, so we can't check if the type
+                // proc_macros don't have any type information, so we cannot check if the type
                 // implements the trait, so we wrap it in this verbose <#ty as Trait> code,
                 // so that the compiler can check if the trait is implemented, and, most importantly,
                 // tell the user if they forgot to implement the trait.

@@ -211,7 +211,28 @@ fn lifetime_static() {
 }
 
 #[test]
-fn generics() {
+fn generic_from_scanf() {
+    #[derive(FromScanf, Debug, PartialEq)]
+    #[sscanf(format = "({name},{age},{data:/[a-z]+/})")]
+    struct Person<T>
+    where
+        T: for<'a> FromScanf<'a>,
+    {
+        name: String,
+        age: u8,
+        data: T,
+    }
+
+    let input = "Hi, I'm (Bob,42,here)!";
+    let bob = sscanf!(input, "Hi, I'm {Person<String>}!").unwrap();
+
+    assert_eq!(bob.name, "Bob");
+    assert_eq!(bob.age, 42);
+    assert_eq!(bob.data, "here");
+}
+
+#[test]
+fn generic_from_str() {
     use std::str::FromStr;
 
     #[derive(FromScanf, Debug, PartialEq)]
@@ -232,4 +253,23 @@ fn generics() {
     assert_eq!(bob.name, "Bob");
     assert_eq!(bob.age, 42);
     assert_eq!(bob.data, "here");
+}
+
+#[test]
+fn generic_default() {
+    #[derive(FromScanf, Debug, PartialEq)]
+    #[sscanf(format = "({name},{age})")]
+    struct Person<T: Default> {
+        name: String,
+        age: u8,
+        #[sscanf(default)]
+        data: T,
+    }
+
+    let input = "Hi, I'm (Bob,42)!";
+    let bob = sscanf!(input, "Hi, I'm {Person<String>}!").unwrap();
+
+    assert_eq!(bob.name, "Bob");
+    assert_eq!(bob.age, 42);
+    assert_eq!(bob.data, "");
 }

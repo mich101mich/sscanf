@@ -147,9 +147,11 @@ pub use sscanf_macro::sscanf_unescaped as scanf_unescaped;
 /// ## For structs
 /// ```ignore
 /// #[derive(sscanf::FromScanf)]
-/// #[sscanf(format = "<format>")]
-/// struct MyStruct {
-///     <field>: <type>, // requires <type>: FromScanf
+/// #[sscanf(format = "<format>")] // format string. has to contain placeholders for all
+/// struct MyStruct {              // non-default fields: {<field>}, {<field_2>}, {<field_with_conversion>}
+///
+///     <field>: <type>, // requires <type>: FromScanf (implemented for all primitive types
+///                      // and several others from std)
 ///
 ///     <field_2>: <type_2>, // requires <type_2>: FromScanf
 ///
@@ -158,10 +160,10 @@ pub use sscanf_macro::sscanf_unescaped as scanf_unescaped;
 ///     // possible attributes on fields:
 ///
 ///     #[sscanf(default)]
-///     <field_with_default>: <type>, // requires <type>: Default
+///     <field_with_default>: <type>, // requires <type>: Default, but doesn't need FromScanf
 ///
 ///     #[sscanf(default = <expression>)] // accepts any expression that returns <type>
-///     <field_with_custom_default>: <type>,
+///     <field_with_custom_default>: <type>, // no traits required.
 ///
 ///     #[sscanf(map = |input: <matched_type>| { <conversion from <matched_type> to <actual_type>> })]
 ///     <field_with_conversion>: <actual_type>, // requires <matched_type>: FromScanf
@@ -169,7 +171,7 @@ pub use sscanf_macro::sscanf_unescaped as scanf_unescaped;
 ///
 /// // tuple structs have the same capabilities, just without field names:
 /// #[derive(sscanf::FromScanf)]
-/// #[sscanf(format = "<format>")]
+/// #[sscanf(format = "<format>")] // format string references fields by index: {0}, ...
 /// struct MyTupleStruct(<type>, #[sscanf(default)] <type>, ...);
 /// ```
 ///
@@ -197,4 +199,80 @@ pub use sscanf_macro::sscanf_unescaped as scanf_unescaped;
 /// The types of the used fields of their matching types have to implement [`FromScanf`](crate::FromScanf)
 /// and either [`RegexRepresentation`](crate::RegexRepresentation) or have a `{<field>:/<regex>/}`
 /// placeholder.
+///
+/// ## For enums
+/// ```ignore
+/// #[derive(sscanf::FromScanf)]
+/// enum MyEnum {
+///     #[sscanf(format = "<format>")] // has to contain `{<field>}` and any other fields
+///     Variant1 {
+///         <field>: <type>, // requires <type>: FromScanf
+///
+///         #[sscanf(default)]
+///         <field_with_default>: <type2>, // requires <type2>: Default
+///
+///         // ... (same as for structs)
+///     },
+///
+///     #[sscanf("<format>")] // the `format = ` part can be omitted
+///     Variant2(<type>, #[sscanf(default)] <type2>),
+///
+///     #[sscanf("<format>")] // variant has no fields => no placeholders in format string
+///     Variant3,
+///
+///     Variant4, // this variant won't be constructed by sscanf
+/// }
+/// ```
+/// An enum takes multiple format strings, one for each variant. The value returned from `sscanf`
+/// is constructed from the variant that matched the input. If multiple variants match, the first
+/// one in the enum definition is used. No variant matching means the entire enum won't match.
+///
+/// The requirements for a format string on a variant are identical to those for a struct: Each
+/// field of the variant, that is not annotated with `default`, must appear exactly once in the
+/// format string. This means that the format string for `Variant1` must contain `<field>`,
+/// the format string for `Variant2` must contain `{0}` or `{}` and the format string for
+/// `Variant3` has no placeholders.
+///
+/// Any variants that don't have a format string (like `Variant4` in the example above) won't be
+/// constructed by `sscanf`.
+///
+/// ## A note on Generics
+/// Any lifetime parameters will be carried over. Any type `&'a str` will contain a borrow of the
+/// input string, with an appropriate lifetime.
+///
+/// As for type generics: [`RegexRepresentation`](crate::RegexRepresentation) cannot be implemented
+/// for generic types, since the contained associated `const` is only created once by Rust for all
+/// generic instances, meaning that different regexes for different `T` are not possible. This
+/// also means that deriving `FromScanf` for a struct that wants to match a generic field without
+/// a `map` or `default` attribute will generally fail. The only possibilities are:
+/// ```
+/// #[derive(sscanf::FromScanf)]
+/// #[sscanf(format = "...{field:/<regex>/}...")]
+/// struct MyGenericStruct<T>
+/// where
+///     T: std::str::FromStr + 'static,
+///     <T as std::str::FromStr>::Err: std::error::Error + 'static,
+/// {
+///     field: T,
+/// }
+///
+/// let input = "...<regex>...";
+/// let res = sscanf::sscanf!(input, "{MyGenericStruct<String>}").unwrap();
+/// assert_eq!(res.field, String::from("<regex>"));
+/// ```
+/// There are two important things in this example:
+/// 1. Since `RegexRepresentation` cannot be used, every occurrence of generic fields in the format
+///    string have to have a regex (`{:/.../}) attached to them.
+/// 2. The type bounds on `T` have to contain all of those exact bounds.
+///
+/// Any `T` has to be constructed by [`FromStr`](std::str::FromStr) from what is matched by the
+/// specified regex, making this setup virtually useless for all but a few selected types. Since
+/// the generic parameter has to be specified in the actual `sscanf` call, it is usually better
+/// to just use a concrete type in the struct itself.
+///
+/// It is possible to have `T` directly require `FromScanf` like this: `T: for<'a> FromScanf<'a>`.
+/// However, since `FromScanf` implementations usually rely on capture groups inside of their regex,
+/// this would require also having the exact same capture groups in the format string, which is
+/// currently not possible. Implementations that don't rely on capture groups are usually those
+/// that were blanket-implemented based on their `FromStr` implementation.
 pub use sscanf_macro::FromScanf;

@@ -191,7 +191,7 @@ use crate::FromStrFailedError;
 ///
 /// let parsed;
 /// {
-///     let input = String::from("John Doe");
+///     let input = String::from("John Doe"); // owned string
 ///     parsed = sscanf::sscanf!(input, "{Name}").unwrap();
 ///     // input is dropped here
 /// }

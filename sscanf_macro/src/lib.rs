@@ -92,7 +92,7 @@ impl Parse for Scanf {
         if input.is_empty() {
             // Addition to the comment above: here we actually have a comma to point to to say:
             // "Hey, you put a comma here, put something after it". syn doesn't do this
-            // because it can't rewind the input stream to check this.
+            // because it cannot rewind the input stream to check this.
             let msg = "At least 2 Parameters required: Missing format string";
             return Err(syn::Error::new_spanned(comma, msg)); // checked in tests/fail/missing_params.rs
         }
@@ -302,7 +302,7 @@ impl TokenStreamExt for TokenStream {
 
 fn to_type(src: &StrLitSlice) -> Result<syn::Type> {
     // dirty hack #493: a type in a string needs to be converted to a Type token, because quote
-    // would surround a String with '"', and we don't want that. And we can't change that
+    // would surround a String with '"', and we don't want that. And we cannot change that
     // other than changing the type of the variable.
     // So we parse from String to TokenStream, then parse from TokenStream to Path.
     // The alternative would be to construct the Path ourselves, but path has _way_ too
