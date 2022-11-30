@@ -1,6 +1,6 @@
 if "%DOC_OPEN%"=="" (
+    cargo +nightly doc --open
     set DOC_OPEN="yes"
-    cargo +nightly doc --no-deps --open
 ) else (
-    cargo +nightly doc --no-deps
+    cargo +nightly doc
 )

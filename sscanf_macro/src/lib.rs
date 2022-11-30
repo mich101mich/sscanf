@@ -1,13 +1,12 @@
 //! Crate with proc_macros for [sscanf](https://crates.io/crates/sscanf). Not usable as a standalone crate.
 
 use proc_macro::TokenStream as TokenStream1;
-use proc_macro2::{Span, TokenStream};
-use quote::{quote, ToTokens};
-use syn::{
+pub(crate) use proc_macro2::{Span, TokenStream};
+pub(crate) use quote::{quote, ToTokens};
+pub(crate) use syn::{
     parse::{Parse, ParseStream},
-    parse_macro_input,
     spanned::Spanned,
-    DeriveInput, Expr, Path, Token, Type, TypePath,
+    Token,
 };
 
 mod attributes;
@@ -33,12 +32,12 @@ struct ScanfInner {
     /// the format string
     fmt: StrLit,
     /// Types after the format string
-    type_tokens: Vec<Path>,
+    type_tokens: Vec<syn::Path>,
 }
 /// Input string, format string and types for sscanf and sscanf_unescaped
 struct Scanf {
     /// input to run the sscanf on
-    src_str: Expr,
+    src_str: syn::Expr,
     /// format string and types
     inner: ScanfInner,
 }
@@ -46,7 +45,7 @@ struct Scanf {
 impl Parse for ScanfInner {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         if input.is_empty() {
-            let msg = "Missing parameter: format string";
+            let msg = "missing parameter: format string";
             return Err(syn::Error::new(Span::call_site(), msg)); // checked in tests/fail/missing_params.rs
         }
 
@@ -58,7 +57,7 @@ impl Parse for ScanfInner {
             input.parse::<Token![,]>()?; // the comma after the format string
 
             input
-                .parse_terminated::<_, Token![,]>(Path::parse)?
+                .parse_terminated::<_, Token![,]>(syn::Path::parse)?
                 .into_iter()
                 .collect()
         };
@@ -81,20 +80,20 @@ impl Parse for Scanf {
             // was expected, but since there is nothing there it has no span to point to so it
             // just points at the entire thing."
             // I love writing error messages in proc macros :D (not)
-            let msg = "At least 2 Parameters required: Input and format string";
+            let msg = "at least 2 Parameters required: Input and format string";
             return Err(syn::Error::new(Span::call_site(), msg)); // checked in tests/fail/missing_params.rs
         }
         let src_str = input.parse()?;
         if input.is_empty() {
-            let msg = "At least 2 Parameters required: Missing format string";
+            let msg = "at least 2 Parameters required: Missing format string";
             return Err(syn::Error::new_spanned(src_str, msg)); // checked in tests/fail/missing_params.rs
         }
         let comma = input.parse::<Token![,]>()?;
         if input.is_empty() {
             // Addition to the comment above: here we actually have a comma to point to to say:
             // "Hey, you put a comma here, put something after it". syn doesn't do this
-            // because it can't rewind the input stream to check this.
-            let msg = "At least 2 Parameters required: Missing format string";
+            // because it cannot rewind the input stream to check this.
+            let msg = "at least 2 Parameters required: Missing format string";
             return Err(syn::Error::new_spanned(comma, msg)); // checked in tests/fail/missing_params.rs
         }
         let inner = input.parse()?;
@@ -105,19 +104,19 @@ impl Parse for Scanf {
 
 #[proc_macro]
 pub fn sscanf(input: TokenStream1) -> TokenStream1 {
-    let input = parse_macro_input!(input as Scanf);
+    let input = syn::parse_macro_input!(input as Scanf);
     sscanf_internal(input, true)
 }
 
 #[proc_macro]
 pub fn sscanf_unescaped(input: TokenStream1) -> TokenStream1 {
-    let input = parse_macro_input!(input as Scanf);
+    let input = syn::parse_macro_input!(input as Scanf);
     sscanf_internal(input, false)
 }
 
 #[proc_macro]
 pub fn sscanf_get_regex(input: TokenStream1) -> TokenStream1 {
-    let input = parse_macro_input!(input as ScanfInner);
+    let input = syn::parse_macro_input!(input as ScanfInner);
     let (regex, _) = match generate_regex(input, true) {
         Ok(v) => v,
         Err(e) => return e.into(),
@@ -131,19 +130,16 @@ pub fn sscanf_get_regex(input: TokenStream1) -> TokenStream1 {
 
 #[proc_macro_derive(FromScanf, attributes(sscanf))]
 pub fn derive_from_sscanf(input: TokenStream1) -> TokenStream1 {
-    let input = parse_macro_input!(input as DeriveInput);
+    let input = syn::parse_macro_input!(input as syn::DeriveInput);
 
     let ident = input.ident;
     let generics = input.generics;
-    let attr = match derive::find_attr(input.attrs) {
-        Ok(v) => v,
-        Err(e) => return e.into(),
-    };
+    let attrs = input.attrs;
 
     let res = match input.data {
-        syn::Data::Struct(data) => derive::parse_struct(ident, generics, attr, data),
-        syn::Data::Enum(data) => derive::parse_enum(ident, generics, attr, data),
-        syn::Data::Union(data) => derive::parse_union(ident, generics, attr, data),
+        syn::Data::Struct(data) => derive::parse_struct(ident, generics, attrs, data),
+        syn::Data::Enum(data) => derive::parse_enum(ident, generics, attrs, data),
+        syn::Data::Union(data) => derive::parse_union(ident, generics, attrs, data),
     };
     match res {
         Ok(res) => res.into(),
@@ -178,16 +174,13 @@ fn sscanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
                     let src = &mut src;
                     src.next().unwrap(); // skip the whole match
 
-                    #[cfg(debug_assertions)]
-                    let mut len = src.len();
-
                     let mut matcher = || -> ::std::result::Result<_, ::std::boxed::Box<dyn ::std::error::Error>> {
                         ::std::result::Result::Ok( ( #(#matcher),* ) )
                     };
                     let res = matcher().map_err(|e| ::sscanf::Error::ParsingFailed(e));
 
                     if res.is_ok() && src.len() != 0 {
-                        panic!("{} captures generated, but {} were taken",
+                        panic!("sscanf: {} captures generated, but {} were taken",
                             REGEX.captures_len(), REGEX.captures_len() - src.len()
                         );
                     }
@@ -199,22 +192,21 @@ fn sscanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
 }
 
 fn generate_regex(input: ScanfInner, escape_input: bool) -> Result<(TokenStream, Vec<Matcher>)> {
-    let expect_lowercase_ident = false;
-    let mut format = FormatString::new(input.fmt.to_slice(), escape_input, expect_lowercase_ident)?;
+    let mut format = FormatString::new(input.fmt.to_slice(), escape_input)?;
     format.parts[0].insert(0, '^');
     format.parts.last_mut().unwrap().push('$');
 
     let external_types = input
         .type_tokens
         .into_iter()
-        .map(|path| Type::Path(TypePath { qself: None, path }))
+        .map(|path| syn::Type::Path(syn::TypePath { qself: None, path }))
         .collect::<Vec<_>>();
 
     fn to_type_source<'a>(
         ph: &Placeholder<'a>,
         visited: &mut [bool],
         ph_index: &mut usize,
-        external_types: &[Type],
+        external_types: &[syn::Type],
     ) -> Result<TypeSource<'a>> {
         let ty_source = if let Some(name) = ph.ident.as_ref() {
             if let Ok(n) = name.text().parse::<usize>() {
@@ -307,25 +299,25 @@ impl TokenStreamExt for TokenStream {
     }
 }
 
-fn to_type(src: &StrLitSlice) -> Result<Type> {
+fn to_type(src: &StrLitSlice) -> Result<syn::Type> {
     // dirty hack #493: a type in a string needs to be converted to a Type token, because quote
-    // would surround a String with '"', and we don't want that. And we can't change that
+    // would surround a String with '"', and we don't want that. And we cannot change that
     // other than changing the type of the variable.
     // So we parse from String to TokenStream, then parse from TokenStream to Path.
     // The alternative would be to construct the Path ourselves, but path has _way_ too
     // many parts to it with variable stuff and incomplete constructors, that's too
     // much work.
-    let catcher = || -> syn::Result<Type> {
+    let catcher = || -> syn::Result<syn::Type> {
         let span = src.span();
         let mut tokens = src.text().parse::<TokenStream>()?;
         tokens.set_span(span);
-        let path = syn::parse2::<Path>(tokens)?;
+        let path = syn::parse2::<syn::Path>(tokens)?;
 
         // we don't parse directly to a Type to give better error messages:
         // Path says "expected identifier"
         // Type says "expected one of: `for`, parentheses, `fn`, `unsafe`, ..."
         // because syn::Type contains too many other variants.
-        Ok(Type::Path(TypePath { qself: None, path }))
+        Ok(syn::Type::Path(syn::TypePath { qself: None, path }))
     };
     catcher().map_err(|err| {
         let hint =  "The syntax for placeholders is {<type>} or {<type>:<config>}. Make sure <type> is a valid type or index.";

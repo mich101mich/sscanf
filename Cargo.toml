@@ -1,18 +1,18 @@
 [package]
 name = "sscanf"
-version = "0.4.0-alpha"
+version = "0.4.0"
 authors = ["mich101mich <mich101mich@gmail.com>"]
 edition = "2018"
 description = "A sscanf (inverse of format!()) Macro based on Regex"
 repository = "https://github.com/mich101mich/sscanf"
 readme = "Readme.md"
-license = "MIT"
+license = "MIT OR Apache-2.0"
 keywords = ["parsing", "regex", "text", "string", "scanf"]
 categories = ["parsing"]
 exclude = ["/.vscode/*", "/.gitignore", "/.github/*", "/*.bat", "/*.sh"]
 
 [dependencies]
-sscanf_macro = { path = "sscanf_macro", version = "=0.4.0-alpha"}
+sscanf_macro = { path = "sscanf_macro", version = "=0.4.0"}
 regex = "1.6.0"
 const_format = "0.2.26"
 lazy_static = "1.4.0"

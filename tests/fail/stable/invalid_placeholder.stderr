@@ -46,7 +46,7 @@ error: format options cannot be empty. Consider removing the ':':
 7 |     sscanf::sscanf!("", "{:}}", str);
   |                         ^^^^^^
 
-error: Unexpected standalone '}'. Literal '}' need to be escaped as '}}':
+error: unexpected standalone '}'. Literal '}' need to be escaped as '}}':
        At "}"
            ^
  --> tests/fail/stable/invalid_placeholder.rs:8:25
@@ -54,7 +54,7 @@ error: Unexpected standalone '}'. Literal '}' need to be escaped as '}}':
 8 |     sscanf::sscanf!("", "}", str);
   |                         ^^^
 
-error: Unexpected standalone '}'. Literal '}' need to be escaped as '}}':
+error: unexpected standalone '}'. Literal '}' need to be escaped as '}}':
        At ":}"
             ^
  --> tests/fail/stable/invalid_placeholder.rs:9:25
@@ -62,10 +62,18 @@ error: Unexpected standalone '}'. Literal '}' need to be escaped as '}}':
 9 |     sscanf::sscanf!("", ":}", str);
   |                         ^^^^
 
-error: Unexpected standalone '}'. Literal '}' need to be escaped as '}}':
+error: unexpected standalone '}'. Literal '}' need to be escaped as '}}':
        At "{{:}"
               ^
   --> tests/fail/stable/invalid_placeholder.rs:10:25
    |
 10 |     sscanf::sscanf!("", "{{:}", str);
    |                         ^^^^^^
+
+error: missing `:` in front of custom regex. Write `{:/.*?/}` instead:
+       At "{/.*?/}"
+            ^^^^^
+  --> tests/fail/stable/invalid_placeholder.rs:11:25
+   |
+11 |     sscanf::sscanf!("", "{/.*?/}", str);
+   |                         ^^^^^^^^^

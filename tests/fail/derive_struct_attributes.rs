@@ -1,44 +1,88 @@
 #[derive(sscanf::FromScanf)]
-struct Test1;
+struct TestNoAttributes;
+
+#[derive(sscanf::FromScanf)]
+#[sscanf]
+struct TestEmptyAttribute;
+
+#[derive(sscanf::FromScanf)]
+#[sscanf()]
+struct TestEmptyAttribute2;
 
 #[derive(sscanf::FromScanf)]
 #[sscanf(format = "", format_unescaped = "")]
-struct Test3;
+struct TestTooManyAttributes;
+
+#[derive(sscanf::FromScanf)]
+#[sscanf(format = "")]
+#[sscanf(format = "")]
+struct TestMultipleAttributes;
+
+#[derive(sscanf::FromScanf)]
+#[sscanf(format = "")]
+#[sscanf(format_unescaped = "")]
+struct TestMultipleDifferentAttributes;
 
 #[derive(sscanf::FromScanf)]
 #[sscanf(format = "", bob = "")]
-struct Test4;
+struct TestInvalidAttribute;
+
+#[derive(sscanf::FromScanf)]
+#[sscanf(format = "")]
+#[sscanf(bob = "")]
+struct TestMultipleInvalidAttribute;
 
 #[derive(sscanf::FromScanf)]
 #[sscanf(format = "" bob = "")]
-struct Test5;
+struct TestMissingComma;
 
 #[derive(sscanf::FromScanf)]
 #[sscanf(format = 5)]
-struct Test6;
+struct TestFormatNotString;
 
 #[derive(sscanf::FromScanf)]
 #[sscanf(format =)]
-struct Test7;
+struct TestFormatMissingValue;
 
 #[derive(sscanf::FromScanf)]
 #[sscanf(format "")]
-struct Test8;
+struct TestFormatMissingEquals;
+
+#[derive(sscanf::FromScanf)]
+#[sscanf(format)]
+struct TestFormatJustIdent;
 
 #[derive(sscanf::FromScanf)]
 #[sscanf(= "")]
-struct Test9;
+struct TestFormatMissingName;
 
 #[derive(sscanf::FromScanf)]
 #[sscanf(default)]
-struct Test11;
+struct TestDefaultOnStruct;
 
 #[derive(sscanf::FromScanf)]
 #[sscanf(default = "")]
-struct Test10;
+struct TestDefaultWithValueOnStruct;
 
 #[derive(sscanf::FromScanf)]
-#[sscanf(map = |x: usize| { x })]
-struct Test12;
+#[sscanf(bob)]
+struct TestInvalidIdent;
+
+#[derive(sscanf::FromScanf)]
+#[sscanf(formt)]
+struct TestTypoInIdent;
+
+#[derive(sscanf::FromScanf)]
+#[sscanf(formad_unscabededd)]
+struct TestMoreTyposInIdent;
+
+// enum tests
+
+#[derive(sscanf::FromScanf)]
+#[sscanf(format = "")]
+enum TestEnumOuterFormat { A, B }
+
+#[derive(sscanf::FromScanf)]
+enum TestEnumNoFormat { A, B }
 
 fn main() {}

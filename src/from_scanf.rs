@@ -149,7 +149,7 @@ use crate::FromStrFailedError;
 /// #### Lifetime Parameter
 /// The lifetime parameter of `FromScanf` is the borrow from the input string given to `sscanf`.
 /// If your type borrows parts of that string, like `&str` does, you need to specify the lifetime
-/// parameter and match it with the _second_ lifetime parameter of [`regex::SubCaptureMatches`](https://docs.rs/regex/latest/regex/struct.SubCaptureMatches.html):
+/// parameter and match it with the _second_ lifetime parameter of [`regex::SubCaptureMatches`]:
 /// ```
 /// struct Name<'a, 'b> {
 ///     first: &'a str,
@@ -191,7 +191,7 @@ use crate::FromStrFailedError;
 ///
 /// let parsed;
 /// {
-///     let input = String::from("John Doe");
+///     let input = String::from("John Doe"); // owned string
 ///     parsed = sscanf::sscanf!(input, "{Name}").unwrap();
 ///     // input is dropped here
 /// }

@@ -14,16 +14,16 @@ use const_format::formatcp;
 ///
 /// A manual implementation of this trait is only necessary if you
 /// - want to use a custom Type that is not supported by default **AND**
-/// - can't use [`#[derive(FromScanf)]`](derive.FromScanf.html) on your Type
+/// - cannot use [`#[derive(FromScanf)]`](derive.FromScanf.html) on your Type
 ///
 /// Deriving [`FromScanf`](crate::FromScanf) will automatically implement this trait for your Type,
 /// and should be preferred in most cases.
 ///
 /// If you do need to implement this trait yourself, note the following:
-/// - The regex can't contain any capture groups (round brackets). If you need to use `( )` in your
+/// - The regex cannot contain any capture groups (round brackets). If you need to use `( )` in your
 ///  regex, use `(?: )` instead to make it non-capturing.
 /// - Using a raw string literal (`r"..."`) is recommended to avoid having to escape backslashes.
-/// - The [`const_format`](https://docs.rs/const_format) crate can be used to combine multiple
+/// - The [`const_format`] crate can be used to combine multiple
 /// strings into one, which is useful for complex regexes. This can also be used to combine the
 /// existing regex implementation of other types. `sscanf` internally uses `const_format` as well,
 /// so a version of it is re-exported under `sscanf::const_format`.

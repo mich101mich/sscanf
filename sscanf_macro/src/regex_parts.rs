@@ -5,7 +5,7 @@ use crate::*;
 
 /// A workaround for Spans on stable Rust.
 ///
-/// Span manipulation doesn't work on stable Rust, which also means that spans can't be joined
+/// Span manipulation doesn't work on stable Rust, which also means that spans cannot be joined
 /// together. This means that any compiler errors that occur would only point at the first token
 /// of the spanned expression, which is not very helpful.
 ///
@@ -17,7 +17,7 @@ use crate::*;
 pub struct FullSpan(Span, Span);
 
 impl FullSpan {
-    pub fn from_spanned<T: ToTokens + Spanned>(span: &T) -> Self {
+    pub fn from_spanned<T: ToTokens + syn::spanned::Spanned>(span: &T) -> Self {
         let start = span.span();
         let end = span
             .to_token_stream()
@@ -61,15 +61,16 @@ impl<'a> TypeSource<'a> {
     }
 }
 
+#[derive(Clone)]
 pub enum NumCaptures {
     One,
-    FromType(Type, FullSpan),
+    FromType(syn::Type, FullSpan),
 }
 
 impl ToTokens for NumCaptures {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match self {
-            NumCaptures::One => tokens.extend(quote!(1)),
+            NumCaptures::One => tokens.extend(quote! { 1 }),
             NumCaptures::FromType(ty, span) => tokens.extend(span.apply(
                 quote! { <#ty as },
                 quote! { ::sscanf::FromScanf>::NUM_CAPTURES },
@@ -80,7 +81,7 @@ impl ToTokens for NumCaptures {
 
 pub enum RegexPart {
     Literal(String),
-    FromType(Type, FullSpan),
+    FromType(syn::Type, FullSpan),
     Custom(String),
 }
 
@@ -89,7 +90,7 @@ impl ToTokens for RegexPart {
         match self {
             RegexPart::Literal(literal) => tokens.extend(quote! { #literal }),
             RegexPart::FromType(ty, span) => {
-                // proc_macros don't have any type information, so we can't check if the type
+                // proc_macros don't have any type information, so we cannot check if the type
                 // implements the trait, so we wrap it in this verbose <#ty as Trait> code,
                 // so that the compiler can check if the trait is implemented, and, most importantly,
                 // tell the user if they forgot to implement the trait.
@@ -108,7 +109,7 @@ impl ToTokens for RegexPart {
 
 pub enum Converter {
     Str,
-    FromType(Type, FullSpan),
+    FromType(syn::Type, FullSpan),
     Custom(TokenStream),
 }
 
@@ -139,7 +140,7 @@ impl ToTokens for Converter {
 }
 
 pub struct Matcher {
-    pub ty: Type,
+    pub ty: syn::Type,
     pub num_captures: NumCaptures,
     pub converter: Converter,
 }
@@ -151,18 +152,21 @@ impl ToTokens for Matcher {
         let converter = &self.converter;
         tokens.extend(quote! {
             {
+                #[cfg(debug_assertions)]
+                let start_len = src.len();
+
                 let value = #converter;
+
                 #[cfg(debug_assertions)]
                 {
-                    let n = len - src.len();
+                    let n = start_len - src.len();
                     let expected = #num_captures;
                     if n != expected {
                         panic!(
-                            "{}::NUM_CAPTURES = {} but {} were taken{}",
+                            "sscanf: {}::NUM_CAPTURES = {} but {} were taken{}",
                             stringify!(#ty), expected, n, ::sscanf::WRONG_CAPTURES_HINT
                         );
                     }
-                    len = src.len();
                 }
                 value
             }
@@ -183,10 +187,12 @@ impl RegexParts {
         }
     }
 
+    pub fn push_literal(&mut self, literal: impl Into<String>) {
+        self.regex_builder.push(RegexPart::Literal(literal.into()));
+    }
+
     pub fn new(format: &FormatString, type_sources: &[TypeSource]) -> Result<Self> {
         let mut ret = Self::empty();
-
-        let mut error = Error::builder();
 
         // if there are n types, there are n+1 regex_parts, so add the first n during this loop and
         // add the last one afterwards
@@ -196,7 +202,7 @@ impl RegexParts {
             .zip(format.placeholders.iter())
             .zip(type_sources)
         {
-            ret.regex_builder.push(RegexPart::Literal(part.clone()));
+            ret.push_literal(part);
 
             let ty = &ty_source.ty;
             let span = ty_source.full_span();
@@ -238,12 +244,10 @@ impl RegexParts {
             });
         }
 
-        error.ok_or_build()?;
-
         // add the last regex_part
         {
             let suffix = format.parts.last().unwrap();
-            ret.regex_builder.push(RegexPart::Literal(suffix.clone()));
+            ret.push_literal(suffix);
         }
 
         Ok(ret)
@@ -253,11 +257,15 @@ impl RegexParts {
         let regex_builder = &self.regex_builder;
         quote!(::sscanf::const_format::concatcp!( #(#regex_builder),* ))
     }
-    pub fn num_captures(&self) -> TokenStream {
-        let mut num_captures = vec![&NumCaptures::One]; // for the whole match
+    pub fn num_captures_list(&self) -> Vec<NumCaptures> {
+        let mut num_captures = vec![NumCaptures::One]; // for the whole match
         for matcher in &self.matchers {
-            num_captures.push(&matcher.num_captures);
+            num_captures.push(matcher.num_captures.clone());
         }
+        num_captures
+    }
+    pub fn num_captures(&self) -> TokenStream {
+        let num_captures = self.num_captures_list();
         quote! { #(#num_captures)+* }
     }
 }
@@ -270,7 +278,7 @@ fn regex_from_radix(
     let ty_string = ty_source.ty.to_token_stream().to_string();
 
     let num_digits_binary = binary_length(&ty_string).ok_or_else(|| {
-        let msg = "Radix options only work on primitive numbers from std with no path or alias";
+        let msg = "radix options only work on primitive numbers from std with no path or alias";
         ty_source.error(msg) // checked in tests/fail/<channel>/invalid_radix_option.rs
     })?;
 

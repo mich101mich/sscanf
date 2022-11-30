@@ -34,20 +34,26 @@ error: format options cannot be empty. Consider removing the ':'
 7 |     sscanf::sscanf!("", "{:}}", str);
   |                            ^
 
-error: Unexpected standalone '}'. Literal '}' need to be escaped as '}}'
+error: unexpected standalone '}'. Literal '}' need to be escaped as '}}'
  --> tests/fail/nightly/invalid_placeholder.rs:8:26
   |
 8 |     sscanf::sscanf!("", "}", str);
   |                          ^
 
-error: Unexpected standalone '}'. Literal '}' need to be escaped as '}}'
+error: unexpected standalone '}'. Literal '}' need to be escaped as '}}'
  --> tests/fail/nightly/invalid_placeholder.rs:9:27
   |
 9 |     sscanf::sscanf!("", ":}", str);
   |                           ^
 
-error: Unexpected standalone '}'. Literal '}' need to be escaped as '}}'
+error: unexpected standalone '}'. Literal '}' need to be escaped as '}}'
   --> tests/fail/nightly/invalid_placeholder.rs:10:29
    |
 10 |     sscanf::sscanf!("", "{{:}", str);
    |                             ^
+
+error: missing `:` in front of custom regex. Write `{:/.*?/}` instead
+  --> tests/fail/nightly/invalid_placeholder.rs:11:27
+   |
+11 |     sscanf::sscanf!("", "{/.*?/}", str);
+   |                           ^^^^^

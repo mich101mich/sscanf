@@ -16,7 +16,19 @@ struct TestFormatInField(#[sscanf(format = "")] u8);
 
 #[derive(sscanf::FromScanf)]
 #[sscanf(format = "")]
+struct TestImpliedFormatInField(#[sscanf("")] u8);
+
+#[derive(sscanf::FromScanf)]
+#[sscanf(format = "")]
 struct TestUnknownArg(#[sscanf(bob = 5)] u8);
+
+#[derive(sscanf::FromScanf)]
+#[sscanf(format = "")]
+struct TestTypoInArg(#[sscanf(mao)] u8);
+
+#[derive(sscanf::FromScanf)]
+#[sscanf(format = "")]
+struct TestMoreTyposInArg(#[sscanf(defold)] u8);
 
 #[derive(sscanf::FromScanf)]
 #[sscanf(format = "")]
@@ -40,7 +52,11 @@ struct TestNoPlaceholder(#[sscanf(map = |x: usize| { x as u8 })] u8);
 
 #[derive(sscanf::FromScanf)]
 #[sscanf(format = "{}")]
-struct TestMapNoValue(#[sscanf(map)] u8);
+struct TestMapNoAssign(#[sscanf(map)] u8);
+
+#[derive(sscanf::FromScanf)]
+#[sscanf(format = "{}")]
+struct TestMapNoValue(#[sscanf(map =)] u8);
 
 #[derive(sscanf::FromScanf)]
 #[sscanf(format = "{}")]
