@@ -90,7 +90,7 @@ assert_eq!((r, g, b), (0xD4, 0xAF, 0x37));
 ```
 The input in this case is a `&'static str`, but it can be `String`, `&str`, `&String`, ...
 Basically anything with [`Deref<Target=str>`](https://doc.rust-lang.org/std/ops/trait.Deref.html).
-and without taking ownership. See [here](https://docs.rs/sscanf/^0.4.0-alpha/sscanf/macro.sscanf.html#examples)
+and without taking ownership. See [here](https://docs.rs/sscanf/latest/sscanf/macro.sscanf.html#examples)
 for a few examples of possible inputs.
 
 The parsing part of this macro has very few limitations, since it replaces the `{}` with a
@@ -158,7 +158,7 @@ Note: If you use any unescaped ( ) in your regex, you have to prevent them from 
 group by adding a `?:` at the beginning: `{:/..(..)../}` becomes `{:/..(?:..)../}`. This won't
 change their functionality in any way, but is necessary for `sscanf`'s parsing process to work.
 
-This also means that custom regexes cannot be used on custom types that [`derive FromScanf`](https://docs.rs/sscanf/^0.4.0-alpha/sscanf/derive.FromScanf.html)
+This also means that custom regexes cannot be used on custom types that [`derive FromScanf`](https://docs.rs/sscanf/latest/sscanf/derive.FromScanf.html)
 since those rely on having an exact number of capture groups inside of their regex.
 
 **Radix Options:**
@@ -185,17 +185,16 @@ More uses for `#` may be added in the future. Let me know if you have a suggesti
 # Custom Types
 
 `sscanf` works with most primitive Types from `std` as well as `String` by default. The
-full list can be seen here: [Implementations of `RegexRepresentation`](https://docs.rs/sscanf/^0.4.0-alpha/sscanf/trait.RegexRepresentation.html#foreign-impls).
+full list can be seen here: [Implementations of `RegexRepresentation`](https://docs.rs/sscanf/latest/sscanf/trait.RegexRepresentation.html#foreign-impls).
 
 To add more types there are three options:
-- Derive [`FromScanf`](https://docs.rs/sscanf/^0.4.0-alpha/sscanf/trait.FromScanf.html) for your type (recommended)
-- Implement **both** [`RegexRepresentation`](https://docs.rs/sscanf/^0.4.0-alpha/sscanf/trait.RegexRepresentation.html) and [`std::str::FromStr`](https://doc.rust-lang.org/std/str/trait.FromStr.html) for your type
-- Implement [`RegexRepresentation`](https://docs.rs/sscanf/^0.4.0-alpha/sscanf/trait.RegexRepresentation.html) and manually implement [`FromScanf`](https://docs.rs/sscanf/^0.4.0-alpha/sscanf/trait.FromScanf.html) for your type (highly discouraged)
+- Derive [`FromScanf`](https://docs.rs/sscanf/latest/sscanf/trait.FromScanf.html) for your type (recommended)
+- Implement **both** [`RegexRepresentation`](https://docs.rs/sscanf/latest/sscanf/trait.RegexRepresentation.html) and [`std::str::FromStr`](https://doc.rust-lang.org/std/str/trait.FromStr.html) for your type
+- Implement [`RegexRepresentation`](https://docs.rs/sscanf/latest/sscanf/trait.RegexRepresentation.html) and manually implement [`FromScanf`](https://docs.rs/sscanf/latest/sscanf/trait.FromScanf.html) for your type (highly discouraged)
 
+The simplest option is to use `derive`:
 ```rust
-use sscanf::{sscanf, FromScanf};
-
-#[derive(FromScanf)]
+#[derive(sscanf::FromScanf)]
 #[sscanf(format = "#{r:x}{g:x}{b:x}")] // matches '#' followed by 3 hexadecimal u8s
 struct Color {
     r: u8,
@@ -204,12 +203,34 @@ struct Color {
 }
 
 let input = "color: #ff00cc";
-let parsed = sscanf!(input, "color: {Color}").unwrap();
+let parsed = sscanf::sscanf!(input, "color: {Color}").unwrap();
 assert!(matches!(parsed, Color { r: 0xff, g: 0x00, b: 0xcc }));
 ```
 
-More details can be found in the [`FromScanf` documentation](https://docs.rs/sscanf/^0.4.0-alpha/sscanf/trait.FromScanf.html)
-and the [`derive` documentation](https://docs.rs/sscanf/^0.4.0-alpha/sscanf/derive.FromScanf.html)
+Also works for enums:
+```rust
+#[derive(sscanf::FromScanf)]
+enum HasChanged {
+    #[sscanf(format = "received {added} additions and {deleted} deletions")]
+    Yes {
+        added: usize,
+        deleted: usize,
+    },
+    #[sscanf("has not changed")] // the `format =` part can be omitted
+    No
+}
+
+let input = "Your file has not changed since your last visit!";
+let parsed = sscanf::sscanf!(input, "Your file {HasChanged} since your last visit!").unwrap();
+assert!(matches!(parsed, HasChanged::No));
+
+let input = "Your file received 325 additions and 15 deletions since your last visit!";
+let parsed = sscanf::sscanf!(input, "Your file {HasChanged} since your last visit!").unwrap();
+assert!(matches!(parsed, HasChanged::Yes { added: 325, deleted: 15 }));
+```
+
+More details can be found in the [`FromScanf` documentation](https://docs.rs/sscanf/latest/sscanf/trait.FromScanf.html)
+and the [`derive` documentation](https://docs.rs/sscanf/latest/sscanf/derive.FromScanf.html)
 
 # License
 Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or
