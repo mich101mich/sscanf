@@ -46,7 +46,7 @@ error: radix has to be a number between 2 and 36:
 7 |     sscanf::sscanf!("", "{:r1}", u8);
   |                         ^^^^^^^
 
-error: Radix options only work on primitive numbers from std with no path or alias
+error: radix options only work on primitive numbers from std with no path or alias
  --> tests/fail/stable/invalid_radix_option.rs:8:33
   |
 8 |     sscanf::sscanf!("", "{:x}", std::u8);

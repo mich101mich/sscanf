@@ -194,8 +194,6 @@ impl RegexParts {
     pub fn new(format: &FormatString, type_sources: &[TypeSource]) -> Result<Self> {
         let mut ret = Self::empty();
 
-        let mut error = Error::builder();
-
         // if there are n types, there are n+1 regex_parts, so add the first n during this loop and
         // add the last one afterwards
         for ((part, ph), ty_source) in format
@@ -246,8 +244,6 @@ impl RegexParts {
             });
         }
 
-        error.ok_or_build()?;
-
         // add the last regex_part
         {
             let suffix = format.parts.last().unwrap();
@@ -282,7 +278,7 @@ fn regex_from_radix(
     let ty_string = ty_source.ty.to_token_stream().to_string();
 
     let num_digits_binary = binary_length(&ty_string).ok_or_else(|| {
-        let msg = "Radix options only work on primitive numbers from std with no path or alias";
+        let msg = "radix options only work on primitive numbers from std with no path or alias";
         ty_source.error(msg) // checked in tests/fail/<channel>/invalid_radix_option.rs
     })?;
 

@@ -193,6 +193,30 @@ fn lifetimes() {
 }
 
 #[test]
+fn lifetimes_mapped() {
+    #[derive(Debug, PartialEq)]
+    struct StrCutter<'a>(&'a str, &'a str);
+
+    #[derive(FromScanf, Debug, PartialEq)]
+    #[sscanf(format = "({name},{age},{address})")]
+    struct Person<'a, 'b> {
+        name: &'a str,
+        age: u8,
+        #[sscanf(map = |x: &'b str| StrCutter(&x[..2], &x[2..]))]
+        address: StrCutter<'b>,
+        #[sscanf(default = "")]
+        source: &'static str,
+    }
+
+    let input = String::from("Hi, I'm (Bob,42,here)!");
+    let bob = sscanf!(input, "Hi, I'm {Person}!").unwrap();
+
+    assert_eq!(bob.name, "Bob");
+    assert_eq!(bob.age, 42);
+    assert_eq!(bob.address, StrCutter("he", "re"));
+}
+
+#[test]
 fn lifetime_static() {
     #[derive(FromScanf, Debug, PartialEq)]
     #[sscanf(format = "({name},{age},{address})")]

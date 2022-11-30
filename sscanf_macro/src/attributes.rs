@@ -7,14 +7,17 @@ pub struct StructAttributes {
 }
 
 impl StructAttributes {
-    pub fn from_attributes(attrs: Vec<syn::Attribute>) -> Result<Option<Self>> {
+    pub fn new(attrs: Vec<syn::Attribute>) -> Result<Option<Self>> {
         let mut ret = None;
         let mut empty_attrs = None;
         for attr in attrs {
             if !attr.path.is_ident("sscanf") {
                 continue;
             }
-            if attr.tokens.is_empty() {
+            if attr.parse_args::<TokenStream>()?.is_empty() {
+                // trying to parse empty args the regular way would give
+                // the Parse implementation no tokens to point an error to
+                // => check for empty args here
                 empty_attrs.get_or_insert(attr);
                 continue;
             }
@@ -27,36 +30,36 @@ impl StructAttributes {
                     return Error::builder()
                         .with_spanned(&prev.src, msg)
                         .with_spanned(cur.src, msg)
-                        .build_err();
+                        .build_err(); // checked in tests/fail/derive_struct_attributes.rs
                 }
                 (Some(_), Err(_)) => {
                     let msg = "unneeded and invalid sscanf attribute";
-                    return Error::err_spanned(attr, msg);
+                    return Error::err_spanned(attr, msg); // checked in tests/fail/derive_struct_attributes.rs
                 }
             }
         }
-        match (ret, empty_attrs) {
-            (Some(ret), _) => Ok(Some(ret)),
-            (None, Some(attr)) => {
-                let msg = "expected attribute to take a format string as an argument.
+        if let Some(ret) = ret {
+            Ok(Some(ret))
+        } else if let Some(attr) = empty_attrs {
+            let msg = "expected attribute to take a format string as an argument.
 Valid arguments: #[sscanf(format = \"...\")], #[sscanf(format_unescaped = \"...\")] or #[sscanf(\"...\")]";
-                Error::err_spanned(attr, msg)
-            }
-            (None, None) => Ok(None),
+            Error::err_spanned(attr, msg) // checked in tests/fail/derive_struct_attributes.rs
+        } else {
+            Ok(None)
         }
     }
 }
 
 impl Parse for StructAttributes {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let mut src = TokenStream::new();
-        let format: StrLit;
+        let src: TokenStream;
+        let format: syn::LitStr;
         let mut escape = true;
         if input.peek(syn::LitStr) {
             format = input.parse()?;
+            src = quote! { #format };
         } else if input.peek(syn::Ident) {
             let ident = input.parse::<syn::Ident>()?;
-            ident.to_tokens(&mut src);
             match ident.to_string().as_str() {
                 "format" => {}
                 "format_unescaped" => {
@@ -64,7 +67,7 @@ impl Parse for StructAttributes {
                 }
                 "map" | "default" => {
                     let msg = format!("`{}` arguments are only valid on fields", ident);
-                    return Err(syn::Error::new_spanned(ident, msg));
+                    return Err(syn::Error::new_spanned(ident, msg)); // checked in tests/fail/derive_struct_attributes.rs
                 }
                 s => {
                     let msg = if let Some(did_you_mean) =
@@ -80,36 +83,35 @@ impl Parse for StructAttributes {
                             s
                         )
                     };
-                    return Err(syn::Error::new_spanned(ident, msg));
+                    return Err(syn::Error::new_spanned(ident, msg)); // checked in tests/fail/derive_struct_attributes.rs
                 }
             }
             if input.is_empty() {
                 let msg = format!("expected `= \"...\"` after `{}`", ident);
-                return Err(syn::Error::new_spanned(ident, msg));
+                return Err(syn::Error::new_spanned(ident, msg)); // checked in tests/fail/derive_struct_attributes.rs
             }
             let eq_sign = input.parse::<syn::Token![=]>()?;
-            eq_sign.to_tokens(&mut src);
             if input.is_empty() {
                 let msg = "expected `\"...\"` after `=`";
-                return Err(syn::Error::new_spanned(eq_sign, msg));
+                return Err(syn::Error::new_spanned(eq_sign, msg)); // checked in tests/fail/derive_struct_attributes.rs
             }
             format = input.parse()?;
+            src = quote! { #ident #eq_sign #format };
         } else {
             let tokens = input.parse::<TokenStream>()?;
             let msg = "expected a format string as either `format = \"...\"`, `format_unescaped = \"...\"`, or just `\"...\"`";
-            return Err(syn::Error::new_spanned(tokens, msg));
+            return Err(syn::Error::new_spanned(tokens, msg)); // checked in tests/fail/derive_struct_attributes.rs
         }
-        format.to_tokens(&mut src);
 
         let remaining = input.parse::<TokenStream>()?;
         if !remaining.is_empty() {
-            let msg = "unrecognized arguments";
-            return Err(syn::Error::new_spanned(remaining, msg));
+            let msg = "unnecessary arguments to the attribute. structs only allow a single `format` argument, nothing else";
+            return Err(syn::Error::new_spanned(remaining, msg)); // checked in tests/fail/derive_struct_attributes.rs
         }
 
         Ok(StructAttributes {
             src,
-            format,
+            format: StrLit::new(format),
             escape,
         })
     }
@@ -128,7 +130,7 @@ pub enum FieldAttributeKind {
 }
 
 impl FieldAttributes {
-    pub fn from_attributes(attrs: Vec<syn::Attribute>) -> Result<Option<Self>> {
+    pub fn new(attrs: Vec<syn::Attribute>) -> Result<Option<Self>> {
         let mut ret = None;
         for attr in attrs {
             if !attr.path.is_ident("sscanf") {
@@ -139,7 +141,7 @@ impl FieldAttributes {
             }
             if ret.is_some() {
                 let msg = "fields can only have one `sscanf` attribute";
-                return Error::err_spanned(attr, msg);
+                return Error::err_spanned(attr, msg); // checked in tests/fail/derive_field_attributes.rs
             }
             ret = Some(attr.parse_args::<Self>()?);
         }
@@ -151,8 +153,8 @@ impl Parse for FieldAttributes {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         if input.peek(syn::LitStr) {
             let token = input.parse::<syn::LitStr>()?;
-            let msg = "format string specified on a field, but only structs and struct variants can have format strings";
-            return Err(syn::Error::new_spanned(token, msg));
+            let msg = "a string argument without a `<label> = ` prefix is only valid for format strings on structs and struct variants";
+            return Err(syn::Error::new_spanned(token, msg)); // checked in tests/fail/derive_field_attributes.rs
         }
 
         let mut src = TokenStream::new();
@@ -168,7 +170,7 @@ impl Parse for FieldAttributes {
                     eq_sign.to_tokens(&mut src);
                     if input.is_empty() {
                         let msg = "expected an expression after `=`";
-                        return Err(syn::Error::new_spanned(eq_sign, msg));
+                        return Err(syn::Error::new_spanned(eq_sign, msg)); // checked in tests/fail/derive_field_attributes.rs
                     }
                     let expr = input.parse::<syn::Expr>()?;
                     expr.to_tokens(&mut src);
@@ -177,20 +179,20 @@ impl Parse for FieldAttributes {
             }
             "map" => {
                 if input.is_empty() {
-                    let msg = "format for map attributes is `#[sscanf(map = |<arg>: <type>| <conversion>`)]";
-                    return Err(syn::Error::new_spanned(ident, msg));
+                    let msg = "format for map attributes is `#[sscanf(map = |<arg>: <type>| <conversion>)]`";
+                    return Err(syn::Error::new_spanned(ident, msg)); // checked in tests/fail/derive_field_attributes.rs
                 }
                 let eq_sign = input.parse::<syn::Token![=]>()?;
                 eq_sign.to_tokens(&mut src);
                 if input.is_empty() {
                     let msg = "map attribute expects a closure like `|<arg>: <type>| <conversion>` after `=`";
-                    return Err(syn::Error::new_spanned(eq_sign, msg));
+                    return Err(syn::Error::new_spanned(eq_sign, msg)); // checked in tests/fail/derive_field_attributes.rs
                 }
 
                 if !input.peek(Token![|]) {
                     let tokens = input.parse::<TokenStream>()?;
                     let msg = "map attribute expects a closure like `|<arg>: <type>| <conversion>` after `=`";
-                    return Err(syn::Error::new_spanned(tokens, msg));
+                    return Err(syn::Error::new_spanned(tokens, msg)); // checked in tests/fail/derive_field_attributes.rs
                 }
 
                 let mapper = input.parse::<syn::ExprClosure>()?;
@@ -223,7 +225,7 @@ impl Parse for FieldAttributes {
             }
             "format" | "format_unescaped" => {
                 let msg = "format strings can only be specified on structs and struct variants, not fields";
-                return Err(syn::Error::new_spanned(ident, msg));
+                return Err(syn::Error::new_spanned(ident, msg)); // checked in tests/fail/derive_field_attributes.rs
             }
             s => {
                 let msg = if let Some(did_you_mean) = find_similar(s, &["default", "map"]) {
@@ -234,14 +236,14 @@ impl Parse for FieldAttributes {
                 } else {
                     format!("expected either `default` or `map`, got `{}`", s)
                 };
-                return Err(syn::Error::new_spanned(ident, msg));
+                return Err(syn::Error::new_spanned(ident, msg)); // checked in tests/fail/derive_field_attributes.rs
             }
         };
 
         let remaining = input.parse::<TokenStream>()?;
         if !remaining.is_empty() {
-            let msg = "unrecognized arguments";
-            return Err(syn::Error::new_spanned(remaining, msg));
+            let msg = "unnecessary arguments to the attribute. fields only allow a single attribute";
+            return Err(syn::Error::new_spanned(remaining, msg)); // checked in tests/fail/derive_field_attributes.rs
         }
 
         Ok(FieldAttributes { src, kind })

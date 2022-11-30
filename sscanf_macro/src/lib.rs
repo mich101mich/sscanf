@@ -45,7 +45,7 @@ struct Scanf {
 impl Parse for ScanfInner {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         if input.is_empty() {
-            let msg = "Missing parameter: format string";
+            let msg = "missing parameter: format string";
             return Err(syn::Error::new(Span::call_site(), msg)); // checked in tests/fail/missing_params.rs
         }
 
@@ -80,12 +80,12 @@ impl Parse for Scanf {
             // was expected, but since there is nothing there it has no span to point to so it
             // just points at the entire thing."
             // I love writing error messages in proc macros :D (not)
-            let msg = "At least 2 Parameters required: Input and format string";
+            let msg = "at least 2 Parameters required: Input and format string";
             return Err(syn::Error::new(Span::call_site(), msg)); // checked in tests/fail/missing_params.rs
         }
         let src_str = input.parse()?;
         if input.is_empty() {
-            let msg = "At least 2 Parameters required: Missing format string";
+            let msg = "at least 2 Parameters required: Missing format string";
             return Err(syn::Error::new_spanned(src_str, msg)); // checked in tests/fail/missing_params.rs
         }
         let comma = input.parse::<Token![,]>()?;
@@ -93,7 +93,7 @@ impl Parse for Scanf {
             // Addition to the comment above: here we actually have a comma to point to to say:
             // "Hey, you put a comma here, put something after it". syn doesn't do this
             // because it cannot rewind the input stream to check this.
-            let msg = "At least 2 Parameters required: Missing format string";
+            let msg = "at least 2 Parameters required: Missing format string";
             return Err(syn::Error::new_spanned(comma, msg)); // checked in tests/fail/missing_params.rs
         }
         let inner = input.parse()?;
@@ -192,8 +192,7 @@ fn sscanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
 }
 
 fn generate_regex(input: ScanfInner, escape_input: bool) -> Result<(TokenStream, Vec<Matcher>)> {
-    let expect_lowercase_ident = false;
-    let mut format = FormatString::new(input.fmt.to_slice(), escape_input, expect_lowercase_ident)?;
+    let mut format = FormatString::new(input.fmt.to_slice(), escape_input)?;
     format.parts[0].insert(0, '^');
     format.parts.last_mut().unwrap().push('$');
 

@@ -20,8 +20,6 @@
 // TODO: check for option in derive
 // TODO: #[sscanf(filter_map = ...)]
 // TODO: comparison to other crates
-// TODO: new attribute features tests: fuzzy, optional format
-// TODO: complete failing tests
 #![doc = include_str!("../Readme.md")]
 //! # A Note on Compiler Errors
 //!

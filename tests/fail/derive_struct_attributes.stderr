@@ -2,65 +2,139 @@ error: FromScanf: structs must have a format string as an attribute.
        Please add either of #[sscanf(format = "...")], #[sscanf(format_unescaped = "...")] or #[sscanf("...")]
  --> tests/fail/derive_struct_attributes.rs:2:8
   |
-2 | struct Test1;
-  |        ^^^^^
+2 | struct TestNoAttributes;
+  |        ^^^^^^^^^^^^^^^^
 
-error: unrecognized arguments
- --> tests/fail/derive_struct_attributes.rs:5:21
+error: expected attribute arguments in parentheses: #[sscanf(...)]
+ --> tests/fail/derive_struct_attributes.rs:5:1
   |
-5 | #[sscanf(format = "", format_unescaped = "")]
-  |                     ^^^^^^^^^^^^^^^^^^^^^^^
+5 | #[sscanf]
+  | ^^^^^^^^^
 
-error: unrecognized arguments
- --> tests/fail/derive_struct_attributes.rs:9:21
+error: expected attribute to take a format string as an argument.
+       Valid arguments: #[sscanf(format = "...")], #[sscanf(format_unescaped = "...")] or #[sscanf("...")]
+ --> tests/fail/derive_struct_attributes.rs:9:1
   |
-9 | #[sscanf(format = "", bob = "")]
-  |                     ^^^^^^^^^^
+9 | #[sscanf()]
+  | ^^^^^^^^^^^
 
-error: unrecognized arguments
-  --> tests/fail/derive_struct_attributes.rs:13:22
+error: unnecessary arguments to the attribute. structs only allow a single `format` argument, nothing else
+  --> tests/fail/derive_struct_attributes.rs:13:21
    |
-13 | #[sscanf(format = "" bob = "")]
+13 | #[sscanf(format = "", format_unescaped = "")]
+   |                     ^^^^^^^^^^^^^^^^^^^^^^^
+
+error: format attribute specified multiple times
+  --> tests/fail/derive_struct_attributes.rs:17:10
+   |
+17 | #[sscanf(format = "")]
+   |          ^^^^^^^^^^^
+
+error: format attribute specified multiple times
+  --> tests/fail/derive_struct_attributes.rs:18:10
+   |
+18 | #[sscanf(format = "")]
+   |          ^^^^^^^^^^^
+
+error: format attribute specified multiple times
+  --> tests/fail/derive_struct_attributes.rs:22:10
+   |
+22 | #[sscanf(format = "")]
+   |          ^^^^^^^^^^^
+
+error: format attribute specified multiple times
+  --> tests/fail/derive_struct_attributes.rs:23:10
+   |
+23 | #[sscanf(format_unescaped = "")]
+   |          ^^^^^^^^^^^^^^^^^^^^^
+
+error: unnecessary arguments to the attribute. structs only allow a single `format` argument, nothing else
+  --> tests/fail/derive_struct_attributes.rs:27:21
+   |
+27 | #[sscanf(format = "", bob = "")]
+   |                     ^^^^^^^^^^
+
+error: unneeded and invalid sscanf attribute
+  --> tests/fail/derive_struct_attributes.rs:32:1
+   |
+32 | #[sscanf(bob = "")]
+   | ^^^^^^^^^^^^^^^^^^^
+
+error: unnecessary arguments to the attribute. structs only allow a single `format` argument, nothing else
+  --> tests/fail/derive_struct_attributes.rs:36:22
+   |
+36 | #[sscanf(format = "" bob = "")]
    |                      ^^^^^^^^
 
 error: expected string literal
-  --> tests/fail/derive_struct_attributes.rs:17:19
+  --> tests/fail/derive_struct_attributes.rs:40:19
    |
-17 | #[sscanf(format = 5)]
+40 | #[sscanf(format = 5)]
    |                   ^
 
 error: expected `"..."` after `=`
-  --> tests/fail/derive_struct_attributes.rs:21:17
+  --> tests/fail/derive_struct_attributes.rs:44:17
    |
-21 | #[sscanf(format =)]
+44 | #[sscanf(format =)]
    |                 ^
 
 error: expected `=`
-  --> tests/fail/derive_struct_attributes.rs:25:17
+  --> tests/fail/derive_struct_attributes.rs:48:17
    |
-25 | #[sscanf(format "")]
+48 | #[sscanf(format "")]
    |                 ^^
 
-error: expected a format string as either `format = "..."`, `format_unescaped = "..."`, or just `"..."`
-  --> tests/fail/derive_struct_attributes.rs:29:10
+error: expected `= "..."` after `format`
+  --> tests/fail/derive_struct_attributes.rs:52:10
    |
-29 | #[sscanf(= "")]
+52 | #[sscanf(format)]
+   |          ^^^^^^
+
+error: expected a format string as either `format = "..."`, `format_unescaped = "..."`, or just `"..."`
+  --> tests/fail/derive_struct_attributes.rs:56:10
+   |
+56 | #[sscanf(= "")]
    |          ^^^^
 
 error: `default` arguments are only valid on fields
-  --> tests/fail/derive_struct_attributes.rs:33:10
+  --> tests/fail/derive_struct_attributes.rs:60:10
    |
-33 | #[sscanf(default)]
+60 | #[sscanf(default)]
    |          ^^^^^^^
 
 error: `default` arguments are only valid on fields
-  --> tests/fail/derive_struct_attributes.rs:37:10
+  --> tests/fail/derive_struct_attributes.rs:64:10
    |
-37 | #[sscanf(default = "")]
+64 | #[sscanf(default = "")]
    |          ^^^^^^^
 
-error: `map` arguments are only valid on fields
-  --> tests/fail/derive_struct_attributes.rs:41:10
+error: expected either `format` or `format_unescaped`, got `bob`
+  --> tests/fail/derive_struct_attributes.rs:68:10
    |
-41 | #[sscanf(map = |x: usize| { x })]
+68 | #[sscanf(bob)]
    |          ^^^
+
+error: unknown attribute `formt`. Did you mean `format`?
+  --> tests/fail/derive_struct_attributes.rs:72:10
+   |
+72 | #[sscanf(formt)]
+   |          ^^^^^
+
+error: unknown attribute `formad_unscabededd`. Did you mean `format_unescaped`?
+  --> tests/fail/derive_struct_attributes.rs:76:10
+   |
+76 | #[sscanf(formad_unscabededd)]
+   |          ^^^^^^^^^^^^^^^^^^
+
+error: enums cannot have outer attributes
+  --> tests/fail/derive_struct_attributes.rs:82:1
+   |
+82 | #[sscanf(format = "")]
+   | ^^^^^^^^^^^^^^^^^^^^^^
+
+error: at least one variant has to be constructable from sscanf.
+       To do this, add #[sscanf(format = "...")] to a variant
+  --> tests/fail/derive_struct_attributes.rs:86:6
+   |
+86 | enum TestEnumNoFormat { A, B }
+   |      ^^^^^^^^^^^^^^^^

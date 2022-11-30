@@ -41,8 +41,7 @@ fn parse_format(
     attr: StructAttributes,
     raw_fields: syn::Fields,
 ) -> Result<(RegexParts, Vec<TokenStream>, HashSet<syn::Lifetime>)> {
-    let expect_lowercase_ident = true;
-    let format = FormatString::new(attr.format.to_slice(), attr.escape, expect_lowercase_ident)?;
+    let format = FormatString::new(attr.format.to_slice(), attr.escape)?;
 
     let mut fields = vec![];
     let mut field_map = HashMap::new();
@@ -56,7 +55,7 @@ fn parse_format(
 
         field_map.insert(ident.to_string(), i);
 
-        let attr = FieldAttributes::from_attributes(field.attrs)?;
+        let attr = FieldAttributes::new(field.attrs)?;
 
         let mut has_default = false;
         if let Some(attr) = attr.as_ref() {
@@ -243,13 +242,13 @@ pub fn parse_struct(
     attrs: Vec<syn::Attribute>,
     data: syn::DataStruct,
 ) -> Result<TokenStream> {
-    let attr = StructAttributes::from_attributes(attrs)?;
+    let attr = StructAttributes::new(attrs)?;
     let (regex_parts, from_matches, str_lifetimes) = match attr {
         Some(attr) => parse_format(attr, data.fields)?,
         None => {
             let msg = "FromScanf: structs must have a format string as an attribute.
 Please add either of #[sscanf(format = \"...\")], #[sscanf(format_unescaped = \"...\")] or #[sscanf(\"...\")]";
-            return Error::err_spanned(name, msg);
+            return Error::err_spanned(name, msg); // checked in tests/fail/derive_struct_attributes.rs
         }
     };
 
@@ -318,7 +317,7 @@ pub fn parse_enum(
         for attr in attrs {
             error.with_spanned(attr, msg);
         }
-        return error.build_err();
+        return error.build_err(); // checked in tests/fail/derive_struct_attributes.rs
     }
 
     let mut regex_parts = RegexParts::empty();
@@ -329,7 +328,7 @@ pub fn parse_enum(
     let mut first = true;
 
     for variant in data.variants.into_iter() {
-        let attr = match StructAttributes::from_attributes(variant.attrs)? {
+        let attr = match StructAttributes::new(variant.attrs)? {
             Some(attr) => attr,
             None => continue,
         };
@@ -388,9 +387,9 @@ pub fn parse_enum(
     regex_parts.push_literal(")");
 
     if variant_constructors.is_empty() {
-        let msg = "At least one variant has to be constructable from sscanf.
+        let msg = "at least one variant has to be constructable from sscanf.
 To do this, add #[sscanf(format = \"...\")] to a variant";
-        return Error::err_spanned(name, msg);
+        return Error::err_spanned(name, msg); // checked in tests/fail/derive_struct_attributes.rs
     }
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
