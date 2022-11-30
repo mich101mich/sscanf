@@ -6,7 +6,7 @@ edition = "2018"
 description = "Proc-Macros for the sscanf Crate. Not meant to be used as a standalone Crate"
 repository = "https://github.com/mich101mich/sscanf"
 readme = "Readme.md"
-license = "MIT"
+license = "MIT OR Apache-2.0"
 
 [lib]
 proc-macro = true
