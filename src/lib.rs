@@ -15,10 +15,6 @@
     rustdoc::invalid_codeblock_attributes,
     rustdoc::bare_urls
 )]
-// TODO: multiline format strings
-// TODO: check for option in derive
-// TODO: #[sscanf(filter_map = ...)]
-// TODO: comparison to other crates
 #![doc = include_str!("../Readme.md")]
 //! # A Note on Compiler Errors
 //!

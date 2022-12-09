@@ -125,19 +125,8 @@ error[E0308]: mismatched types
 85 | struct TestMapWrongReturn(#[sscanf(map = |x: usize| { x })] u8);
    |                                                     ^^^^^ expected `u8`, found `usize`
 
-error[E0277]: the trait bound `&usize: Default` is not satisfied
+error[E0277]: the trait bound `ParseIntError: Default` is not satisfied
   --> tests/fail/derive_field_attributes.rs:89:48
    |
-89 | struct TestDefaultNoDefault(#[sscanf(default)] &'static usize);
-   |                                                ^^^^^^^^^^^^^^ the trait `Default` is not implemented for `&usize`
-   |
-   = help: the following other types implement trait `Default`:
-             f32
-             f64
-             i128
-             i16
-             i32
-             i64
-             i8
-             isize
-           and $N others
+89 | struct TestDefaultNoDefault(#[sscanf(default)] std::num::ParseIntError);
+   |                                                ^^^^^^^^^^^^^^^^^^^^^^^ the trait `Default` is not implemented for `ParseIntError`

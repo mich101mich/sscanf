@@ -86,7 +86,7 @@ struct TestMapWrongReturn(#[sscanf(map = |x: usize| { x })] u8);
 
 #[derive(sscanf::FromScanf)]
 #[sscanf(format = "")]
-struct TestDefaultNoDefault(#[sscanf(default)] &'static usize);
+struct TestDefaultNoDefault(#[sscanf(default)] std::num::ParseIntError);
 
 
 fn main() {}

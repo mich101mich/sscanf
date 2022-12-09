@@ -190,6 +190,9 @@ pub use sscanf_macro::sscanf_unescaped as scanf_unescaped;
 /// above, the `<format>` must contain `<field>`, `<field_2>` and `<field_with_conversion>`
 /// exactly once and neither `<field_with_default>` nor `<field_with_custom_default>` must appear
 /// in the format string.
+/// 
+/// If the format string has to contain raw regex (like with [`sscanf_unescaped`]), write
+/// `format_unescaped = r"..."` or just `r"..."` instead of `format = "..."` or `"..."`.
 ///
 /// Mapping allows matching against a different type than the field type. The `map` attribute takes
 /// a closure that takes the matched type as input and returns the field type. The type of the

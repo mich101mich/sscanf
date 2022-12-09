@@ -163,6 +163,12 @@ impl Parse for StrLit {
     }
 }
 
+impl ToTokens for StrLit {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        self.span_provider.to_tokens(tokens);
+    }
+}
+
 use std::ops::*;
 
 impl Deref for StrLit {

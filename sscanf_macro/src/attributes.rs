@@ -53,10 +53,11 @@ Valid arguments: #[sscanf(format = \"...\")], #[sscanf(format_unescaped = \"...\
 impl Parse for StructAttributes {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let src: TokenStream;
-        let format: syn::LitStr;
+        let format: StrLit;
         let mut escape = true;
         if input.peek(syn::LitStr) {
             format = input.parse()?;
+            escape = !format.is_raw();
             src = quote! { #format };
         } else if input.peek(syn::Ident) {
             let ident = input.parse::<syn::Ident>()?;
@@ -111,7 +112,7 @@ impl Parse for StructAttributes {
 
         Ok(StructAttributes {
             src,
-            format: StrLit::new(format),
+            format,
             escape,
         })
     }

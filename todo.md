@@ -1,0 +1,5 @@
+- multiline format strings
+- check for option in derive
+- #[sscanf(filter_map = ...)]
+- comparison to other crates
+- for enums: #[sscanf(autogen = case_sensitive)] (case_sensitive, case_insensitive, lowercase, uppercase)
