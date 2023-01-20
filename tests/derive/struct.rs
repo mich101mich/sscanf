@@ -238,7 +238,7 @@ fn lifetime_static() {
 fn generic_from_scanf() {
     #[derive(FromScanf, Debug, PartialEq)]
     #[sscanf(format = "({name},{age},{data:/[a-z]+/})")]
-    struct Person<T>
+    struct Person<T = usize>
     where
         T: for<'a> FromScanf<'a>,
     {

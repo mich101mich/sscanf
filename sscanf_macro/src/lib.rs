@@ -143,7 +143,7 @@ pub fn derive_from_sscanf(input: TokenStream1) -> TokenStream1 {
     };
     match res {
         Ok(res) => res.into(),
-        Err(err) => err.to_compile_error().into(),
+        Err(err) => err.into(),
     }
 }
 
@@ -229,8 +229,8 @@ fn generate_regex(input: ScanfInner, escape_input: bool) -> Result<(TokenStream,
             let n = *ph_index;
             *ph_index += 1;
             if n >= visited.len() {
-                let msg = format!("more placeholders than types provided");
-                return ph.src.err(&msg); // checked in tests/fail/<channel>/missing_type.rs
+                let msg = "more placeholders than types provided";
+                return ph.src.err(msg); // checked in tests/fail/<channel>/missing_type.rs
             }
             visited[n] = true;
             TypeSource {
@@ -288,14 +288,23 @@ fn generate_regex(input: ScanfInner, escape_input: bool) -> Result<(TokenStream,
 
 trait TokenStreamExt {
     fn set_span(&mut self, span: Span);
+    fn with_span(self, span: Span) -> Self;
 }
 impl TokenStreamExt for TokenStream {
     fn set_span(&mut self, span: Span) {
         let old = std::mem::replace(self, TokenStream::new());
-        self.extend(old.into_iter().map(|mut t| {
-            t.set_span(span);
-            t
-        }));
+        *self = old.with_span(span);
+    }
+    fn with_span(self, span: Span) -> Self {
+        self.into_iter()
+            .map(|mut t| {
+                if let proc_macro2::TokenTree::Group(ref mut g) = t {
+                    *g = proc_macro2::Group::new(g.delimiter(), g.stream().with_span(span));
+                }
+                t.set_span(span);
+                t
+            })
+            .collect()
     }
 }
 
@@ -309,8 +318,7 @@ fn to_type(src: &StrLitSlice) -> Result<syn::Type> {
     // much work.
     let catcher = || -> syn::Result<syn::Type> {
         let span = src.span();
-        let mut tokens = src.text().parse::<TokenStream>()?;
-        tokens.set_span(span);
+        let tokens = src.text().parse::<TokenStream>()?.with_span(span);
         let path = syn::parse2::<syn::Path>(tokens)?;
 
         // we don't parse directly to a Type to give better error messages:

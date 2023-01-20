@@ -31,7 +31,7 @@ impl<'a> Placeholder<'a> {
                 }
                 end = Some(i);
                 break;
-            } else if c == ':' && !input.next_if(|(_, c)| *c == ':').is_some() {
+            } else if c == ':' && input.next_if(|(_, c)| *c == ':').is_none() {
                 // a single ':'
                 has_colon = true;
                 if let Some(ident_start) = ident_start {

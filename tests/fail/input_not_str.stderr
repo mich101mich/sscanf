@@ -10,6 +10,7 @@ error[E0308]: mismatched types
   = note: expected reference `&str`
              found reference `&usize`
 note: associated function defined here
+ --> /rustc/afaf3e07aaa7ca9873bdb439caec53faffa4230c/library/core/src/str/mod.rs:441:18
 
 error[E0308]: mismatched types
  --> tests/fail/input_not_str.rs:3:21
@@ -23,3 +24,4 @@ error[E0308]: mismatched types
   = note: expected reference `&str`
              found reference `&&'static [u8; 1]`
 note: associated function defined here
+ --> /rustc/afaf3e07aaa7ca9873bdb439caec53faffa4230c/library/core/src/str/mod.rs:441:18

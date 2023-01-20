@@ -111,8 +111,8 @@ fn parse_format(
         } else {
             let n = ph_counter;
             if n >= fields.len() {
-                let msg = format!("too many placeholders");
-                error.push(ph.src.error(&msg)); // checked in tests/fail/derive_placeholders.rs
+                let msg = "too many placeholders";
+                error.push(ph.src.error(msg)); // checked in tests/fail/derive_placeholders.rs
                 continue;
             }
             ph_counter += 1;
@@ -142,7 +142,6 @@ fn parse_format(
     // => assign them by placeholder index; push the defaults to the end
     let mut from_matches = vec![TokenStream::new(); ph_types.len()];
 
-    error = Error::builder();
     for field in fields {
         let ident = field.ident;
         let ty = field.ty;
@@ -176,12 +175,9 @@ The syntax for default values is: `#[sscanf(default)]` to use Default::default()
                 let matcher = &regex_parts.matchers[index];
                 let mut value = quote! { #matcher };
                 if let Some(attr) = field.attr {
-                    match attr.kind {
-                        FieldAttributeKind::Map { mapper, .. } => {
-                            let span = mapper.body.span();
-                            value = quote::quote_spanned! {span=> { #mapper }( #value ) };
-                        }
-                        _ => {}
+                    if let FieldAttributeKind::Map { mapper, .. } = attr.kind {
+                        let span = mapper.body.span();
+                        value = quote::quote_spanned! {span=> { #mapper }( #value ) };
                     }
                 }
                 from_matches[index] = quote! { #ident: #value };
@@ -217,20 +213,10 @@ fn merge_lifetimes(
     if !is_static {
         lifetimed_generics.params.push(syn::parse_quote!(#lifetime));
 
-        let mut inner_where =
-            src_generics
-                .where_clause
-                .clone()
-                .unwrap_or_else(|| syn::WhereClause {
-                    where_token: Default::default(),
-                    predicates: Default::default(),
-                });
+        let where_clause = &mut lifetimed_generics.make_where_clause().predicates;
         for lt in str_lifetimes {
-            inner_where
-                .predicates
-                .push(syn::parse_quote!(#lifetime: #lt));
+            where_clause.push(syn::parse_quote!(#lifetime: #lt));
         }
-        lifetimed_generics.where_clause = Some(inner_where);
     }
 
     (lifetime, lifetimed_generics)
@@ -256,6 +242,7 @@ Please add either of #[sscanf(format = \"...\")], #[sscanf(format_unescaped = \"
 
     let regex = regex_parts.regex();
     let regex_impl = quote! {
+        #[automatically_derived]
         impl #impl_generics ::sscanf::RegexRepresentation for #name #ty_generics #where_clause {
             const REGEX: &'static ::std::primitive::str = #regex;
         }
@@ -266,6 +253,7 @@ Please add either of #[sscanf(format = \"...\")], #[sscanf(format_unescaped = \"
 
     let num_captures = regex_parts.num_captures();
     let from_sscanf_impl = quote! {
+        #[automatically_derived]
         impl #impl_generics ::sscanf::FromScanf<#lifetime> for #name #ty_generics #where_clause {
             type Err = ::sscanf::FromScanfFailedError;
             const NUM_CAPTURES: usize = #num_captures;
@@ -396,6 +384,7 @@ To do this, add #[sscanf(format = \"...\")] to a variant";
 
     let regex = regex_parts.regex();
     let regex_impl = quote! {
+        #[automatically_derived]
         impl #impl_generics ::sscanf::RegexRepresentation for #name #ty_generics #where_clause {
             const REGEX: &'static ::std::primitive::str = #regex;
         }
@@ -405,6 +394,7 @@ To do this, add #[sscanf(format = \"...\")] to a variant";
     let (impl_generics, _, where_clause) = lt_generics.split_for_impl();
 
     let from_sscanf_impl = quote! {
+        #[automatically_derived]
         impl #impl_generics ::sscanf::FromScanf<#lifetime> for #name #ty_generics #where_clause {
             type Err = ::sscanf::FromScanfFailedError;
 

@@ -143,7 +143,7 @@ Either make them non-capturing by adding '?:' after the '(' or remove/escape the
             "#o" | "o#" => (8, PrefixPolicy::Forced),
             "#b" | "b#" => (2, PrefixPolicy::Forced),
             s => {
-                if let Some(_) = s.strip_prefix('#').or_else(|| s.strip_suffix('#')) {
+                if s.starts_with('#') || s.ends_with('#') {
                     let msg = "config modifier '#' can only be used with 'x', 'o' or 'b'";
                     return src.err(msg); // checked in tests/fail/<channel>/invalid_radix_option.rs
                 }
@@ -153,7 +153,7 @@ Either make them non-capturing by adding '?:' after the '(' or remove/escape the
                         let msg = "radix option 'r' has to be followed by a number";
                         src.error(msg) // checked in tests/fail/<channel>/invalid_radix_option.rs
                     })?;
-                    if radix < 2 || radix > 36 {
+                    if !(2..=36).contains(&radix) {
                         // Range taken from: https://doc.rust-lang.org/std/primitive.usize.html#panics
                         let msg = "radix has to be a number between 2 and 36";
                         return src.err(msg); // checked in tests/fail/<channel>/invalid_radix_option.rs

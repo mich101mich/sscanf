@@ -29,7 +29,7 @@ impl StrLit {
     }
 
     pub fn is_raw(&self) -> bool {
-        self.text.starts_with("r")
+        self.text.starts_with('r')
     }
 
     pub fn to_slice(&self) -> StrLitSlice {

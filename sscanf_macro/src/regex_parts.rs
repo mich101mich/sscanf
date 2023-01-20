@@ -27,10 +27,10 @@ impl FullSpan {
             .unwrap_or(start);
         Self(start, end)
     }
-    pub fn apply(&self, mut a: TokenStream, mut b: TokenStream) -> TokenStream {
-        a.set_span(self.0);
-        b.set_span(self.1);
-        quote! { #a #b }
+    pub fn apply(&self, a: TokenStream, b: TokenStream) -> TokenStream {
+        let mut ret = a.with_span(self.0);
+        ret.extend(b.with_span(self.1));
+        ret
     }
 }
 
@@ -334,7 +334,7 @@ fn regex_from_radix(
         .as_str());
 
     let radix = radix as u32;
-    let mut converter = if prefix_policy == PrefixPolicy::Never {
+    let converter = if prefix_policy == PrefixPolicy::Never {
         quote!({
             let input = #get_input;
             #ty::from_str_radix(input, #radix)?
@@ -371,9 +371,10 @@ fn regex_from_radix(
         }
     };
 
-    converter.set_span(span);
-
-    Ok((RegexPart::Custom(regex), Converter::Custom(converter)))
+    Ok((
+        RegexPart::Custom(regex),
+        Converter::Custom(converter.with_span(span)),
+    ))
 }
 
 fn binary_length(ty: &str) -> Option<u32> {
