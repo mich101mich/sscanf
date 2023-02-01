@@ -15,12 +15,12 @@
 /// * `Type...`: The types to parse. See [Custom Types](index.html#custom-types) for more information.
 ///
 /// ## Return Value
-/// A [`Result`](std::result::Result) with a tuple of the parsed types or a [`sscanf::Error`](crate::Error).
+/// A [`Result`](std::result::Result) with a tuple of the parsed types or a [`sscanf::Error`](crate::errors::Error).
 /// Note that an error usually indicates that the input didn't match the format string, making the
 /// returned [`Result`](std::result::Result) functionally equivalent to an [`Option`](std::option::Option),
 /// and most applications should treat it that way. An error is only useful when debugging
 /// custom implementations of [`FromStr`](std::str::FromStr) or [`FromScanf`](crate::FromScanf).
-/// See [`sscanf::Error`](crate::Error) for more information.
+/// See [`sscanf::Error`](crate::errors::Error) for more information.
 ///
 /// ## Details
 /// The format string _has_ to be a string literal (with some form of `"` on either side),
@@ -190,7 +190,7 @@ pub use sscanf_macro::sscanf_unescaped as scanf_unescaped;
 /// above, the `<format>` must contain `<field>`, `<field_2>` and `<field_with_conversion>`
 /// exactly once and neither `<field_with_default>` nor `<field_with_custom_default>` must appear
 /// in the format string.
-/// 
+///
 /// If the format string has to contain raw regex (like with [`sscanf_unescaped`]), write
 /// `format_unescaped = r"..."` or just `r"..."` instead of `format = "..."` or `"..."`.
 ///
@@ -279,3 +279,6 @@ pub use sscanf_macro::sscanf_unescaped as scanf_unescaped;
 /// currently not possible. Implementations that don't rely on capture groups are usually those
 /// that were blanket-implemented based on their `FromStr` implementation.
 pub use sscanf_macro::FromScanf;
+
+#[doc(hidden)]
+pub use sscanf_macro::FromScanf as FromSscanf;

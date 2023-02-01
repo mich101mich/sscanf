@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::str::FromStr;
 
-use crate::FromStrFailedError;
+use crate::errors::FromStrFailedError;
 
 /// A trait that allows you to use a custom regex for parsing a type.
 ///
@@ -223,10 +223,13 @@ where
     const NUM_CAPTURES: usize = 1;
     fn from_matches(src: &mut regex::SubCaptureMatches) -> Result<Self, Self::Err> {
         src.next()
-            .expect(crate::EXPECT_NEXT_HINT)
-            .expect(crate::EXPECT_CAPTURE_HINT)
+            .expect(crate::errors::EXPECT_NEXT_HINT)
+            .expect(crate::errors::EXPECT_CAPTURE_HINT)
             .as_str()
             .parse()
             .map_err(FromStrFailedError::new)
     }
 }
+
+#[doc(hidden)]
+pub use FromScanf as FromSscanf;

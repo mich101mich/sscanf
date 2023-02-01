@@ -14,9 +14,33 @@ pub enum FormatOptionKind {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PrefixPolicy {
-    Forced,   // '#' + 'x', 'o', 'b'
-    Optional, // just 'x', 'o', 'b'
-    Never,    // custom radix 'r'
+    Forced(PrefixKind),   // '#' + 'x', 'o', 'b'
+    Optional(PrefixKind), // just 'x', 'o', 'b'
+    Never,                // custom radix 'r'
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PrefixKind {
+    Hex,
+    Octal,
+    Binary,
+}
+impl std::fmt::Display for PrefixKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PrefixKind::Hex => write!(f, "0x"),
+            PrefixKind::Octal => write!(f, "0o"),
+            PrefixKind::Binary => write!(f, "0b"),
+        }
+    }
+}
+impl ToTokens for PrefixKind {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        match self {
+            PrefixKind::Hex => tokens.extend(quote! { Hex }),
+            PrefixKind::Octal => tokens.extend(quote! { Octal }),
+            PrefixKind::Binary => tokens.extend(quote! { Binary }),
+        }
+    }
 }
 
 impl<'a> FormatOption<'a> {
@@ -136,12 +160,12 @@ Either make them non-capturing by adding '?:' after the '(' or remove/escape the
                 let kind = FormatOptionKind::Hashtag;
                 return Ok((Self { src, kind }, close_bracket_index));
             }
-            "x" => (16, PrefixPolicy::Optional),
-            "o" => (8, PrefixPolicy::Optional),
-            "b" => (2, PrefixPolicy::Optional),
-            "#x" | "x#" => (16, PrefixPolicy::Forced),
-            "#o" | "o#" => (8, PrefixPolicy::Forced),
-            "#b" | "b#" => (2, PrefixPolicy::Forced),
+            "x" => (16, PrefixPolicy::Optional(PrefixKind::Hex)),
+            "o" => (8, PrefixPolicy::Optional(PrefixKind::Octal)),
+            "b" => (2, PrefixPolicy::Optional(PrefixKind::Binary)),
+            "#x" | "x#" => (16, PrefixPolicy::Forced(PrefixKind::Hex)),
+            "#o" | "o#" => (8, PrefixPolicy::Forced(PrefixKind::Octal)),
+            "#b" | "b#" => (2, PrefixPolicy::Forced(PrefixKind::Binary)),
             s => {
                 if s.starts_with('#') || s.ends_with('#') {
                     let msg = "config modifier '#' can only be used with 'x', 'o' or 'b'";

@@ -10,17 +10,23 @@ error: field `x` does not exist
 2 | #[sscanf(format = "{5} {x} {} {} {b} {} {} {b}")]
   |                         ^
 
-error: field `b` specified more than once
- --> tests/fail/nightly/derive_placeholders.rs:2:31
-  |
-2 | #[sscanf(format = "{5} {x} {} {} {b} {} {} {b}")]
-  |                               ^^
-
-error: field `b` specified more than once
+error: field `b` has multiple sources
  --> tests/fail/nightly/derive_placeholders.rs:2:34
   |
 2 | #[sscanf(format = "{5} {x} {} {} {b} {} {} {b}")]
   |                                  ^^^
+
+error: field `b` has multiple sources
+ --> tests/fail/nightly/derive_placeholders.rs:2:44
+  |
+2 | #[sscanf(format = "{5} {x} {} {} {b} {} {} {b}")]
+  |                                            ^^^
+
+error: too many placeholders
+ --> tests/fail/nightly/derive_placeholders.rs:2:31
+  |
+2 | #[sscanf(format = "{5} {x} {} {} {b} {} {} {b}")]
+  |                               ^^
 
 error: too many placeholders
  --> tests/fail/nightly/derive_placeholders.rs:2:38
@@ -34,11 +40,17 @@ error: too many placeholders
 2 | #[sscanf(format = "{5} {x} {} {} {b} {} {} {b}")]
   |                                         ^^
 
-error: field `b` specified more than once
- --> tests/fail/nightly/derive_placeholders.rs:2:44
+error: field `b` has multiple sources
+  --> tests/fail/nightly/derive_placeholders.rs:12:14
+   |
+12 |     #[sscanf(default = 5)]
+   |              ^^^^^^^^^^^
+
+error: field `b` has multiple sources
+ --> tests/fail/nightly/derive_placeholders.rs:9:20
   |
-2 | #[sscanf(format = "{5} {x} {} {} {b} {} {} {b}")]
-  |                                            ^^^
+9 | #[sscanf(format = "{b}")]
+  |                    ^^^
 
 error: FromScanf: field `a` is not specified in the format string and has no default value. You must specify exactly one of these.
        The syntax for default values is: `#[sscanf(default)]` to use Default::default() or `#[sscanf(default = ...)]` to provide a custom value.
@@ -46,17 +58,3 @@ error: FromScanf: field `a` is not specified in the format string and has no def
    |
 11 |     a: u8,
    |     ^
-
-error: field `b` has a default value but is also specified in the format string.
-       Only one can be specified at a time
- --> tests/fail/nightly/derive_placeholders.rs:9:20
-  |
-9 | #[sscanf(format = "{b}")]
-  |                    ^^^
-
-error: field `b` has a default value but is also specified in the format string.
-       Only one can be specified at a time
-  --> tests/fail/nightly/derive_placeholders.rs:12:14
-   |
-12 |     #[sscanf(default = 5)]
-   |              ^^^^^^^^^^^

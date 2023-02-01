@@ -173,6 +173,72 @@ fn mapper() {
 }
 
 #[test]
+fn filter_mapper() {
+    #[derive(FromScanf, Debug, PartialEq)]
+    #[sscanf(format = "({d},{b},{c},{a})")]
+    struct TestStruct {
+        #[sscanf(filter_map = |x: char| x.to_digit(10).map(|x| x as u8))]
+        a: u8,
+        #[sscanf(filter_map = |x: usize| if x == 1 { Some(x.to_string()) } else { None })]
+        b: String,
+        #[sscanf(filter_map = |x: i8| if x < 0 { Some(x as isize) } else { None })]
+        c: isize,
+        d: f32,
+    }
+
+    let input = "Testing with (3.4,1,-2,0)!";
+    let ret = sscanf!(input, "Testing with {TestStruct}!").unwrap();
+    assert_eq!(ret, correct_result!(named));
+
+    for (input, field) in [
+        (
+            "Testing with (3.4,1,-2,a)!", // a is not a digit
+            "a",
+        ),
+        (
+            "Testing with (3.4,2,-2,0)!", // b != 1
+            "b",
+        ),
+        (
+            "Testing with (3.4,1,2,0)!", // c is not negative
+            "c",
+        ),
+    ] {
+        let res = sscanf!(input, "Testing with {TestStruct}!");
+        let error = format!("sscanf: Parsing failed: type TestStruct failed to parse from sscanf: The closure of `{}`s `filter_map` attribute returned None", field);
+        assert_eq!(res.unwrap_err().to_string(), error);
+    }
+
+    for input in WRONG_INPUTS {
+        let res = sscanf!(input, "Testing with {TestStruct}!");
+        res.unwrap_err();
+    }
+}
+
+#[test]
+fn from() {
+    #[derive(FromScanf, Debug, PartialEq)]
+    #[sscanf(format = "({d},{b},{c},{a})")]
+    struct TestStruct {
+        #[sscanf(try_from = i64)]
+        a: u8,
+        #[sscanf(from = &str)]
+        b: String,
+        #[sscanf(from = i8)]
+        c: isize,
+        d: f32,
+    }
+
+    let ret = sscanf!(CORRECT_INPUT, "Testing with {TestStruct}!").unwrap();
+    assert_eq!(ret, correct_result!(named));
+
+    for input in WRONG_INPUTS {
+        let res = sscanf!(input, "Testing with {TestStruct}!");
+        res.unwrap_err();
+    }
+}
+
+#[test]
 fn lifetimes() {
     #[derive(FromScanf, Debug, PartialEq)]
     #[sscanf(format = "({name},{age},{address})")]

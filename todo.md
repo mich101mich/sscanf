@@ -1,5 +1,6 @@
 - multiline format strings
-- check for option in derive
-- #[sscanf(filter_map = ...)]
 - comparison to other crates
-- for enums: #[sscanf(autogen = case_sensitive)] (case_sensitive, case_insensitive, lowercase, uppercase)
+- {:*} = "*" as the first character means "match but don't return"
+- update derive docs
+  - attributes
+- add tests for: from, try_from, filter_map, autogen, Cow, &str vs str, :#x

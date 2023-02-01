@@ -126,7 +126,7 @@ impl<'a> StrLitSlice<'a> {
     }
 
     /// Generates a crate::Error with the given message for the slice.
-    pub fn error(&self, message: &str) -> Error {
+    pub fn error<U: std::fmt::Display>(&self, message: U) -> Error {
         // subspan allows pointing at a span that is not the whole string, but it only works in nightly
         if let Some(span) = self.src.span_provider.subspan(self.range.clone()) {
             Error::new(span, message)

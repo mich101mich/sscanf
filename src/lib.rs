@@ -1,7 +1,6 @@
 #![deny(
     missing_docs,
     missing_debug_implementations,
-    missing_copy_implementations,
     trivial_casts,
     trivial_numeric_casts,
     unsafe_code,
@@ -70,8 +69,9 @@ pub use from_scanf::*;
 mod types;
 pub use types::*;
 
-mod error;
-pub use error::*;
+pub mod errors;
+#[doc(hidden)]
+pub use errors::{Error, FromScanfFailedError, FromStrFailedError}; // for backwards compatibility
 
 #[doc(hidden)]
 pub use const_format;

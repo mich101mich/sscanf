@@ -28,7 +28,7 @@ If matching the format string failed, an Error is returned:
 ```rust
 let msg = "Text that doesn't match the format string";
 let parsed = sscanf::sscanf!(msg, "Hello {str}{usize}!");
-assert!(matches!(parsed, Err(sscanf::Error::MatchFailed)));
+assert!(matches!(parsed, Err(sscanf::errors::Error::MatchFailed)));
 ```
 
 **Types in Placeholders:**
