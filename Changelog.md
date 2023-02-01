@@ -1,0 +1,140 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+The changes and version numbers apply to both [sscanf_macro](https://crates.io/crates/sscanf_macro)
+and its wrapper crate [sscanf](https://crates.io/crates/sscanf), as neither works without the other
+and versions are always released in parallel.
+
+
+## 0.4.1 (Unreleased)
+
+### Added
+- More attributes for deriving [`FromScanf`](https://docs.rs/sscanf/0.4.1/sscanf/derive.FromScanf.html)
+  - For Fields: `filter_map` `from`, `try_from`
+  - For Structs and Variants: `transparent`
+  - For Enums: `autogen` (or `autogenerate`)
+
+## [0.4.0](https://github.com/mich101mich/sscanf/releases/tag/0.4.0) - 2022-11-22
+
+### Added
+- [`FromScanf`](https://docs.rs/sscanf/0.4.0/sscanf/trait.FromScanf.html) trait and
+  [`FromScanf`](https://docs.rs/sscanf/0.4.0/sscanf/derive.FromScanf.html) derive as a new way to
+  add custom types
+  - The trait should not be manually implemented. It can be obtained by deriving or as a blanket
+    implementation for the previous system of `RegexRepresentation` + `FromStr`
+
+### Changed
+- Custom Regex Format Options `{:/.../}` now use a **different escape syntax**
+  - Only inner `'/'` characters need to be escaped with `'\'` (in addition to the escaping of `'\'`
+    itself as `'\\'` in non-raw strings), making the syntax consistent with similar applications
+    like [JavaScript's regex](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions#escaping)
+- `f32` and `f64` now match against their full syntax in accordance with their [`FromStr`
+  implementation](https://doc.rust-lang.org/std/primitive.f32.html#impl-FromStr-for-f32). This was
+  previously emulated by the [`FullF32`](https://docs.rs/sscanf/0.3.1/sscanf/struct.FullF32.html)
+  and [`FullF64`](https://docs.rs/sscanf/0.3.1/sscanf/struct.FullF64.html) types
+- The [`Error`](https://docs.rs/sscanf/0.4.0/sscanf/enum.Error.html) type has been reworked
+- Shadow-renamed `scanf` -> `sscanf` to be consistent with the crate name
+  - 'Shadow', because the old version is still available to avoid breaking changes, it just no
+    longer shows up in the documentation
+
+### Deprecated
+- [`FullF32`](https://docs.rs/sscanf/0.4.0/sscanf/struct.FullF32.html) and [`FullF64`](https://docs.rs/sscanf/0.4.0/sscanf/struct.FullF64.html),
+  as they no longer provide any benefit
+
+### Removed
+- The `chrono` integration
+
+## [0.3.1](https://github.com/mich101mich/sscanf/releases/tag/0.3.1) - 2022-06-27
+
+### Changed
+- `scanf` now uses `Deref<Target=str>` instead of `AsRef<Target=str>` to capture the input
+  - This should not break any existing implementations, only allow more possible inputs and provide
+    better compiler errors for incorrect inputs
+
+## [0.3.0](https://github.com/mich101mich/sscanf/releases/tag/0.3.0) - 2022-06-25
+
+### Changed
+- Significant performance improvements
+- Custom implementations of [`RegexRepresentation`](https://docs.rs/sscanf/0.3.0/sscanf/trait.RegexRepresentation.html)
+  and regex format options `{:/.../}` can no longer use capture groups (unescaped round brackets
+  `(...)`). Existing groups have to be made non-capturing by adding `?:` like this:
+  `(?:...)`
+
+## [0.2.2](https://github.com/mich101mich/sscanf/releases/tag/0.2.2) - 2022-06-25
+
+### Changed
+- Backport of some improvements from the [0.3.0](#030---2022-06-25) release above, but without the
+  breaking changes to stay semver-compliant
+
+## [0.2.1](https://github.com/mich101mich/sscanf/releases/tag/0.2.1) - 2022-02-03
+
+### Added
+- Ability to use `str` as the type to match. This will match any text, similar to using `String`,
+  but will borrow from the input string instead of cloning the substring
+  - Using this requires that the input lives longer than the return value
+
+## [0.2.0](https://github.com/mich101mich/sscanf/releases/tag/0.2.0) - 2022-02-02
+
+### Added
+- Ability to place the type directly in the corresponding placeholder
+  - Imitates the [Rust format!() behavior since 1.58](https://blog.rust-lang.org/2022/01/13/Rust-1.58.0.html#captured-identifiers-in-format-strings)
+
+### Changed
+- Format Options have to be prefixed with a `:` now to separate them from types!
+  - `scanf!(input, "{x}", i32)` is now written as either `scanf!(input, "{:x}", i32)` or
+    `scanf!(input, "{i32:x}")`
+- Return type of `scanf!` is now a `Result` instead of `Option`, returning the
+  [`Error`](https://docs.rs/sscanf/0.2.0/sscanf/enum.Error.html) type if the parsing fails
+  - New Signature: `scanf!(<input>, "<format>", <types>...) -> Result<(<types>...), Error>`
+
+## [0.1.4](https://github.com/mich101mich/sscanf/releases/tag/0.1.4) - 2021-12-01
+
+### Added
+- New format option for supplying a custom regex
+  - Syntax: A regex surrounded by `/` on both sides: `{/.../}`
+
+## [0.1.3](https://github.com/mich101mich/sscanf/releases/tag/0.1.3) - 2021-09-12
+
+### Added
+- Format Options
+  - Placing `x`, `o`, or `b` inside of a `{}` placeholder like: `{x}` causes the number to be
+    parsed from a hex/octal/binary string with optional prefix like `0x`
+  - Using `r2` - `r36` in the placeholder allows parsing number types from any base between 2
+    and 36
+- [`chrono`](https://crates.io/crates/chrono) integration
+  - Ability to parse from `chrono`'s types by specifying a [date format](https://docs.rs/chrono/latest/chrono/format/strftime/index.html) inside of the `{}` placeholders
+  - Requires activating the `chrono` feature of `sscanf` in your `Cargo.toml`
+
+### Deprecated
+- [`HexNumber`](https://docs.rs/sscanf/0.1.3/sscanf/struct.HexNumber.html). Use the `{x}` format
+  option instead
+
+## [0.1.2](https://github.com/mich101mich/sscanf/releases/tag/0.1.2) - 2021-05-18
+
+### Changed
+- Performance improvements
+
+## [0.1.1](https://github.com/mich101mich/sscanf/releases/tag/0.1.1) - 2021-04-15
+
+### Added
+- [`HexNumber`](https://docs.rs/sscanf/0.1.1/sscanf/struct.HexNumber.html), a type to parse
+  integers from hexadecimal strings
+
+## [0.1.0](https://github.com/mich101mich/sscanf/releases/tag/0.1.0) - 2021-03-10
+
+Initial Release
+
+### Added
+- [`scanf`](https://docs.rs/sscanf/0.1.0/sscanf/macro.scanf.html) macro to parse an input string
+  according to a format
+  - Signature: `scanf!(<input>, "<format>", <types>...) -> Option<(<types>...)>`
+- [`scanf_unescaped`](https://docs.rs/sscanf/0.1.0/sscanf/macro.scanf_unescaped.html) and
+  [`scanf_get_regex`](https://docs.rs/sscanf/0.1.0/sscanf/macro.scanf_get_regex.html) macros
+- [`RegexRepresentation`](https://docs.rs/sscanf/0.1.0/sscanf/trait.RegexRepresentation.html) trait
+  to allow custom types to be parsed by `scanf`. Note that the types also need to implement
+  [`std::str::FromStr`](https://doc.rust-lang.org/std/str/trait.FromStr.html)
+

@@ -3,4 +3,4 @@
 - {:*} = "*" as the first character means "match but don't return"
 - update derive docs
   - attributes
-- add tests for: from, try_from, filter_map, autogen, Cow, &str vs str, :#x
+- add tests for: from, try_from, filter_map, autogen, transparent, Cow, &str vs str, :#x

@@ -73,6 +73,9 @@ pub mod errors;
 #[doc(hidden)]
 pub use errors::{Error, FromScanfFailedError, FromStrFailedError}; // for backwards compatibility
 
+#[doc = include_str!("../Changelog.md")]
+pub mod changelog {}
+
 #[doc(hidden)]
 pub use const_format;
 #[doc(hidden)]

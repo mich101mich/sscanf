@@ -232,6 +232,9 @@ assert!(matches!(parsed, HasChanged::Yes { added: 325, deleted: 15 }));
 More details can be found in the [`FromScanf` documentation](https://docs.rs/sscanf/latest/sscanf/trait.FromScanf.html)
 and the [`derive` documentation](https://docs.rs/sscanf/latest/sscanf/derive.FromScanf.html)
 
+# Changelog
+See [Changelog.md](Changelog.md)
+
 # License
 Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or
 [MIT license](LICENSE-MIT) at your option.
