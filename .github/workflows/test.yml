@@ -45,10 +45,13 @@ jobs:
       with: { toolchain: nightly, override: true, components: clippy }
     - name: Run clippy in sscanf
       uses: actions-rs/clippy-check@v1
-      with: { token: ${{ secrets.GITHUB_TOKEN }} }
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
     - name: Run clippy in sscanf_macro
       uses: actions-rs/clippy-check@v1
-      with: { token: ${{ secrets.GITHUB_TOKEN }}, working-directory: sscanf_macro }
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        working-directory: sscanf_macro
 
   minimal-versions:
     runs-on: ubuntu-latest
