@@ -1,31 +1,19 @@
 use std::collections::HashMap;
-
-use convert_case::{Case, Casing};
-use syn::{punctuated::Punctuated, LitStr};
+use std::fmt::{Debug, Display};
+use std::hash::Hash;
 
 use crate::*;
 
-mod r#enum;
-mod field;
+mod r#enum; // not all of these need to be r#, but this looks nicer
+mod r#field;
 mod r#struct;
-mod variant;
-pub use field::*;
+mod r#variant;
 pub use r#enum::*;
+pub use r#field::*;
 pub use r#struct::*;
-pub use variant::*;
+pub use r#variant::*;
 
-pub trait Attr:
-    std::fmt::Debug
-    + std::fmt::Display
-    + Clone
-    + Copy
-    + PartialEq
-    + Eq
-    + PartialOrd
-    + Ord
-    + std::hash::Hash
-    + 'static
-{
+pub trait Attr: Debug + Display + Copy + Ord + Hash + 'static {
     fn all() -> &'static [Self];
     fn all_names() -> &'static [&'static str];
     fn context() -> Context;
@@ -35,15 +23,19 @@ pub trait Attr:
 
 macro_rules! declare_attr {
     (
-        { $($attr_ident: ident : $attr_text: literal,)+ }
-        $($context: ident $context_name: literal : [ $($context_attr: ident),+ ],)+
+        $attr_mod: ident :: $attr_enum: ident {
+            $($attr_ident: ident $attr_text: literal,)+
+        },
+        $context_enum: ident {
+            $($context: ident $context_name: literal [ $($context_attr: ident),+ ],)+
+        }
     ) => {
         #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-        pub enum Context {
+        pub enum $context_enum {
             $($context),+
         }
         #[allow(dead_code)]
-        impl Context {
+        impl $context_enum {
             pub const ALL: &'static [Self] = &[ $(Self::$context),+ ];
             pub const ALL_NAMES: &'static [&'static str] = &[ $($context_name),+ ];
             pub const fn as_str(&self) -> &'static str {
@@ -55,17 +47,17 @@ macro_rules! declare_attr {
                 }
             }
         }
-        impl std::fmt::Display for Context {
+        impl std::fmt::Display for $context_enum {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 write!(f, "{}", self.as_str())
             }
         }
 
-        pub mod attr {
-            pub enum All {
+        pub mod $attr_mod {
+            pub enum $attr_enum {
                 $($attr_ident),+
             }
-            impl All {
+            impl $attr_enum {
                 pub const fn as_str(&self) -> &'static str {
                     match self {
                         $(Self::$attr_ident => $attr_text),+
@@ -84,7 +76,7 @@ macro_rules! declare_attr {
                     pub const ALL_NAMES: &'static [&'static str] = &[$(Self::$context_attr.as_str()),+];
                     pub const fn as_str(&self) -> &'static str {
                         match self {
-                            $(Self::$context_attr => All::$context_attr.as_str()),+
+                            $(Self::$context_attr => $attr_enum::$context_attr.as_str()),+
                         }
                     }
                 }
@@ -100,8 +92,8 @@ macro_rules! declare_attr {
                     fn all_names() -> &'static [&'static str] {
                         Self::ALL_NAMES
                     }
-                    fn context() -> super::Context {
-                        super::Context::$context
+                    fn context() -> super::$context_enum {
+                        super::$context_enum::$context
                     }
                     fn as_str(&self) -> &'static str {
                         self.as_str()
@@ -110,36 +102,39 @@ macro_rules! declare_attr {
             )+
         }
 
+        use syn::punctuated::Punctuated;
         fn attr_parser<A: Attr>() -> fn(ParseStream) -> syn::Result<Punctuated<Attribute<A>, Token![,]>> {
             match A::context() {
-                $(Context::$context => |input| Punctuated::parse_terminated_with(input, |input| Attribute::parse(input))),+
+                $($context_enum::$context => |input| Punctuated::parse_terminated_with(input, |input| Attribute::parse(input))),+
             }
         }
     };
 }
 
 declare_attr!(
-    {
+    attr::All {
         // structs and variants
-        Format: "format",
-        FormatUnescaped: "format_unescaped",
-        Transparent: "transparent",
+        Format "format",
+        FormatUnescaped "format_unescaped",
+        Transparent "transparent",
         // just variants
-        Skip: "skip",
+        Skip "skip",
         // enums
-        AutoGen: "autogen",
-        AutoGenerate: "autogenerate",
+        AutoGen "autogen",
+        AutoGenerate "autogenerate",
         // fields
-        Default: "default",
-        Map: "map",
-        FilterMap: "filter_map",
-        From: "from",
-        TryFrom: "try_from",
+        Default "default",
+        Map "map",
+        FilterMap "filter_map",
+        From "from",
+        TryFrom "try_from",
+    },
+    Context {
+        Struct "structs" [ Format, FormatUnescaped, Transparent ],
+        Variant "variants" [ Format, FormatUnescaped, Transparent, Skip ],
+        Enum "enums" [ AutoGen, AutoGenerate ],
+        Field "fields" [ Default, Map, FilterMap, From, TryFrom ],
     }
-    Struct "structs": [ Format, FormatUnescaped, Transparent ],
-    Variant "variants": [ Format, FormatUnescaped, Transparent, Skip ],
-    Enum "enums": [ AutoGen, AutoGenerate ],
-    Field "fields": [ Default, Map, FilterMap, From, TryFrom ],
 );
 
 fn find_match<A: Attr>(s: &str, src: &TokenStream) -> syn::Result<A> {
@@ -213,22 +208,21 @@ impl<A: Attr> Attribute<A> {
                     value: Some(value),
                     src,
                 });
-            } else {
-                let name = attr::All::Format.as_str();
-                let name2 = attr::All::FormatUnescaped.as_str();
-
-                let valid = Context::ALL
-                    .iter()
-                    .filter(|c| c.all_attr_names().iter().any(|n| *n == name || *n == name2))
-                    .collect::<Vec<_>>();
-                let valid = list_items(&valid, |c| c.to_string());
-
-                let msg = format!(
-                    "omitting the attribute name is only valid for the `{}` attribute on {}",
-                    name, valid,
-                );
-                return Err(syn::Error::new_spanned(value, msg)); // TODO: check
             }
+            let name = attr::All::Format.as_str();
+            let name2 = attr::All::FormatUnescaped.as_str();
+
+            let valid = Context::ALL
+                .iter()
+                .filter(|c| c.all_attr_names().iter().any(|n| *n == name || *n == name2))
+                .collect::<Vec<_>>();
+            let valid = list_items(&valid, |c| c.to_string());
+
+            let msg = format!(
+                "omitting the attribute name is only valid for the `{}` attribute on {}",
+                name, valid,
+            );
+            return Err(syn::Error::new_spanned(value, msg)); // TODO: check
         }
         let attr = input.parse::<syn::Ident>()?;
         src.extend(quote! { #attr });

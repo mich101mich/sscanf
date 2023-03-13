@@ -27,7 +27,7 @@ impl FullSpan {
             .unwrap_or(start);
         Self(start, end)
     }
-    pub fn apply(&self, a: TokenStream, b: TokenStream) -> TokenStream {
+    pub fn apply(self, a: TokenStream, b: TokenStream) -> TokenStream {
         let mut ret = a.with_span(self.0);
         ret.extend(b.with_span(self.1));
         ret
@@ -67,7 +67,7 @@ pub fn list_items<T>(items: &[T], mut display: impl FnMut(&T) -> String) -> Stri
     }
 }
 
-/// Extension trait for TokenStream that allows setting the span of all tokens in the stream.
+/// Extension trait for [`TokenStream`] that allows setting the span of all tokens in the stream.
 pub trait TokenStreamExt {
     fn set_span(&mut self, span: Span);
     fn with_span(self, span: Span) -> Self;

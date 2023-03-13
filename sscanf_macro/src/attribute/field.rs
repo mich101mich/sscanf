@@ -1,6 +1,7 @@
 use super::*;
 
-pub type FieldAttribute<'a> = SingleAttributeContainer<attr::Field, FieldAttributeKind, &'a syn::Type>;
+pub type FieldAttribute<'a> =
+    SingleAttributeContainer<attr::Field, FieldAttributeKind, &'a syn::Type>;
 
 pub enum FieldAttributeKind {
     Default(Option<syn::Expr>),
@@ -31,15 +32,14 @@ impl FromAttribute<attr::Field, &'_ syn::Type> for FieldAttributeKind {
                 }
 
                 let mapper = attr.value_as::<syn::Expr>(closure_format, Some(&closure_hint))?; // TODO: check
-                let mapper = match mapper {
-                    syn::Expr::Closure(closure) => closure,
-                    _ => {
-                        let msg = format!(
-                            "attribute `{}` requires a closure like: `{}`\n{}",
-                            attr.kind, closure_format, closure_hint
-                        );
-                        return Error::err_spanned(mapper, msg); // TODO: check
-                    }
+                let mapper = if let syn::Expr::Closure(closure) = mapper {
+                    closure
+                } else {
+                    let msg = format!(
+                        "attribute `{}` requires a closure like: `{}`\n{}",
+                        attr.kind, closure_format, closure_hint
+                    );
+                    return Error::err_spanned(mapper, msg); // TODO: check
                 };
 
                 let param = if mapper.inputs.len() == 1 {

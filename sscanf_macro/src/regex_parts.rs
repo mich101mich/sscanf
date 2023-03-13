@@ -83,7 +83,7 @@ impl ToTokens for Converter {
                         let value: #ty = #call?;
                         value
                     }
-                })
+                });
             }
             Converter::Custom(custom) => tokens.extend(custom.clone()),
         }
@@ -175,7 +175,7 @@ impl RegexParts {
                 }
             } else {
                 match ty.kind {
-                    TypeKind::Str(_) => {
+                    TypeKind::Str(_) | TypeKind::CowStr(_) => {
                         let token = quote! { str }.with_span(inner.span());
                         let ty = syn::parse2(token).unwrap();
                         RegexPart::FromType(ty, span)
@@ -188,7 +188,7 @@ impl RegexParts {
             let (num_captures, converter) = match ty.kind {
                 TypeKind::Str(_) => (NumCaptures::One, Converter::Str),
                 TypeKind::CowStr(_) => (NumCaptures::One, Converter::CowStr),
-                _ => (
+                TypeKind::Other => (
                     NumCaptures::FromType(inner.clone(), span),
                     converter.unwrap_or_else(|| Converter::FromType(inner.clone(), span)),
                 ),
@@ -212,7 +212,7 @@ impl RegexParts {
 
     pub fn regex(&self) -> TokenStream {
         let regex_builder = &self.regex_builder;
-        quote!(::sscanf::const_format::concatcp!( #(#regex_builder),* ))
+        quote! { ::sscanf::const_format::concatcp!( #(#regex_builder),* ) }
     }
     pub fn num_captures_list(&self) -> Vec<NumCaptures> {
         let mut num_captures = vec![NumCaptures::One]; // for the whole match
@@ -259,10 +259,14 @@ fn regex_from_radix(
         }
     };
 
-    // digit conversion:   num_digits_in_base_a = num_digits_in_base_b * log(b) / log(a)
-    // where log can be any type of logarithm. Since binary is base 2 and log_2(2) = 1,
-    // we can use log_2 to simplify the math
-    let num_digits = f32::ceil(num_digits_binary as f32 / f32::log2(radix as f32)) as u8;
+    let num_digits = if radix == 2 {
+        num_digits_binary
+    } else {
+        // digit conversion:   num_digits_in_base_a = num_digits_in_base_b * log(b) / log(a)
+        // where log can be any type of logarithm. Since binary is base 2 and log_2(2) = 1,
+        // we can use log_2 to simplify the math
+        f32::ceil(num_digits_binary as f32 / f32::log2(radix as f32)) as u32
+    };
 
     let regex = format!(
         "(?i:{sign}{prefix}[{digits}]{{1,{n}}})",

@@ -207,16 +207,18 @@ fn parse_format(
             None => continue,
         };
 
-        let index = match field_map.get(name.text()) {
-            Some(i) => *i,
-            None => {
-                let msg = match name.text().parse::<usize>() {
-                    Ok(n) => format!("field index {} out of range of {} fields", n, fields.len()), // checked in tests/fail/derive_placeholders.rs
-                    Err(_) => format!("field `{}` does not exist", name.text()), // checked in tests/fail/derive_placeholders.rs
-                };
-                error.push(name.error(msg));
-                continue;
-            }
+        let index = if let Some(i) = field_map.get(name.text()) {
+            *i
+        } else {
+            let msg = if let Ok(n) = name.text().parse::<usize>() {
+                // checked in tests/fail/derive_placeholders.rs
+                format!("field index {} out of range of {} fields", n, fields.len())
+            } else {
+                // checked in tests/fail/derive_placeholders.rs
+                format!("field `{}` does not exist", name.text())
+            };
+            error.push(name.error(msg));
+            continue;
         };
 
         let field = &mut fields[index];
@@ -240,13 +242,12 @@ fn parse_format(
         if ph.ident.is_some() {
             continue;
         }
-        let (index, field) = match unused_field_iter.next() {
-            Some(val) => val,
-            None => {
-                let msg = "too many placeholders";
-                error.push(ph.src.error(msg)); // checked in tests/fail/derive_placeholders.rs
-                continue;
-            }
+        let (index, field) = if let Some(val) = unused_field_iter.next() {
+            val
+        } else {
+            let msg = "too many placeholders";
+            error.push(ph.src.error(msg)); // checked in tests/fail/derive_placeholders.rs
+            continue;
         };
         // field.ph_index is guaranteed to be None because of the iterator filter
         field.value_source = Some(ValueSource::Placeholder(ph_index));
@@ -310,11 +311,13 @@ fn merge_lifetimes(
 
     let mut lifetimed_generics = src_generics.clone();
     if !is_static {
-        lifetimed_generics.params.push(syn::parse_quote!(#lifetime));
+        lifetimed_generics
+            .params
+            .push(syn::parse_quote! { #lifetime });
 
         let where_clause = &mut lifetimed_generics.make_where_clause().predicates;
         for lt in str_lifetimes {
-            where_clause.push(syn::parse_quote!(#lifetime: #lt));
+            where_clause.push(syn::parse_quote! { #lifetime: #lt });
         }
     }
 
@@ -322,8 +325,8 @@ fn merge_lifetimes(
 }
 
 pub fn parse_struct(
-    name: syn::Ident,
-    generics: syn::Generics,
+    name: &syn::Ident,
+    generics: &syn::Generics,
     attrs: Vec<syn::Attribute>,
     data: syn::DataStruct,
 ) -> Result<TokenStream> {
@@ -335,7 +338,7 @@ Please add either of #[sscanf(format = \"...\")], #[sscanf(format_unescaped = \"
                 msg += ".
 Alternatively, you can use #[sscanf(transparent)] to derive FromScanf for a single-field struct";
             }
-            Error::new_spanned(&name, msg) // checked in tests/fail/derive_struct_attributes.rs
+            Error::new_spanned(name, msg) // checked in tests/fail/derive_struct_attributes.rs
         })?;
 
     let (regex_parts, from_matches, str_lifetimes) = parse_format(attr, data.fields)?;
@@ -350,7 +353,7 @@ Alternatively, you can use #[sscanf(transparent)] to derive FromScanf for a sing
         }
     };
 
-    let (lifetime, lt_generics) = merge_lifetimes(str_lifetimes, &generics);
+    let (lifetime, lt_generics) = merge_lifetimes(str_lifetimes, generics);
     let (impl_generics, _, where_clause) = lt_generics.split_for_impl();
 
     let num_captures = regex_parts.num_captures();
@@ -390,8 +393,8 @@ Alternatively, you can use #[sscanf(transparent)] to derive FromScanf for a sing
 }
 
 pub fn parse_enum(
-    name: syn::Ident,
-    generics: syn::Generics,
+    name: &syn::Ident,
+    generics: &syn::Generics,
     attrs: Vec<syn::Attribute>,
     data: syn::DataEnum,
 ) -> Result<TokenStream> {
@@ -409,7 +412,7 @@ pub fn parse_enum(
     let mut str_lifetimes = HashSet::new();
     let mut first = true;
 
-    for variant in data.variants.into_iter() {
+    for variant in data.variants {
         let variant_attr = VariantAttribute::from_attrs(variant.attrs)?;
 
         let variant_attr = if let Some(variant_attr) = variant_attr {
@@ -483,7 +486,7 @@ To do this, add #[sscanf(format = \"...\")] to a variant";
         }
     };
 
-    let (lifetime, lt_generics) = merge_lifetimes(str_lifetimes, &generics);
+    let (lifetime, lt_generics) = merge_lifetimes(str_lifetimes, generics);
     let (impl_generics, _, where_clause) = lt_generics.split_for_impl();
 
     let from_sscanf_impl = quote! {
@@ -534,8 +537,8 @@ To do this, add #[sscanf(format = \"...\")] to a variant";
 }
 
 pub fn parse_union(
-    name: syn::Ident,
-    _generics: syn::Generics,
+    name: &syn::Ident,
+    _generics: &syn::Generics,
     _attrs: Vec<syn::Attribute>,
     _data: syn::DataUnion,
 ) -> Result<TokenStream> {

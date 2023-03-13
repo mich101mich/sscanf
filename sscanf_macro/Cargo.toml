@@ -3,6 +3,7 @@ name = "sscanf_macro"
 version = "0.4.1"
 authors = ["mich101mich <mich101mich@gmail.com>"]
 edition = "2018"
+rust-version = "1.56.0"
 description = "Proc-Macros for the sscanf Crate. Not meant to be used as a standalone Crate"
 repository = "https://github.com/mich101mich/sscanf"
 readme = "Readme.md"

@@ -1,4 +1,4 @@
-use super::*;
+use crate::*;
 
 pub struct FormatString<'a> {
     pub src: StrLitSlice<'a>,

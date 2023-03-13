@@ -60,7 +60,7 @@ impl StrLit {
     }
 }
 
-/// A slice into StrLit
+/// A slice into [`StrLit`]
 #[derive(Clone)]
 pub struct StrLitSlice<'a> {
     src: &'a StrLit,
@@ -102,9 +102,7 @@ impl<'a> StrLitSlice<'a> {
                 self.text()
             );
         });
-        if text.is_empty() {
-            panic!("StrLitSlice::slice: empty slice");
-        }
+        assert!(!text.is_empty(), "StrLitSlice::slice: empty slice");
 
         StrLitSlice {
             src: self.src,
@@ -120,12 +118,12 @@ impl<'a> StrLitSlice<'a> {
             .unwrap_or_else(|| self.src.span_provider.span())
     }
 
-    /// Generates a Result::Err with the given message for the slice.
+    /// Generates a `Result::Err` with the given message for the slice.
     pub fn err<T>(&self, message: &str) -> Result<T> {
         Err(self.error(message))
     }
 
-    /// Generates a crate::Error with the given message for the slice.
+    /// Generates a [`crate::Error`] with the given message for the slice.
     pub fn error<U: std::fmt::Display>(&self, message: U) -> Error {
         // subspan allows pointing at a span that is not the whole string, but it only works in nightly
         if let Some(span) = self.src.span_provider.subspan(self.range.clone()) {
@@ -169,9 +167,7 @@ impl ToTokens for StrLit {
     }
 }
 
-use std::ops::*;
-
-impl Deref for StrLit {
+impl std::ops::Deref for StrLit {
     type Target = str;
     fn deref(&self) -> &Self::Target {
         &self.text

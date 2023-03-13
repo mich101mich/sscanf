@@ -1,4 +1,4 @@
-//! Crate with proc_macros for [sscanf](https://crates.io/crates/sscanf). Not usable as a standalone crate.
+//! Procedural macros for the [`sscanf`](https://crates.io/crates/sscanf) crate. Not usable as a standalone crate.
 
 use proc_macro::TokenStream as TokenStream1;
 pub(crate) use proc_macro2::{Span, TokenStream};
@@ -31,16 +31,16 @@ pub(crate) use utils::*;
 
 mod derive;
 
-/// Format string and types for sscanf_get_regex. Shared by sscanf and sscanf_unescaped
+/// Format string and types for `sscanf_get_regex`. Shared by `sscanf` and `sscanf_unescaped`
 struct ScanfInner {
     /// the format string
     fmt: StrLit,
     /// Types after the format string
     type_tokens: Vec<Type<'static>>,
 }
-/// Input string, format string and types for sscanf and sscanf_unescaped
+/// Input string, format string and types for `sscanf` and `sscanf_unescaped`
 struct Scanf {
-    /// input to run the sscanf on
+    /// input to run the `sscanf` on
     src_str: syn::Expr,
     /// format string and types
     inner: ScanfInner,
@@ -121,29 +121,31 @@ pub fn sscanf_unescaped(input: TokenStream1) -> TokenStream1 {
 #[proc_macro]
 pub fn sscanf_get_regex(input: TokenStream1) -> TokenStream1 {
     let input = syn::parse_macro_input!(input as ScanfInner);
-    let (regex, _) = match generate_regex(input, true) {
+    let (regex, _) = match generate_regex(&input, true) {
         Ok(v) => v,
         Err(e) => return e.into(),
     };
-    quote!({
+    let ret = quote! {{
         #regex
         &REGEX
-    })
-    .into()
+    }};
+    ret.into()
 }
 
 #[proc_macro_derive(FromScanf, attributes(sscanf))]
 pub fn derive_from_sscanf(input: TokenStream1) -> TokenStream1 {
-    let input = syn::parse_macro_input!(input as syn::DeriveInput);
+    let syn::DeriveInput {
+        ident,
+        generics,
+        data,
+        attrs,
+        ..
+    } = syn::parse_macro_input!(input as syn::DeriveInput);
 
-    let ident = input.ident;
-    let generics = input.generics;
-    let attrs = input.attrs;
-
-    let res = match input.data {
-        syn::Data::Struct(data) => derive::parse_struct(ident, generics, attrs, data),
-        syn::Data::Enum(data) => derive::parse_enum(ident, generics, attrs, data),
-        syn::Data::Union(data) => derive::parse_union(ident, generics, attrs, data),
+    let res = match data {
+        syn::Data::Struct(data) => derive::parse_struct(&ident, &generics, attrs, data),
+        syn::Data::Enum(data) => derive::parse_enum(&ident, &generics, attrs, data),
+        syn::Data::Union(data) => derive::parse_union(&ident, &generics, attrs, data),
     };
     match res {
         Ok(res) => res.into(),
@@ -152,7 +154,7 @@ pub fn derive_from_sscanf(input: TokenStream1) -> TokenStream1 {
 }
 
 fn sscanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
-    let (regex, matcher) = match generate_regex(input.inner, escape_input) {
+    let (regex, matcher) = match generate_regex(&input.inner, escape_input) {
         Ok(v) => v,
         Err(e) => return e.into(),
     };
@@ -163,43 +165,42 @@ fn sscanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
 
         // wrapping the input in a manual call to str::get ensures that the user
         // gets an appropriate error message if they try to use a non-string input
-        quote!(::std::primitive::str::get(#param, ..).unwrap())
+        quote! { ::std::primitive::str::get(#param, ..).unwrap() }
     };
-    quote!(
-        {
-            #regex
-            #[allow(clippy::needless_borrow)]
-            let input: &str = #src_str;
-            #[allow(clippy::needless_question_mark)]
-            REGEX.captures(input)
-                .ok_or_else(|| ::sscanf::errors::Error::MatchFailed)
-                .and_then(|cap| {
-                    let mut src = cap.iter();
-                    let src = &mut src;
-                    src.next().unwrap(); // skip the whole match
+    let ret = quote! {{
+        #regex
+        #[allow(clippy::needless_borrow)]
+        let input: &str = #src_str;
+        #[allow(clippy::needless_question_mark)]
+        REGEX.captures(input)
+            .ok_or_else(|| ::sscanf::errors::Error::MatchFailed)
+            .and_then(|cap| {
+                let mut src = cap.iter();
+                let src = &mut src;
+                src.next().unwrap(); // skip the whole match
 
-                    let mut matcher = || -> ::std::result::Result<_, ::std::boxed::Box<dyn ::std::error::Error>> {
-                        ::std::result::Result::Ok( ( #(#matcher),* ) )
-                    };
-                    let res = matcher().map_err(|e| ::sscanf::errors::Error::ParsingFailed(e));
+                let mut matcher = || -> ::std::result::Result<_, ::std::boxed::Box<dyn ::std::error::Error>> {
+                    ::std::result::Result::Ok( ( #(#matcher),* ) )
+                };
+                let res = matcher().map_err(|e| ::sscanf::errors::Error::ParsingFailed(e));
 
-                    if res.is_ok() && src.len() != 0 {
-                        panic!("sscanf: {} captures generated, but {} were taken",
-                            REGEX.captures_len(), REGEX.captures_len() - src.len()
-                        );
-                    }
-                    res
-                })
-        }
-    )
-    .into()
+                if res.is_ok() && src.len() != 0 {
+                    panic!("sscanf: {} captures generated, but {} were taken",
+                        REGEX.captures_len(), REGEX.captures_len() - src.len()
+                    );
+                }
+                res
+            })
+    }};
+    ret.into()
 }
 
-fn generate_regex(input: ScanfInner, escape_input: bool) -> Result<(TokenStream, Vec<Matcher>)> {
+fn generate_regex(input: &ScanfInner, escape_input: bool) -> Result<(TokenStream, Vec<Matcher>)> {
     let mut format = FormatString::new(input.fmt.to_slice(), escape_input)?;
     format.parts[0].insert(0, '^');
     format.parts.last_mut().unwrap().push('$');
 
+    // inner function to use ?-operator. This should be a closure, but those can't have lifetimes
     fn find_ph_type<'a>(
         ph: &Placeholder<'a>,
         visited: &mut [bool],
@@ -258,7 +259,7 @@ fn generate_regex(input: ScanfInner, escape_input: bool) -> Result<(TokenStream,
 
     let regex = regex_parts.regex();
     let num_captures = regex_parts.num_captures();
-    let regex = quote!(::sscanf::lazy_static::lazy_static! {
+    let regex = quote! { ::sscanf::lazy_static::lazy_static! {
         static ref REGEX: ::sscanf::regex::Regex = {
             let regex_str = #regex;
             let regex = ::sscanf::regex::Regex::new(regex_str)
@@ -274,7 +275,7 @@ fn generate_regex(input: ScanfInner, escape_input: bool) -> Result<(TokenStream,
             }
             regex
         };
-    });
+    }};
 
     Ok((regex, regex_parts.matchers))
 }

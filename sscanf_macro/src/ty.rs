@@ -71,8 +71,7 @@ impl TypeKind {
     }
     pub fn lifetime(&self) -> Option<&syn::Lifetime> {
         match self {
-            TypeKind::Str(lt) => lt.as_ref(),
-            TypeKind::CowStr(lt) => lt.as_ref(),
+            TypeKind::Str(lt) | TypeKind::CowStr(lt) => lt.as_ref(),
             TypeKind::Other => None,
         }
     }
