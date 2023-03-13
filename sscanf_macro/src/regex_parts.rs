@@ -296,40 +296,58 @@ fn regex_from_radix(
     ) -> TokenStream {
         let (prefix, no_prefix_handler) = match prefix_policy {
             PrefixPolicy::Never => {
-                return quote!({
+                return quote! {{
                     let input = #get_input;
                     #ty::from_str_radix(input, #radix)?
-                });
+                }};
             }
-            PrefixPolicy::Optional(prefix) => (prefix, quote!(unwrap_or(s))),
+            PrefixPolicy::Optional(prefix) => (prefix, quote! { /* do nothing */ }),
             PrefixPolicy::Forced(prefix) => (
                 prefix,
-                quote!(ok_or(::sscanf::errors::MissingPrefixError::#prefix)?),
+                quote! {
+                    ::std::option::Option::None.ok_or(::sscanf::errors::MissingPrefixError::#prefix)?;
+                    #[allow(unreachable_code)]
+                },
             ),
         };
         let prefix_lowercase = prefix.to_string();
         let prefix_uppercase = prefix_lowercase.to_uppercase();
-        let prefix_matcher = quote!(
-            s.strip_prefix(#prefix_lowercase).or_else(|| s.strip_prefix(#prefix_uppercase))
-        );
+        let prefix_matcher = quote! {
+            no_sign.strip_prefix(#prefix_lowercase).or_else(|| no_sign.strip_prefix(#prefix_uppercase))
+        };
 
         if signed {
-            quote!({
+            quote! {{
                 let input = #get_input;
-                let (negative, s) = match input.strip_prefix('-') {
-                    Some(s) => (true, s),
-                    None => (false, input.strip_prefix('+').unwrap_or(input)),
+                let (negative, no_sign) = match input.strip_prefix('-') {
+                    ::std::option::Option::Some(no_sign) => (true, no_sign),
+                    ::std::option::Option::None => (false, input.strip_prefix('+').unwrap_or(input)),
                 };
-                let s = #prefix_matcher.#no_prefix_handler;
-                #ty::from_str_radix(s, #radix).map(|i| if negative { -i } else { i })?
-            })
+                if let ::std::option::Option::Some(no_sign_prefix) = #prefix_matcher {
+                    if negative {
+                        // re-package `no_sign_prefix` into a string that includes the sign, because otherwise
+                        // it might cause faulty overflow errors on numbers like -128i8
+                        let input = ::std::format!("-{}", no_sign_prefix);
+                        #ty::from_str_radix(&input, #radix)?
+                    } else {
+                        #ty::from_str_radix(no_sign_prefix, #radix)?
+                    }
+                } else {
+                    #no_prefix_handler
+                    #ty::from_str_radix(input, #radix)? // note the use of `input` here to include the sign
+                }
+            }}
         } else {
-            quote!({
+            quote! {{
                 let input = #get_input;
-                let s = input.strip_prefix('+').unwrap_or(input);
-                let s = #prefix_matcher.#no_prefix_handler;
-                #ty::from_str_radix(s, #radix)?
-            })
+                let no_sign = input.strip_prefix('+').unwrap_or(input);
+                if let ::std::option::Option::Some(no_sign_prefix) = #prefix_matcher {
+                    #ty::from_str_radix(no_sign_prefix, #radix)?
+                } else {
+                    #no_prefix_handler
+                    #ty::from_str_radix(no_sign, #radix)?
+                }
+            }}
         }
     }
 

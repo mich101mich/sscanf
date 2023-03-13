@@ -107,6 +107,10 @@ fn config_numbers() {
     assert_eq!(c, -0o127);
     assert_eq!(d, -0b101010);
 
+    let input = "-80 -0x80 7f 0x7f";
+    let parsed = sscanf!(input, "{i8:x} {i8:x} {i8:x} {i8:x}");
+    assert_eq!(parsed.unwrap(), (-128, -128, 127, 127)); // note that +128 would be out of range of i8
+
     // explicit positive numbers
     let input = "+10 +0xab01 +0o127 +0b101010";
     let parsed = sscanf!(input, "{i32:r3} {isize:x} {i32:o} {i8:b}");
