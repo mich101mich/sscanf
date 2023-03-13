@@ -70,8 +70,10 @@ mod types;
 pub use types::*;
 
 pub mod errors;
+#[doc(inline)]
+pub use errors::Error;
 #[doc(hidden)]
-pub use errors::{Error, FromScanfFailedError, FromStrFailedError}; // for backwards compatibility
+pub use errors::{FromScanfFailedError, FromStrFailedError}; // for backwards compatibility
 
 #[doc = include_str!("../Changelog.md")]
 pub mod changelog {}
