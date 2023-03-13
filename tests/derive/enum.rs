@@ -104,3 +104,66 @@ fn autogen() {
     let input_lower = "hello world hi";
     sscanf!(input_lower, "{Words} {Words} {Words}").unwrap_err();
 }
+
+#[test]
+fn autogen_cases() {
+    let cases: std::collections::HashMap<_, _> = [
+        ("lowercase", "helloworld"),
+        ("UPPERCASE", "HELLOWORLD"),
+        ("lower case", "hello world"),
+        ("UPPER CASE", "HELLO WORLD"),
+        ("PascalCase", "HelloWorld"),
+        ("camelCase", "helloWorld"),
+        ("snake_case", "hello_world"),
+        ("SCREAMING_SNAKE_CASE", "HELLO_WORLD"),
+        ("kebab-case", "hello-world"),
+        ("SCREAMING-KEBAB-CASE", "HELLO-WORLD"),
+        ("rANdOmCasE", "hElLowOrLd"),
+    ]
+    .iter()
+    .copied()
+    .collect();
+
+    let mut errors = String::new();
+
+    macro_rules! run_check {
+        ($case: literal : $($accepted: literal),+) => {{
+            #[derive(FromScanf, Debug, PartialEq)]
+            #[sscanf(autogen = $case)]
+            enum Word {
+                HelloWorld
+            }
+
+            let mut accepted = std::collections::HashSet::new();
+            $( accepted.insert($accepted); )+
+
+            for (name, input) in &cases {
+                let result = sscanf!(input, "{Word}");
+                if accepted.contains(name) {
+                    if result.is_err() {
+                        errors.push_str(&format!(r#"input "{}" should match autogen="{}""#, input, $case));
+                    }
+                } else {
+                    if result.is_ok() {
+                        errors.push_str(&format!(r#"input "{}" incorrectly matched autogen="{}""#, input, $case));
+                    }
+                }
+            }
+        }};
+    }
+
+    run_check!("CaseSensitive": "PascalCase");
+    run_check!("CAsEiNsenSiTIvE": "PascalCase", "lowercase", "UPPERCASE", "PascalCase", "camelCase", "rANdOmCasE");
+    run_check!("lowercase": "lowercase");
+    run_check!("UPPERCASE": "UPPERCASE");
+    run_check!("lower case": "lower case");
+    run_check!("UPPER CASE": "UPPER CASE");
+    run_check!("PascalCase": "PascalCase");
+    run_check!("camelCase": "camelCase");
+    run_check!("snake_case": "snake_case");
+    run_check!("SCREAMING_SNAKE_CASE": "SCREAMING_SNAKE_CASE");
+    run_check!("kebab-case": "kebab-case");
+    run_check!("SCREAMING-KEBAB-CASE": "SCREAMING-KEBAB-CASE");
+
+    assert!(errors.is_empty(), "{}", errors);
+}

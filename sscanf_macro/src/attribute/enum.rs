@@ -1,12 +1,15 @@
 use super::*;
 
+use convert_case::{Case, Casing};
+
 macro_rules! declare_autogen {
     (
-        {
+        normal: {
+            $($ident: ident : ( $text: literal, $case: ident ),)+
+        },
+        special: {
             $($special_ident: ident : ( $special_text: literal, $matching: ident, $conversion: ident ),)+
-        } {
-            $($ident: ident         : ( $text: literal, $case: ident ),)+
-        }
+        },
     ) => {
         #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
         pub enum AutoGenKind {
@@ -41,39 +44,42 @@ macro_rules! declare_autogen {
 }
 
 fn match_case_sensitive(s: &str) -> bool {
-    s == "case_sensitive"
+    s == "CaseSensitive"
 }
 fn convert_case_sensitive(ident: &str, src: &TokenStream) -> StructAttributeKind {
     StructAttributeKind::Format {
-        value: StrLit::new(LitStr::new(ident, src.span())),
+        value: StrLit::new(syn::LitStr::new(ident, src.span())),
         escape: true,
     }
 }
 fn match_case_insensitive(s: &str) -> bool {
-    s.to_case(Case::Snake) == "case_insensitive"
+    s.to_case(Case::Flat) == "caseinsensitive"
 }
 fn convert_case_insensitive(ident: &str, src: &TokenStream) -> StructAttributeKind {
-    let text = format!("(:i?{})", ident);
+    let text = format!("(?i:{})", ident);
     StructAttributeKind::Format {
-        value: StrLit::new(LitStr::new(&text, src.span())),
+        value: StrLit::new(syn::LitStr::new(&text, src.span())),
         escape: false,
     }
 }
 
 declare_autogen!(
-    {
-        CaseSensitive: ("case_sensitive", match_case_sensitive, convert_case_sensitive),
-        CaseInsensitive: ("case_insensitive", match_case_insensitive, convert_case_insensitive),
-    } {
-        Lowercase: ("lowercase", Lower),
-        Uppercase: ("UPPERCASE", Upper),
+    normal: {
+        LowerCase: ("lower case", Lower),
+        UpperCase: ("UPPER CASE", Upper),
+        FlatCase: ("lowercase", Flat),
+        UpperFlatCase: ("UPPERCASE", UpperFlat),
         PascalCase: ("PascalCase", Pascal),
         CamelCase: ("camelCase", Camel),
         SnakeCase: ("snake_case", Snake),
         ScreamingSnakeCase: ("SCREAMING_SNAKE_CASE", ScreamingSnake),
         KebabCase: ("kebab-case", Kebab),
         ScreamingKebabCase: ("SCREAMING-KEBAB-CASE", UpperKebab),
-    }
+    },
+    special: {
+        CaseSensitive: ("CaseSensitive", match_case_sensitive, convert_case_sensitive),
+        CaseInsensitive: ("CaseInsensitive", match_case_insensitive, convert_case_insensitive),
+    },
 );
 
 impl AutoGenKind {
@@ -83,16 +89,13 @@ impl AutoGenKind {
 
         let value = attr.value_as::<syn::LitStr>("\"<casing>\"", Some(&casing_hint))?; // TODO: check
         let value = value.value();
-        match Self::from_str(&value) {
-            Some(kind) => Ok(kind),
-            None => {
-                let msg = format!(
-                    "invalid value for attribute `{}`: \"{}\".\nvalid values are: {}",
-                    attr.kind, value, valid_hint
-                );
-                Error::err_spanned(value, msg) // TODO: check
-            }
-        }
+        Self::from_str(&value).ok_or_else(|| {
+            let msg = format!(
+                "invalid value for attribute `{}`: \"{}\".\nvalid values are: {}",
+                attr.kind, value, valid_hint
+            );
+            Error::new_spanned(value, msg) // TODO: check
+        })
     }
 }
 
