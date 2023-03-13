@@ -17,6 +17,8 @@ and versions are always released in parallel.
   - For Fields: `filter_map` `from`, `try_from`
   - For Structs and Variants: `transparent`
   - For Enums: `autogen` (or `autogenerate`)
+- [`FromScanf::from_str`](https://docs.rs/sscanf/0.4.1/sscanf/trait.FromScanf.html#method.from_str)
+  as a direct shortcut to do string->type conversion without calling `sscanf`
 
 ## [0.4.0](https://github.com/mich101mich/sscanf/releases/tag/0.4.0) - 2022-11-22
 

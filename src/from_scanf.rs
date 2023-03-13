@@ -203,15 +203,62 @@ where
 {
     /// Error type
     type Err: Error + 'static;
+
     /// Number of captures taken by this regex.
     ///
     /// **HAS** to match the number of unescaped capture groups in the [`RegexRepresentation`](crate::RegexRepresentation)
     /// +1 for the whole match.
     const NUM_CAPTURES: usize;
+
     /// The implementation of the parsing.
     ///
     /// **HAS** to take **EXACTLY** `NUM_CAPTURES` elements from the iterator.
     fn from_matches(src: &mut regex::SubCaptureMatches<'_, 't>) -> Result<Self, Self::Err>;
+
+    /// Convenience shortcut for directly using this trait.
+    ///
+    /// If you have a string containing just the formatted version of the implementing type without
+    /// any text around it, it would normally still be necessary to call
+    /// ```ignore
+    /// sscanf::sscanf!(input, "{<type>}")
+    /// ```
+    /// in order to use the [`FromScanf`] implementation.
+    ///
+    /// This method allows you to call
+    /// ```ignore
+    /// <type>::from_str(input)
+    /// ```
+    /// instead.
+    ///
+    /// On types that were auto-implemented based on their [`FromStr`] implementation, this method
+    /// is functionally identical to [`FromStr::from_str`].
+    ///
+    /// Note that the returned [`Error`](crate::errors::Error) is the same as the one returned by
+    /// [`sscanf!`](crate::sscanf), potentially wrapping a [`FromScanf::Err`].
+    fn from_str(src: &'t str) -> Result<Self, crate::errors::Error>
+    where
+        Self: crate::RegexRepresentation,
+    {
+        let regex = format!("^{}$", Self::REGEX);
+        let regex = crate::regex::Regex::new(&regex).unwrap_or_else(|err| {
+            panic!(
+                "sscanf: Type {} has invalid RegexRepresentation `{}`: {}",
+                std::any::type_name::<Self>(),
+                Self::REGEX,
+                err
+            )
+        });
+
+        regex
+            .captures(src)
+            .ok_or_else(|| crate::errors::Error::MatchFailed)
+            .and_then(|cap| {
+                let mut src = cap.iter();
+
+                Self::from_matches(&mut src)
+                    .map_err(|e| crate::errors::Error::ParsingFailed(Box::new(e)))
+            })
+    }
 }
 
 impl<'t, T> FromScanf<'t> for T
@@ -221,13 +268,18 @@ where
 {
     type Err = FromStrFailedError<T>;
     const NUM_CAPTURES: usize = 1;
-    fn from_matches(src: &mut regex::SubCaptureMatches) -> Result<Self, Self::Err> {
+    fn from_matches(src: &mut regex::SubCaptureMatches<'_, 't>) -> Result<Self, Self::Err> {
         src.next()
             .expect(crate::errors::EXPECT_NEXT_HINT)
             .expect(crate::errors::EXPECT_CAPTURE_HINT)
             .as_str()
             .parse()
-            .map_err(FromStrFailedError::new)
+            .map_err(Self::Err::new)
+    }
+    fn from_str(src: &'t str) -> Result<Self, crate::errors::Error> {
+        src.parse()
+            .map_err(Self::Err::new)
+            .map_err(|e| crate::errors::Error::ParsingFailed(Box::new(e)))
     }
 }
 
