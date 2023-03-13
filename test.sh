@@ -11,6 +11,13 @@ try_silent cargo update || exit 1
 try_silent cargo +stable test || exit 1
 try_silent cargo +nightly test || exit 1
 try_silent cargo +nightly doc --no-deps || exit 1
+try_silent cargo +nightly clippy -- -D warnings || exit 1
+try_silent cargo +stable fmt --check || exit 1
+popd
+
+pushd ~/projects/sscanf/sscanf_macro
+try_silent cargo +nightly clippy -- -D warnings || exit 1
+try_silent cargo +stable fmt --check || exit 1
 popd
 
 # old rustc version

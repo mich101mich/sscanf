@@ -13,45 +13,68 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - uses: Swatinem/rust-cache@v2
-    - uses: actions-rs/toolchain@v1.0.6
-      with: { toolchain: stable }
+    - uses: actions-rs/toolchain@v1
+      with: { toolchain: stable, override: true, components: rustfmt }
     - name: Run tests
-      run: cargo +stable test
+      uses: actions-rs/cargo@v1
+      with: { command: test }
+    - name: Run fmt
+      uses: actions-rs/cargo@v1
+      with: { command: fmt, args: --check }
 
   nightly:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
     - uses: Swatinem/rust-cache@v2
-    - uses: actions-rs/toolchain@v1.0.6
-      with: { toolchain: nightly }
+    - uses: actions-rs/toolchain@v1
+      with: { toolchain: nightly, override: true }
     - name: Run tests
-      run: cargo +nightly test
+      uses: actions-rs/cargo@v1
+      with: { command: test }
     - name: Run docs
-      run: cargo +nightly doc --no-deps
+      uses: actions-rs/cargo@v1
+      with: { command: doc, args: --no-deps }
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: Swatinem/rust-cache@v2
+    - uses: actions-rs/toolchain@v1
+      with: { toolchain: nightly, override: true, components: clippy }
+    - name: Run clippy in sscanf
+      uses: actions-rs/clippy-check@v1
+      with: { token: ${{ secrets.GITHUB_TOKEN }} }
+    - name: Run clippy in sscanf_macro
+      uses: actions-rs/clippy-check@v1
+      with: { token: ${{ secrets.GITHUB_TOKEN }}, working-directory: sscanf_macro }
 
   minimal-versions:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
     - uses: Swatinem/rust-cache@v2
-    - uses: actions-rs/toolchain@v1.0.6
+    - uses: actions-rs/toolchain@v1
       with: { toolchain: stable }
-    - uses: actions-rs/toolchain@v1.0.6
+    - uses: actions-rs/toolchain@v1
       with: { toolchain: nightly }
     - name: Update to minimal versions
       run: cargo +nightly update -Z minimal-versions
-    - name: Run minimal version tests
-      run: cargo +stable test -- --skip failing_tests
+    - name: Run minimal version stable tests
+      uses: actions-rs/cargo@v1
+      with: { command: test, args: -- --skip failing_tests, toolchain: stable }
     - name: Run minimal version nightly tests
-      run: cargo +nightly test -- --skip failing_tests
+      uses: actions-rs/cargo@v1
+      with: { command: test, args: -- --skip failing_tests, toolchain: nightly }
 
   minimum-rust-version:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
     - uses: Swatinem/rust-cache@v2
-    - uses: actions-rs/toolchain@v1.0.6
+    - uses: actions-rs/toolchain@v1
       with: { toolchain: 1.56.0 }
     - name: Run tests
-      run: cargo +1.56.0 test -- --skip failing_tests
+      uses: actions-rs/cargo@v1
+      with: { command: test, args: -- --skip failing_tests, toolchain: 1.56.0 }
