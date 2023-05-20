@@ -61,7 +61,7 @@ impl Parse for ScanfInner {
             input.parse::<Token![,]>()?; // the comma after the format string
 
             input
-                .parse_terminated::<_, Token![,]>(Type::parse)?
+                .parse_terminated(Type::parse, Token![,])?
                 .into_iter()
                 .collect()
         };

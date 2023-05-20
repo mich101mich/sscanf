@@ -208,5 +208,10 @@ fn contains_capture_group(hir: &regex_syntax::hir::Hir) -> bool {
         Concat(c) | Alternation(c) => c.iter().any(contains_capture_group),
         Repetition(r) => contains_capture_group(r.hir.as_ref()),
         _ => false,
+        // regex-syntax 0.7+ version
+        // Capture(_) => true,
+        // Concat(c) | Alternation(c) => c.iter().any(contains_capture_group),
+        // Repetition(r) => contains_capture_group(r.sub.as_ref()),
+        // _ => false,
     }
 }

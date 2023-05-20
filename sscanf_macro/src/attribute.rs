@@ -268,9 +268,27 @@ impl<A: Attr> Attribute<A> {
 fn find_attrs<A: Attr>(attrs: Vec<syn::Attribute>) -> Result<HashMap<A, Attribute<A>>> {
     let mut ret = HashMap::<A, Attribute<A>>::new();
     for attr in attrs {
-        if !attr.path.is_ident("sscanf") {
+        if !attr.path().is_ident("sscanf") {
             continue;
         }
+        let attr = match attr.meta {
+            syn::Meta::List(l) => l,
+            // the below _could_ be done simpler with syn::Meta::require_list, but the error
+            // message in the `NameValue` case would just be "expected a '('" with a span
+            // underlining the '=' sign, which is not very helpful
+            syn::Meta::Path(p) => {
+                let msg = "expected attribute arguments in parentheses: `sscanf(...)`";
+                return Error::err_spanned(p, msg); // checked in tests/fail/derive_struct_attributes.rs
+            }
+            syn::Meta::NameValue(nv) => {
+                let msg = format!(
+                    "attribute arguments must be in parentheses: `sscanf({})`",
+                    nv.value.to_token_stream().to_string()
+                );
+                return Error::err_spanned(nv, msg); // checked in tests/fail/derive_struct_attributes.rs
+            }
+        };
+
         let args = attr.parse_args::<TokenStream>()?;
         if args.is_empty() {
             // trying to parse empty args the regular way would give
