@@ -174,7 +174,7 @@ fn find_match<A: Attr>(s: &str, src: &TokenStream) -> syn::Result<A> {
                 "unknown attribute `{}` is similar to `{}`, which can only be used on {}.\n{} can have the following attributes: {}",
                 s, similar, other, context, valid
             );
-            return Err(syn::Error::new_spanned(src, msg)); // TODO: check
+            return Err(syn::Error::new_spanned(src, msg)); // checked in tests/fail/derive_struct_attributes.rs
         }
     }
 
@@ -222,7 +222,7 @@ impl<A: Attr> Attribute<A> {
                 "omitting the attribute name is only valid for the `{}` attribute on {}",
                 name, valid,
             );
-            return Err(syn::Error::new_spanned(value, msg)); // TODO: check
+            return Err(syn::Error::new_spanned(value, msg)); // checked in tests/fail/derive_field_attributes.rs
         }
         let attr = input.parse::<syn::Ident>()?;
         src.extend(quote! { #attr });

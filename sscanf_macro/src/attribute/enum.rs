@@ -16,13 +16,26 @@ macro_rules! declare_autogen {
             $($special_ident,)+
             $($ident,)+
         }
-        static AUTOGEN_KINDS: &'static [&'static str] = &[$($text),+];
         impl AutoGenKind {
-            pub fn from_str(s: &str) -> Option<Self> {
+            const AUTOGEN_KINDS: &'static [&'static str] = &[$($text,)+ $($special_text,)+];
+
+            pub fn valid_hint() -> String {
+                list_items(Self::AUTOGEN_KINDS, |kind| format!("\"{}\"", kind))
+            }
+
+            pub fn from_str(s: &str) -> Result<Self> {
                 match s {
-                    $($text => Some(Self::$ident),)+
-                    $(s if $matching(s) => Some(Self::$special_ident),)+
-                    _ => None,
+                    $($text => Ok(Self::$ident),)+
+                    $(s if $matching(s) => Ok(Self::$special_ident),)+
+                    _ => {
+                        if let Some(closest) = find_closest(s, Self::AUTOGEN_KINDS) {
+                            let msg = format!("invalid value for autogen: \"{}\". Did you mean \"{}\"?", s, closest);
+                            Error::err_spanned(s, msg) // checked in tests/fail/derive_enum_attributes.rs
+                        } else {
+                            let msg = format!("invalid value for autogen: \"{}\". valid values are: {}", s, Self::valid_hint());
+                            Error::err_spanned(s, msg) // checked in tests/fail/derive_enum_attributes.rs
+                        }
+                    }
                 }
             }
 
@@ -84,18 +97,14 @@ declare_autogen!(
 
 impl AutoGenKind {
     fn from_attr(attr: &Attribute<attr::Enum>) -> Result<Self> {
-        let valid_hint = list_items(AUTOGEN_KINDS, |kind| format!("\"{}\"", kind));
-        let casing_hint = format!("where `<casing>` is one of {}", valid_hint);
+        if attr.value.is_none() {
+            return Ok(Self::CaseSensitive);
+        }
 
-        let value = attr.value_as::<syn::LitStr>("\"<casing>\"", Some(&casing_hint))?; // TODO: check
-        let value = value.value();
-        Self::from_str(&value).ok_or_else(|| {
-            let msg = format!(
-                "invalid value for attribute `{}`: \"{}\".\nvalid values are: {}",
-                attr.kind, value, valid_hint
-            );
-            Error::new_spanned(value, msg) // TODO: check
-        })
+        let casing_hint = format!("where `<casing>` is one of {}", AutoGenKind::valid_hint());
+
+        let value = attr.value_as::<syn::LitStr>("\"<casing>\"", Some(&casing_hint))?; // checked in tests/fail/derive_enum_attributes.rs
+        Self::from_str(&value.value())
     }
 }
 

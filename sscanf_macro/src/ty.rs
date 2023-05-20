@@ -30,6 +30,9 @@ impl<'a> Type<'a> {
     pub fn inner(&self) -> &syn::Type {
         &self.ty
     }
+    pub fn into_inner(self) -> syn::Type {
+        self.ty
+    }
     pub fn full_span(&self) -> FullSpan {
         match &self.source {
             TypeSource::External => FullSpan::from_spanned(&self.ty),

@@ -103,7 +103,7 @@ error: FromScanf: field `0` is not specified in the format string and has no def
    |                                                                  ^^
 
 error: attribute `map` has the format: `#[sscanf(map = |<arg>: <type>| <conversion>)]`
-       where `<type>` is the type that should be matched against and `<conversion>` converts from `<type>` to u8
+       where `<type>` is the type that should be matched against and `<conversion>` converts from `<type>` to `u8`
   --> tests/fail/derive_field_attributes.rs:55:33
    |
 55 | struct TestMapNoAssign(#[sscanf(map)] u8);
@@ -116,7 +116,7 @@ error: expected an expression after `=`
    |                                    ^
 
 error: attribute `map` requires a closure like: `|<arg>: <type>| <conversion>`
-       where `<type>` is the type that should be matched against and `<conversion>` converts from `<type>` to u8
+       where `<type>` is the type that should be matched against and `<conversion>` converts from `<type>` to `u8`
   --> tests/fail/derive_field_attributes.rs:63:41
    |
 63 | struct TestMapNotClosure(#[sscanf(map = "")] u8);
@@ -140,25 +140,75 @@ error: attribute `map` requires a closure with exactly one argument
 75 | struct TestMapMoreTypes(#[sscanf(map = |x: usize, y: usize| { x as u8 })] u8);
    |                                                   ^^^^^^^^
 
-error[E0308]: mismatched types
-  --> tests/fail/derive_field_attributes.rs:81:48
+error: attribute `filter_map` has the format: `#[sscanf(filter_map = |<arg>: <type>| <conversion>)]`
+       where `<type>` is the type that should be matched against and `<conversion>` converts from `<type>` to `Option<u8>`
+  --> tests/fail/derive_field_attributes.rs:83:38
    |
-81 | struct TestDefaultWrongType(#[sscanf(default = "")] u8);
-   |                                                ^^ expected `u8`, found `&str`
+83 | struct TestFilterMapNoValue(#[sscanf(filter_map)] u8);
+   |                                      ^^^^^^^^^^
+
+error: attribute `from` has the format: `#[sscanf(from = <type>)]`
+       where `<type>` is the type that should be matched against and implements `Into<u8>`
+  --> tests/fail/derive_field_attributes.rs:87:32
+   |
+87 | struct TestFromNoType(#[sscanf(from)] u8);
+   |                                ^^^^
+
+error: expected identifier
+  --> tests/fail/derive_field_attributes.rs:91:40
+   |
+91 | struct TestFromNotType(#[sscanf(from = "")] u8);
+   |                                        ^^
+
+error: attribute `try_from` has the format: `#[sscanf(try_from = <type>)]`
+       where `<type>` is the type that should be matched against and implements `TryInto<u8>`
+  --> tests/fail/derive_field_attributes.rs:95:35
+   |
+95 | struct TestTryFromNoType(#[sscanf(try_from)] u8);
+   |                                   ^^^^^^^^
 
 error[E0308]: mismatched types
-  --> tests/fail/derive_field_attributes.rs:85:55
+  --> tests/fail/derive_field_attributes.rs:79:65
    |
-85 | struct TestMapWrongReturn(#[sscanf(map = |x: usize| { x })] u8);
-   |                                                       ^ expected `u8`, found `usize`
+79 | struct TestFilterMapNoOption(#[sscanf(filter_map = |x: usize| { x as u8 })] u8);
+   |                                                                 ^^^^^^^ expected `Option<u8>`, found `u8`
    |
+   = note: expected enum `Option<u8>`
+              found type `u8`
+help: try wrapping the expression in `Some`
+   |
+79 | struct TestFilterMapNoOption(#[sscanf(filter_map = |x: usize| { Some(x as u8) })] u8);
+   |                                                                 +++++       +
+
+error[E0308]: mismatched types
+   --> tests/fail/derive_field_attributes.rs:102:48
+    |
+102 | struct TestDefaultWrongType(#[sscanf(default = "")] u8);
+    |                                                ^^ expected `u8`, found `&str`
+
+error[E0308]: mismatched types
+   --> tests/fail/derive_field_attributes.rs:106:55
+    |
+106 | struct TestMapWrongReturn(#[sscanf(map = |x: usize| { x })] u8);
+    |                                                       ^ expected `u8`, found `usize`
+    |
 help: you can convert a `usize` to a `u8` and panic if the converted value doesn't fit
-   |
-85 | struct TestMapWrongReturn(#[sscanf(map = |x: usize| { x.try_into().unwrap() })] u8);
-   |                                                        ++++++++++++++++++++
+    |
+106 | struct TestMapWrongReturn(#[sscanf(map = |x: usize| { x.try_into().unwrap() })] u8);
+    |                                                        ++++++++++++++++++++
 
 error[E0277]: the trait bound `ParseIntError: Default` is not satisfied
-  --> tests/fail/derive_field_attributes.rs:89:48
-   |
-89 | struct TestDefaultNoDefault(#[sscanf(default)] std::num::ParseIntError);
-   |                                                ^^^^^^^^^^^^^^^^^^^^^^^ the trait `Default` is not implemented for `ParseIntError`
+   --> tests/fail/derive_field_attributes.rs:110:48
+    |
+110 | struct TestDefaultNoDefault(#[sscanf(default)] std::num::ParseIntError);
+    |                                                ^^^^^^^^^^^^^^^^^^^^^^^ the trait `Default` is not implemented for `ParseIntError`
+
+error[E0277]: the trait bound `u8: From<f32>` is not satisfied
+   --> tests/fail/derive_field_attributes.rs:114:39
+    |
+114 | struct TestFromNoFrom(#[sscanf(from = f32)] u8);
+    |                                       ^^^ the trait `From<f32>` is not implemented for `u8`
+    |
+    = help: the following other types implement trait `From<T>`:
+              <u8 as From<NonZeroU8>>
+              <u8 as From<bool>>

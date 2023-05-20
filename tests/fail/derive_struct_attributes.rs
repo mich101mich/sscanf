@@ -85,6 +85,10 @@ struct TestTypoInIdent;
 struct TestMoreTyposInIdent;
 
 #[derive(sscanf::FromScanf)]
+#[sscanf(defauld)]
+struct TestTyposAndWrongIdent;
+
+#[derive(sscanf::FromScanf)]
 #[sscanf(transparent)]
 struct TestTransparentNoField;
 

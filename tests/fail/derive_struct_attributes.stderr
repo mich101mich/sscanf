@@ -159,11 +159,12 @@ error: unknown attribute `formad_unscabededd`. Did you mean `format_unescaped`?
 84 | #[sscanf(formad_unscabededd)]
    |          ^^^^^^^^^^^^^^^^^^
 
-error: structs or variants marked as `transparent` must have exactly one field
+error: unknown attribute `defauld` is similar to `default`, which can only be used on fields.
+       structs can have the following attributes: `format`, `format_unescaped`, or `transparent`
   --> tests/fail/derive_struct_attributes.rs:88:10
    |
-88 | #[sscanf(transparent)]
-   |          ^^^^^^^^^^^
+88 | #[sscanf(defauld)]
+   |          ^^^^^^^
 
 error: structs or variants marked as `transparent` must have exactly one field
   --> tests/fail/derive_struct_attributes.rs:92:10
@@ -171,14 +172,20 @@ error: structs or variants marked as `transparent` must have exactly one field
 92 | #[sscanf(transparent)]
    |          ^^^^^^^^^^^
 
-error: expected `,` or `=`
-  --> tests/fail/derive_struct_attributes.rs:96:21
+error: structs or variants marked as `transparent` must have exactly one field
+  --> tests/fail/derive_struct_attributes.rs:96:10
    |
-96 | #[sscanf(transparent(5))]
-   |                     ^
+96 | #[sscanf(transparent)]
+   |          ^^^^^^^^^^^
+
+error: expected `,` or `=`
+   --> tests/fail/derive_struct_attributes.rs:100:21
+    |
+100 | #[sscanf(transparent(5))]
+    |                     ^
 
 error: attribute `transparent` does not take a value
-   --> tests/fail/derive_struct_attributes.rs:100:24
+   --> tests/fail/derive_struct_attributes.rs:104:24
     |
-100 | #[sscanf(transparent = "true")]
+104 | #[sscanf(transparent = "true")]
     |                        ^^^^^^

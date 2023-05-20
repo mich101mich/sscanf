@@ -1,4 +1,3 @@
 - multiline format strings
 - comparison to other crates
 - {:*} = "*" as the first character means "match but don't return"
-- add failing tests for: from, try_from, filter_map, autogen

@@ -89,7 +89,7 @@ fn transparent() {
 #[test]
 fn autogen() {
     #[derive(FromScanf, Debug, PartialEq)]
-    #[sscanf(autogen = "CaseSensitive")]
+    #[sscanf(autogen)]
     enum Words {
         Hello,
         World,
@@ -103,6 +103,25 @@ fn autogen() {
 
     let input_lower = "hello world hi";
     sscanf!(input_lower, "{Words} {Words} {Words}").unwrap_err();
+
+    #[derive(FromScanf, Debug, PartialEq)]
+    #[allow(dead_code)]
+    #[sscanf(autogen)]
+    enum WordsWithFields {
+        Hello,
+        #[sscanf(skip)]
+        World(usize),
+        #[sscanf(transparent)]
+        Hi(u8),
+    }
+
+    let input = "Hello 5";
+    let expected = (WordsWithFields::Hello, WordsWithFields::Hi(5));
+    let parsed = sscanf!(input, "{WordsWithFields} {WordsWithFields}").unwrap();
+    assert_eq!(parsed, expected);
+
+    let input_world = "World";
+    sscanf!(input_world, "{WordsWithFields}").unwrap_err();
 }
 
 #[test]

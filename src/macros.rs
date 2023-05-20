@@ -251,7 +251,7 @@ pub use sscanf_macro::sscanf_unescaped as scanf_unescaped;
 ///   all variants based on the variant names. This only works for variants without fields. The
 ///   format can be overridden by specifying a `format = ` attribute on the variant. The `case`
 ///   parameter can be one of:
-///   - `"CaseSensitive"`: The variant name is used as-is.
+///   - `"CaseSensitive"`: The variant name is used as-is. Default if no `case` parameter is specified.
 ///   - `"CaseInsensitive"`: Same as `"CaseSensitive"`, but case is ignored.
 ///   - `"lower case"`: Lower case with spaces between words.
 ///   - `"UPPER CASE"`: Upper case with spaces between words.

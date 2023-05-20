@@ -405,6 +405,11 @@ pub fn parse_enum(
         _ => None,
     });
 
+    if data.variants.is_empty() {
+        let msg = "FromScanf: enums must have at least one variant";
+        return Error::err_spanned(name, msg); // checked in tests/fail/derive_enum_attributes.rs
+    }
+
     let mut regex_parts = RegexParts::empty();
     regex_parts.push_literal("(?:");
     let mut variant_constructors = vec![];
@@ -422,12 +427,13 @@ pub fn parse_enum(
                     StructAttribute::new(variant_attr.src, kind)
                 }
             }
-        } else if variant.fields.is_empty() {
-            if let Some((autogen, src)) = autogen.as_ref() {
-                autogen.create_struct_attr(&variant.ident.to_string(), src.clone())
-            } else {
-                continue;
+        } else if let Some((autogen, src)) = autogen.as_ref() {
+            if !variant.fields.is_empty() {
+                let msg = "FromScanf: autogen only works if the variants have no fields.
+Use `#[sscanf(format = \"...\")]` to specify a format for a variant with fields or `#[sscanf(skip)]` to skip a variant";
+                return Error::err_spanned(variant.fields, msg); // checked in tests/fail/derive_enum_attributes.rs
             }
+            autogen.create_struct_attr(&variant.ident.to_string(), src.clone())
         } else {
             continue;
         };
@@ -471,8 +477,12 @@ pub fn parse_enum(
     regex_parts.push_literal(")");
 
     if variant_constructors.is_empty() {
-        let msg = "at least one variant has to be constructable from sscanf.
-To do this, add #[sscanf(format = \"...\")] to a variant";
+        let msg = if autogen.is_some() {
+            "at least one variant has to be constructable from sscanf and not skipped."
+        } else {
+            "at least one variant has to be constructable from sscanf.
+To do this, add #[sscanf(format = \"...\")] to a variant"
+        };
         return Error::err_spanned(name, msg); // checked in tests/fail/derive_enum_attributes.rs
     }
 
