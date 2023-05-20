@@ -130,10 +130,10 @@ fn parse_format(
         StructAttributeKind::Transparent => {
             if raw_fields.len() != 1 {
                 let msg = format!(
-                    "attribute `{}` requires exactly one field",
+                    "structs or variants marked as `{}` must have exactly one field",
                     attr::Struct::Transparent
                 );
-                return Error::err_spanned(attr.src, msg);
+                return Error::err_spanned(attr.src, msg); // checked in tests/fail/derive_struct_attributes.rs
             }
             let lit = syn::LitStr::new("{}", attr.src.span());
             (StrLit::new(lit), true)
@@ -473,7 +473,7 @@ pub fn parse_enum(
     if variant_constructors.is_empty() {
         let msg = "at least one variant has to be constructable from sscanf.
 To do this, add #[sscanf(format = \"...\")] to a variant";
-        return Error::err_spanned(name, msg); // checked in tests/fail/derive_struct_attributes.rs
+        return Error::err_spanned(name, msg); // checked in tests/fail/derive_enum_attributes.rs
     }
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();

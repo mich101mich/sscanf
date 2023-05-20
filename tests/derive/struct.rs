@@ -98,3 +98,22 @@ fn tuple_struct() {
         res.unwrap_err();
     }
 }
+
+#[test]
+fn transparent() {
+    #[derive(FromScanf, Debug, PartialEq)]
+    #[sscanf(transparent)]
+    struct TestStructTuple(usize);
+
+    let ret = sscanf!("5", "{TestStructTuple}").unwrap();
+    assert_eq!(ret, TestStructTuple(5));
+
+    #[derive(FromScanf, Debug, PartialEq)]
+    #[sscanf(transparent)]
+    struct TestStructNamed {
+        a: usize,
+    }
+
+    let ret = sscanf!("5", "{TestStructNamed}").unwrap();
+    assert_eq!(ret, TestStructNamed { a: 5 });
+}

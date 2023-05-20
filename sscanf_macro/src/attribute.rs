@@ -160,12 +160,12 @@ fn find_match<A: Attr>(s: &str, src: &TokenStream) -> syn::Result<A> {
             "attribute `{}` can only be used on {}.\n{} can have the following attributes: {}",
             s, others, context, valid
         );
-        return Err(syn::Error::new_spanned(src, msg)); // TODO: check
+        return Err(syn::Error::new_spanned(src, msg)); // checked in tests/fail/derive_struct_attributes.rs
     }
 
     if let Some(similar) = find_closest(s, context.all_attr_names()) {
         let msg = format!("unknown attribute `{}`. Did you mean `{}`?", s, similar);
-        return Err(syn::Error::new_spanned(src, msg)); // TODO: check
+        return Err(syn::Error::new_spanned(src, msg)); // checked in tests/fail/derive_struct_attributes.rs
     }
 
     for other in &others {
@@ -179,7 +179,7 @@ fn find_match<A: Attr>(s: &str, src: &TokenStream) -> syn::Result<A> {
     }
 
     let msg = format!("unknown attribute `{}`. Valid attributes are: {}", s, valid);
-    Err(syn::Error::new_spanned(src, msg)) // TODO: check
+    Err(syn::Error::new_spanned(src, msg)) // checked in tests/fail/derive_struct_attributes.rs
 }
 
 pub struct Attribute<A: Attr> {
@@ -232,13 +232,13 @@ impl<A: Attr> Attribute<A> {
         let peek = input.lookahead1();
         if !input.is_empty() && !peek.peek(Token![,]) {
             if !peek.peek(Token![=]) {
-                return Err(peek.error()); // TODO: check
+                return Err(peek.error()); // checked in tests/fail/derive_struct_attributes.rs
             }
             let eq_sign = input.parse::<Token![=]>()?;
 
             if input.is_empty() {
                 let msg = "expected an expression after `=`";
-                return Err(syn::Error::new_spanned(eq_sign, msg)); // TODO: check
+                return Err(syn::Error::new_spanned(eq_sign, msg)); // checked in tests/fail/derive_struct_attributes.rs
             }
             let expr = input.parse::<syn::Expr>()?;
             src.extend(quote! { #eq_sign #expr });
@@ -305,7 +305,7 @@ fn find_attrs<A: Attr>(attrs: Vec<syn::Attribute>) -> Result<HashMap<A, Attribut
                     return Error::builder()
                         .with_spanned(attr.src, msg)
                         .with_spanned(&entry.get().src, "previous use here")
-                        .build_err(); // TODO: check
+                        .build_err(); // checked in tests/fail/derive_struct_attributes.rs
                 }
                 Entry::Vacant(entry) => {
                     entry.insert(attr);
@@ -331,7 +331,7 @@ fn expect_one<A: Attr>(attrs: HashMap<A, Attribute<A>>) -> Result<Option<Attribu
             Error::builder()
                 .with_spanned(&attrs[0].src, &msg)
                 .with_spanned(&attrs[1].src, &msg)
-                .build_err() // TODO: check
+                .build_err() // checked in tests/fail/derive_struct_attributes.rs
         }
         _ => {
             let items = list_items(&attrs, |attr| format!("`{}`", attr.kind));
@@ -340,7 +340,7 @@ fn expect_one<A: Attr>(attrs: HashMap<A, Attribute<A>>) -> Result<Option<Attribu
             for attr in attrs {
                 error.with_spanned(attr.src, &msg);
             }
-            error.build_err() // TODO: check
+            error.build_err() // checked in tests/fail/derive_struct_attributes.rs
         }
     }
 }

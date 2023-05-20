@@ -14,7 +14,7 @@ impl FromAttribute<attr::Struct> for StructAttributeKind {
                 let value = attr.value_as(
                     "\"<format>\"",
                     Some("where `<format>` is a format string using the field names inside of its placeholders")
-                )?; // TODO: check
+                )?; // checked in tests/fail/derive_struct_attributes.rs
                 Self::Format {
                     value,
                     escape: attr.kind != attr::Struct::FormatUnescaped,
@@ -23,7 +23,7 @@ impl FromAttribute<attr::Struct> for StructAttributeKind {
             attr::Struct::Transparent => {
                 if let Some(value) = attr.value.as_ref() {
                     let msg = format!("attribute `{}` does not take a value", attr.kind);
-                    return Error::err_spanned(value, msg); // TODO: check
+                    return Error::err_spanned(value, msg); // checked in tests/fail/derive_struct_attributes.rs
                 }
                 Self::Transparent
             }

@@ -5,11 +5,11 @@ error: FromScanf: structs must have a format string as an attribute.
 2 | struct TestNoAttributes;
   |        ^^^^^^^^^^^^^^^^
 
-error: expected attribute arguments in parentheses: #[sscanf(...)]
- --> tests/fail/derive_struct_attributes.rs:5:1
+error: expected attribute arguments in parentheses: `sscanf(...)`
+ --> tests/fail/derive_struct_attributes.rs:5:3
   |
 5 | #[sscanf]
-  | ^^^^^^^^^
+  |   ^^^^^^
 
 error: FromScanf: structs must have a format string as an attribute.
        Please add either of #[sscanf(format = "...")], #[sscanf(format_unescaped = "...")] or #[sscanf("...")]
@@ -18,133 +18,167 @@ error: FromScanf: structs must have a format string as an attribute.
 10 | struct TestEmptyAttribute2;
    |        ^^^^^^^^^^^^^^^^^^^
 
-error: cannot specify both `format` and `format_unescaped`
-  --> tests/fail/derive_struct_attributes.rs:13:10
+error: attribute arguments must be in parentheses: `sscanf("")`
+  --> tests/fail/derive_struct_attributes.rs:13:3
    |
-13 | #[sscanf(format = "", format_unescaped = "")]
+13 | #[sscanf = ""]
+   |   ^^^^^^^^^^^
+
+error: cannot specify both `format` and `format_unescaped`
+  --> tests/fail/derive_struct_attributes.rs:17:10
+   |
+17 | #[sscanf(format = "", format_unescaped = "")]
    |          ^^^^^^^^^^^
 
 error: cannot specify both `format` and `format_unescaped`
-  --> tests/fail/derive_struct_attributes.rs:13:23
+  --> tests/fail/derive_struct_attributes.rs:17:23
    |
-13 | #[sscanf(format = "", format_unescaped = "")]
+17 | #[sscanf(format = "", format_unescaped = "")]
    |                       ^^^^^^^^^^^^^^^^^^^^^
 
-error: attribute `format` is specified multiple times
-  --> tests/fail/derive_struct_attributes.rs:18:10
+error: only one of `format`, `format_unescaped`, or `transparent` is allowed
+  --> tests/fail/derive_struct_attributes.rs:21:10
    |
-18 | #[sscanf(format = "")]
+21 | #[sscanf(format = "", format_unescaped = "", transparent)]
+   |          ^^^^^^^^^^^
+
+error: only one of `format`, `format_unescaped`, or `transparent` is allowed
+  --> tests/fail/derive_struct_attributes.rs:21:23
+   |
+21 | #[sscanf(format = "", format_unescaped = "", transparent)]
+   |                       ^^^^^^^^^^^^^^^^^^^^^
+
+error: only one of `format`, `format_unescaped`, or `transparent` is allowed
+  --> tests/fail/derive_struct_attributes.rs:21:46
+   |
+21 | #[sscanf(format = "", format_unescaped = "", transparent)]
+   |                                              ^^^^^^^^^^^
+
+error: attribute `format` is specified multiple times
+  --> tests/fail/derive_struct_attributes.rs:26:10
+   |
+26 | #[sscanf(format = "")]
    |          ^^^^^^^^^^^
 
 error: previous use here
-  --> tests/fail/derive_struct_attributes.rs:17:10
+  --> tests/fail/derive_struct_attributes.rs:25:10
    |
-17 | #[sscanf(format = "")]
+25 | #[sscanf(format = "")]
    |          ^^^^^^^^^^^
 
 error: cannot specify both `format` and `format_unescaped`
-  --> tests/fail/derive_struct_attributes.rs:22:10
+  --> tests/fail/derive_struct_attributes.rs:30:10
    |
-22 | #[sscanf(format = "")]
+30 | #[sscanf(format = "")]
    |          ^^^^^^^^^^^
 
 error: cannot specify both `format` and `format_unescaped`
-  --> tests/fail/derive_struct_attributes.rs:23:10
+  --> tests/fail/derive_struct_attributes.rs:31:10
    |
-23 | #[sscanf(format_unescaped = "")]
+31 | #[sscanf(format_unescaped = "")]
    |          ^^^^^^^^^^^^^^^^^^^^^
 
 error: unknown attribute `bob`. Valid attributes are: `format`, `format_unescaped`, or `transparent`
-  --> tests/fail/derive_struct_attributes.rs:27:23
+  --> tests/fail/derive_struct_attributes.rs:35:23
    |
-27 | #[sscanf(format = "", bob = "")]
+35 | #[sscanf(format = "", bob = "")]
    |                       ^^^
 
 error: unknown attribute `bob`. Valid attributes are: `format`, `format_unescaped`, or `transparent`
-  --> tests/fail/derive_struct_attributes.rs:32:10
+  --> tests/fail/derive_struct_attributes.rs:40:10
    |
-32 | #[sscanf(bob = "")]
+40 | #[sscanf(bob = "")]
    |          ^^^
 
 error: expected `,`
-  --> tests/fail/derive_struct_attributes.rs:36:22
+  --> tests/fail/derive_struct_attributes.rs:44:22
    |
-36 | #[sscanf(format = "" bob = "")]
+44 | #[sscanf(format = "" bob = "")]
    |                      ^^^
 
 error: expected string literal
-  --> tests/fail/derive_struct_attributes.rs:40:19
+  --> tests/fail/derive_struct_attributes.rs:48:19
    |
-40 | #[sscanf(format = 5)]
+48 | #[sscanf(format = 5)]
    |                   ^
 
 error: expected an expression after `=`
-  --> tests/fail/derive_struct_attributes.rs:44:17
+  --> tests/fail/derive_struct_attributes.rs:52:17
    |
-44 | #[sscanf(format =)]
+52 | #[sscanf(format =)]
    |                 ^
 
 error: expected `,` or `=`
-  --> tests/fail/derive_struct_attributes.rs:48:17
+  --> tests/fail/derive_struct_attributes.rs:56:17
    |
-48 | #[sscanf(format "")]
+56 | #[sscanf(format "")]
    |                 ^^
 
 error: attribute `format` has the format: `#[sscanf(format = "<format>")]`
        where `<format>` is a format string using the field names inside of its placeholders
-  --> tests/fail/derive_struct_attributes.rs:52:10
+  --> tests/fail/derive_struct_attributes.rs:60:10
    |
-52 | #[sscanf(format)]
+60 | #[sscanf(format)]
    |          ^^^^^^
 
 error: expected identifier
-  --> tests/fail/derive_struct_attributes.rs:56:10
+  --> tests/fail/derive_struct_attributes.rs:64:10
    |
-56 | #[sscanf(= "")]
+64 | #[sscanf(= "")]
    |          ^
 
 error: attribute `default` can only be used on fields.
        structs can have the following attributes: `format`, `format_unescaped`, or `transparent`
-  --> tests/fail/derive_struct_attributes.rs:60:10
+  --> tests/fail/derive_struct_attributes.rs:68:10
    |
-60 | #[sscanf(default)]
+68 | #[sscanf(default)]
    |          ^^^^^^^
 
 error: attribute `default` can only be used on fields.
        structs can have the following attributes: `format`, `format_unescaped`, or `transparent`
-  --> tests/fail/derive_struct_attributes.rs:64:10
+  --> tests/fail/derive_struct_attributes.rs:72:10
    |
-64 | #[sscanf(default = "")]
+72 | #[sscanf(default = "")]
    |          ^^^^^^^
 
 error: unknown attribute `bob`. Valid attributes are: `format`, `format_unescaped`, or `transparent`
-  --> tests/fail/derive_struct_attributes.rs:68:10
+  --> tests/fail/derive_struct_attributes.rs:76:10
    |
-68 | #[sscanf(bob)]
+76 | #[sscanf(bob)]
    |          ^^^
 
 error: unknown attribute `formt`. Did you mean `format`?
-  --> tests/fail/derive_struct_attributes.rs:72:10
+  --> tests/fail/derive_struct_attributes.rs:80:10
    |
-72 | #[sscanf(formt)]
+80 | #[sscanf(formt)]
    |          ^^^^^
 
 error: unknown attribute `formad_unscabededd`. Did you mean `format_unescaped`?
-  --> tests/fail/derive_struct_attributes.rs:76:10
+  --> tests/fail/derive_struct_attributes.rs:84:10
    |
-76 | #[sscanf(formad_unscabededd)]
+84 | #[sscanf(formad_unscabededd)]
    |          ^^^^^^^^^^^^^^^^^^
 
-error: attribute `format` can only be used on structs or variants.
-       enums can have the following attributes: `autogen` or `autogenerate`
-  --> tests/fail/derive_struct_attributes.rs:82:10
+error: structs or variants marked as `transparent` must have exactly one field
+  --> tests/fail/derive_struct_attributes.rs:88:10
    |
-82 | #[sscanf(format = "")]
-   |          ^^^^^^
+88 | #[sscanf(transparent)]
+   |          ^^^^^^^^^^^
 
-error: at least one variant has to be constructable from sscanf.
-       To do this, add #[sscanf(format = "...")] to a variant
-  --> tests/fail/derive_struct_attributes.rs:86:6
+error: structs or variants marked as `transparent` must have exactly one field
+  --> tests/fail/derive_struct_attributes.rs:92:10
    |
-86 | enum TestEnumNoFormat { A, B }
-   |      ^^^^^^^^^^^^^^^^
+92 | #[sscanf(transparent)]
+   |          ^^^^^^^^^^^
+
+error: expected `,` or `=`
+  --> tests/fail/derive_struct_attributes.rs:96:21
+   |
+96 | #[sscanf(transparent(5))]
+   |                     ^
+
+error: attribute `transparent` does not take a value
+   --> tests/fail/derive_struct_attributes.rs:100:24
+    |
+100 | #[sscanf(transparent = "true")]
+    |                        ^^^^^^

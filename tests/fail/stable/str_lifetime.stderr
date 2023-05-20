@@ -1,6 +1,8 @@
 error[E0597]: `input` does not live long enough
  --> tests/fail/stable/str_lifetime.rs:5:29
   |
+4 |         let input = String::from("hi");
+  |             ----- binding `input` declared here
 5 |         s = sscanf::sscanf!(input, "{str}").unwrap();
   |                             ^^^^^ borrowed value does not live long enough
 6 |     }
@@ -11,6 +13,8 @@ error[E0597]: `input` does not live long enough
 error[E0597]: `input` does not live long enough
   --> tests/fail/stable/str_lifetime.rs:16:29
    |
+15 |         let input = String::from("hi");
+   |             ----- binding `input` declared here
 16 |         w = sscanf::sscanf!(input, "{Wrapper}").unwrap();
    |                             ^^^^^ borrowed value does not live long enough
 17 |     }

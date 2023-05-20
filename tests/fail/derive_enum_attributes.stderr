@@ -1,0 +1,13 @@
+error: attribute `format` can only be used on structs or variants.
+       enums can have the following attributes: `autogen` or `autogenerate`
+ --> tests/fail/derive_enum_attributes.rs:2:10
+  |
+2 | #[sscanf(format = "")]
+  |          ^^^^^^
+
+error: at least one variant has to be constructable from sscanf.
+       To do this, add #[sscanf(format = "...")] to a variant
+ --> tests/fail/derive_enum_attributes.rs:6:6
+  |
+6 | enum TestNoFormat { A, B }
+  |      ^^^^^^^^^^^^

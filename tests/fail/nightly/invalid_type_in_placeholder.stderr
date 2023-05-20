@@ -31,35 +31,3 @@ error[E0412]: cannot find type `bob` in this scope
   |
 5 |     sscanf::sscanf!("hi", "{bob:/hi/}");
   |                             ^^^ not found in this scope
-
-note: erroneous constant used
- --> tests/fail/nightly/invalid_type_in_placeholder.rs:3:5
-  |
-3 |     sscanf::sscanf!("hi", "{bob}");
-  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  |
-  = note: this note originates in the macro `$crate::pmr::__concatcp_impl` which comes from the expansion of the macro `sscanf::sscanf` (in Nightly builds, run with -Z macro-backtrace for more info)
-
-note: erroneous constant used
- --> tests/fail/nightly/invalid_type_in_placeholder.rs:3:5
-  |
-3 |     sscanf::sscanf!("hi", "{bob}");
-  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  |
-  = note: this note originates in the macro `__cf_osRcTFl4A::__concatcp_inner` which comes from the expansion of the macro `sscanf::sscanf` (in Nightly builds, run with -Z macro-backtrace for more info)
-
-note: erroneous constant used
- --> tests/fail/nightly/invalid_type_in_placeholder.rs:3:5
-  |
-3 |     sscanf::sscanf!("hi", "{bob}");
-  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  |
-  = note: this note originates in the macro `__cf_osRcTFl4A::__concatcp_inner` which comes from the expansion of the macro `sscanf::sscanf` (in Nightly builds, run with -Z macro-backtrace for more info)
-
-note: erroneous constant used
- --> tests/fail/nightly/invalid_type_in_placeholder.rs:3:5
-  |
-3 |     sscanf::sscanf!("hi", "{bob}");
-  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  |
-  = note: this note originates in the macro `__cf_osRcTFl4A::__concatcp_inner` which comes from the expansion of the macro `sscanf::sscanf` (in Nightly builds, run with -Z macro-backtrace for more info)
