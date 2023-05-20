@@ -1,6 +1,9 @@
 A Rust crate with a sscanf (inverse of format!()) Macro based on Regex
 
 [![Tests](https://github.com/mich101mich/sscanf/actions/workflows/test.yml/badge.svg)](https://github.com/mich101mich/sscanf/actions/workflows/test.yml)
+[![Crates.io](https://img.shields.io/crates/v/sscanf.svg)](https://crates.io/crates/sscanf)
+[![Documentation](https://docs.rs/sscanf/badge.svg)](https://docs.rs/sscanf/)
+[![Dependency status](https://deps.rs/repo/github/mich101mich/sscanf/status.svg)](https://deps.rs/repo/github/mich101mich/sscanf)
 
 `sscanf` is originally a C-function that takes a string, a format string with placeholders and
 several variables (in the Rust version replaced with types). It then parses the input string,
@@ -231,6 +234,9 @@ assert!(matches!(parsed, HasChanged::Yes { added: 325, deleted: 15 }));
 
 More details can be found in the [`FromScanf` documentation](https://docs.rs/sscanf/latest/sscanf/trait.FromScanf.html)
 and the [`derive` documentation](https://docs.rs/sscanf/latest/sscanf/derive.FromScanf.html)
+
+# Changelog
+See [Changelog.md](https://github.com/mich101mich/sscanf/blob/master/Changelog.md)
 
 # License
 Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or

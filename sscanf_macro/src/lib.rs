@@ -1,4 +1,4 @@
-//! Crate with proc_macros for [sscanf](https://crates.io/crates/sscanf). Not usable as a standalone crate.
+//! Procedural macros for the [`sscanf`](https://crates.io/crates/sscanf) crate. Not usable as a standalone crate.
 
 use proc_macro::TokenStream as TokenStream1;
 pub(crate) use proc_macro2::{Span, TokenStream};
@@ -9,34 +9,38 @@ pub(crate) use syn::{
     Token,
 };
 
-mod attributes;
+mod attribute;
 mod error;
 mod format_option;
 mod format_string;
 mod placeholder;
 mod regex_parts;
 mod str_lit;
+mod ty;
+mod utils;
 
-pub(crate) use attributes::*;
+pub(crate) use attribute::*;
 pub(crate) use error::*;
 pub(crate) use format_option::*;
 pub(crate) use format_string::*;
 pub(crate) use placeholder::*;
 pub(crate) use regex_parts::*;
 pub(crate) use str_lit::*;
+pub(crate) use ty::*;
+pub(crate) use utils::*;
 
 mod derive;
 
-/// Format string and types for sscanf_get_regex. Shared by sscanf and sscanf_unescaped
+/// Format string and types for `sscanf_get_regex`. Shared by `sscanf` and `sscanf_unescaped`
 struct ScanfInner {
     /// the format string
     fmt: StrLit,
     /// Types after the format string
-    type_tokens: Vec<syn::Path>,
+    type_tokens: Vec<Type<'static>>,
 }
-/// Input string, format string and types for sscanf and sscanf_unescaped
+/// Input string, format string and types for `sscanf` and `sscanf_unescaped`
 struct Scanf {
-    /// input to run the sscanf on
+    /// input to run the `sscanf` on
     src_str: syn::Expr,
     /// format string and types
     inner: ScanfInner,
@@ -57,7 +61,7 @@ impl Parse for ScanfInner {
             input.parse::<Token![,]>()?; // the comma after the format string
 
             input
-                .parse_terminated::<_, Token![,]>(syn::Path::parse)?
+                .parse_terminated(Type::parse, Token![,])?
                 .into_iter()
                 .collect()
         };
@@ -117,38 +121,40 @@ pub fn sscanf_unescaped(input: TokenStream1) -> TokenStream1 {
 #[proc_macro]
 pub fn sscanf_get_regex(input: TokenStream1) -> TokenStream1 {
     let input = syn::parse_macro_input!(input as ScanfInner);
-    let (regex, _) = match generate_regex(input, true) {
+    let (regex, _) = match generate_regex(&input, true) {
         Ok(v) => v,
         Err(e) => return e.into(),
     };
-    quote!({
+    let ret = quote! {{
         #regex
         &REGEX
-    })
-    .into()
+    }};
+    ret.into()
 }
 
 #[proc_macro_derive(FromScanf, attributes(sscanf))]
 pub fn derive_from_sscanf(input: TokenStream1) -> TokenStream1 {
-    let input = syn::parse_macro_input!(input as syn::DeriveInput);
+    let syn::DeriveInput {
+        ident,
+        generics,
+        data,
+        attrs,
+        ..
+    } = syn::parse_macro_input!(input as syn::DeriveInput);
 
-    let ident = input.ident;
-    let generics = input.generics;
-    let attrs = input.attrs;
-
-    let res = match input.data {
-        syn::Data::Struct(data) => derive::parse_struct(ident, generics, attrs, data),
-        syn::Data::Enum(data) => derive::parse_enum(ident, generics, attrs, data),
-        syn::Data::Union(data) => derive::parse_union(ident, generics, attrs, data),
+    let res = match data {
+        syn::Data::Struct(data) => derive::parse_struct(&ident, &generics, attrs, data),
+        syn::Data::Enum(data) => derive::parse_enum(&ident, &generics, attrs, data),
+        syn::Data::Union(data) => derive::parse_union(&ident, &generics, attrs, data),
     };
     match res {
         Ok(res) => res.into(),
-        Err(err) => err.to_compile_error().into(),
+        Err(err) => err.into(),
     }
 }
 
 fn sscanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
-    let (regex, matcher) = match generate_regex(input.inner, escape_input) {
+    let (regex, matcher) = match generate_regex(&input.inner, escape_input) {
         Ok(v) => v,
         Err(e) => return e.into(),
     };
@@ -159,101 +165,89 @@ fn sscanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
 
         // wrapping the input in a manual call to str::get ensures that the user
         // gets an appropriate error message if they try to use a non-string input
-        quote!(::std::primitive::str::get(#param, ..).unwrap())
+        quote! { ::std::primitive::str::get(#param, ..).unwrap() }
     };
-    quote!(
-        {
-            #regex
-            #[allow(clippy::needless_borrow)]
-            let input: &str = #src_str;
-            #[allow(clippy::needless_question_mark)]
-            REGEX.captures(input)
-                .ok_or_else(|| ::sscanf::Error::MatchFailed)
-                .and_then(|cap| {
-                    let mut src = cap.iter();
-                    let src = &mut src;
-                    src.next().unwrap(); // skip the whole match
+    let ret = quote! {{
+        #regex
+        #[allow(clippy::needless_borrow)]
+        let input: &str = #src_str;
+        #[allow(clippy::needless_question_mark)]
+        REGEX.captures(input)
+            .ok_or_else(|| ::sscanf::errors::Error::MatchFailed)
+            .and_then(|cap| {
+                let mut src = cap.iter();
+                let src = &mut src;
+                src.next().unwrap(); // skip the whole match
 
-                    let mut matcher = || -> ::std::result::Result<_, ::std::boxed::Box<dyn ::std::error::Error>> {
-                        ::std::result::Result::Ok( ( #(#matcher),* ) )
-                    };
-                    let res = matcher().map_err(|e| ::sscanf::Error::ParsingFailed(e));
+                let mut matcher = || -> ::std::result::Result<_, ::std::boxed::Box<dyn ::std::error::Error>> {
+                    ::std::result::Result::Ok( ( #(#matcher),* ) )
+                };
+                let res = matcher().map_err(|e| ::sscanf::errors::Error::ParsingFailed(e));
 
-                    if res.is_ok() && src.len() != 0 {
-                        panic!("sscanf: {} captures generated, but {} were taken",
-                            REGEX.captures_len(), REGEX.captures_len() - src.len()
-                        );
-                    }
-                    res
-                })
-        }
-    )
-    .into()
+                if res.is_ok() && src.len() != 0 {
+                    panic!("sscanf: {} captures generated, but {} were taken",
+                        REGEX.captures_len(), REGEX.captures_len() - src.len()
+                    );
+                }
+                res
+            })
+    }};
+    ret.into()
 }
 
-fn generate_regex(input: ScanfInner, escape_input: bool) -> Result<(TokenStream, Vec<Matcher>)> {
+fn generate_regex(input: &ScanfInner, escape_input: bool) -> Result<(TokenStream, Vec<Matcher>)> {
     let mut format = FormatString::new(input.fmt.to_slice(), escape_input)?;
     format.parts[0].insert(0, '^');
     format.parts.last_mut().unwrap().push('$');
 
-    let external_types = input
-        .type_tokens
-        .into_iter()
-        .map(|path| syn::Type::Path(syn::TypePath { qself: None, path }))
-        .collect::<Vec<_>>();
-
-    fn to_type_source<'a>(
+    // inner function to use ?-operator. This should be a closure, but those can't have lifetimes
+    fn find_ph_type<'a>(
         ph: &Placeholder<'a>,
         visited: &mut [bool],
         ph_index: &mut usize,
-        external_types: &[syn::Type],
-    ) -> Result<TypeSource<'a>> {
-        let ty_source = if let Some(name) = ph.ident.as_ref() {
+        external_types: &[Type<'a>],
+    ) -> Result<Type<'a>> {
+        let n = if let Some(name) = ph.ident.as_ref() {
             if let Ok(n) = name.text().parse::<usize>() {
                 if n >= visited.len() {
                     let msg = format!("type index {} out of range of {} types", n, visited.len());
                     return name.err(&msg); // checked in tests/fail/<channel>/invalid_type_in_placeholder.rs
                 }
-                visited[n] = true;
-                TypeSource {
-                    ty: external_types[n].clone(),
-                    source: None,
-                }
+                n
             } else {
-                TypeSource {
-                    ty: to_type(name)?,
-                    source: Some(name.clone()),
-                }
+                return Type::from_str(name.clone()).map_err(|err| {
+                    let hint =  "The syntax for placeholders is {<type>} or {<type>:<config>}. Make sure <type> is a valid type or index.";
+                    let hint2 = "If you want syntax highlighting and better errors, place the type in the arguments after the format string while debugging";
+                    let msg = format!("invalid type in placeholder: {}.\nHint: {}\n{}", err, hint, hint2);
+                    name.error(msg) // checked in tests/fail/<channel>/invalid_type_in_placeholder.rs
+                });
             }
         } else {
             let n = *ph_index;
             *ph_index += 1;
             if n >= visited.len() {
-                let msg = format!("more placeholders than types provided");
-                return ph.src.err(&msg); // checked in tests/fail/<channel>/missing_type.rs
+                let msg = "more placeholders than types provided";
+                return ph.src.err(msg); // checked in tests/fail/<channel>/missing_type.rs
             }
-            visited[n] = true;
-            TypeSource {
-                ty: external_types[n].clone(),
-                source: None,
-            }
+            n
         };
-        Ok(ty_source)
+        visited[n] = true;
+        Ok(external_types[n].clone())
     }
 
     let mut ph_index = 0;
-    let mut visited = vec![false; external_types.len()];
+    let mut visited = vec![false; input.type_tokens.len()];
     let mut types = vec![];
     let mut error = Error::builder();
 
     for ph in &format.placeholders {
-        match to_type_source(ph, &mut visited, &mut ph_index, &external_types) {
-            Ok(ty_source) => types.push(ty_source),
+        match find_ph_type(ph, &mut visited, &mut ph_index, &input.type_tokens) {
+            Ok(ty) => types.push(ty),
             Err(e) => error.push(e),
         }
     }
 
-    for (visited, ty) in visited.iter().zip(external_types.iter()) {
+    for (visited, ty) in visited.iter().zip(&input.type_tokens) {
         if !*visited {
             error.with_spanned(ty, "unused type"); // checked in tests/fail/missing_placeholder.rs
         }
@@ -265,7 +259,7 @@ fn generate_regex(input: ScanfInner, escape_input: bool) -> Result<(TokenStream,
 
     let regex = regex_parts.regex();
     let num_captures = regex_parts.num_captures();
-    let regex = quote!(::sscanf::lazy_static::lazy_static! {
+    let regex = quote! { ::sscanf::lazy_static::lazy_static! {
         static ref REGEX: ::sscanf::regex::Regex = {
             let regex_str = #regex;
             let regex = ::sscanf::regex::Regex::new(regex_str)
@@ -276,53 +270,12 @@ fn generate_regex(input: ScanfInner, escape_input: bool) -> Result<(TokenStream,
             if regex.captures_len() != NUM_CAPTURES {
                 panic!(
                     "sscanf: Regex has {} capture groups, but {} were expected.{}",
-                    regex.captures_len(), NUM_CAPTURES, ::sscanf::WRONG_CAPTURES_HINT
+                    regex.captures_len(), NUM_CAPTURES, ::sscanf::errors::WRONG_CAPTURES_HINT
                 );
             }
             regex
         };
-    });
+    }};
 
     Ok((regex, regex_parts.matchers))
-}
-
-trait TokenStreamExt {
-    fn set_span(&mut self, span: Span);
-}
-impl TokenStreamExt for TokenStream {
-    fn set_span(&mut self, span: Span) {
-        let old = std::mem::replace(self, TokenStream::new());
-        self.extend(old.into_iter().map(|mut t| {
-            t.set_span(span);
-            t
-        }));
-    }
-}
-
-fn to_type(src: &StrLitSlice) -> Result<syn::Type> {
-    // dirty hack #493: a type in a string needs to be converted to a Type token, because quote
-    // would surround a String with '"', and we don't want that. And we cannot change that
-    // other than changing the type of the variable.
-    // So we parse from String to TokenStream, then parse from TokenStream to Path.
-    // The alternative would be to construct the Path ourselves, but path has _way_ too
-    // many parts to it with variable stuff and incomplete constructors, that's too
-    // much work.
-    let catcher = || -> syn::Result<syn::Type> {
-        let span = src.span();
-        let mut tokens = src.text().parse::<TokenStream>()?;
-        tokens.set_span(span);
-        let path = syn::parse2::<syn::Path>(tokens)?;
-
-        // we don't parse directly to a Type to give better error messages:
-        // Path says "expected identifier"
-        // Type says "expected one of: `for`, parentheses, `fn`, `unsafe`, ..."
-        // because syn::Type contains too many other variants.
-        Ok(syn::Type::Path(syn::TypePath { qself: None, path }))
-    };
-    catcher().map_err(|err| {
-        let hint =  "The syntax for placeholders is {<type>} or {<type>:<config>}. Make sure <type> is a valid type or index.";
-        let hint2 = "If you want syntax highlighting and better errors, place the type in the arguments after the format string while debugging";
-        let msg = format!("invalid type in placeholder: {}.\nHint: {}\n{}", err, hint, hint2);
-        src.error(&msg) // checked in tests/fail/<channel>/invalid_type_in_placeholder.rs
-    })
 }

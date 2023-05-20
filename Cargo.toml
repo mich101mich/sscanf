@@ -1,8 +1,9 @@
 [package]
 name = "sscanf"
-version = "0.4.0"
+version = "0.4.1"
 authors = ["mich101mich <mich101mich@gmail.com>"]
 edition = "2018"
+rust-version = "1.56.0"
 description = "A sscanf (inverse of format!()) Macro based on Regex"
 repository = "https://github.com/mich101mich/sscanf"
 readme = "Readme.md"
@@ -12,12 +13,12 @@ categories = ["parsing"]
 exclude = ["/.vscode/*", "/.gitignore", "/.github/*", "/*.bat", "/*.sh"]
 
 [dependencies]
-sscanf_macro = { path = "sscanf_macro", version = "=0.4.0"}
+sscanf_macro = { path = "sscanf_macro", version = "=0.4.1"}
 regex = "1.6.0"
 const_format = "0.2.26"
 lazy_static = "1.4.0"
 
 [dev-dependencies]
-trybuild = "1.0.64"
+trybuild = "1.0.78"
 rustc_version = "0.4.0"
 thiserror = "1.0.37"

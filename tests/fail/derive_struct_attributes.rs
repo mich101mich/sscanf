@@ -10,8 +10,16 @@ struct TestEmptyAttribute;
 struct TestEmptyAttribute2;
 
 #[derive(sscanf::FromScanf)]
+#[sscanf = ""]
+struct TestAssignedAttribute;
+
+#[derive(sscanf::FromScanf)]
 #[sscanf(format = "", format_unescaped = "")]
 struct TestTooManyAttributes;
+
+#[derive(sscanf::FromScanf)]
+#[sscanf(format = "", format_unescaped = "", transparent)]
+struct TestTooManyAttributes2;
 
 #[derive(sscanf::FromScanf)]
 #[sscanf(format = "")]
@@ -76,13 +84,24 @@ struct TestTypoInIdent;
 #[sscanf(formad_unscabededd)]
 struct TestMoreTyposInIdent;
 
-// enum tests
+#[derive(sscanf::FromScanf)]
+#[sscanf(defauld)]
+struct TestTyposAndWrongIdent;
 
 #[derive(sscanf::FromScanf)]
-#[sscanf(format = "")]
-enum TestEnumOuterFormat { A, B }
+#[sscanf(transparent)]
+struct TestTransparentNoField;
 
 #[derive(sscanf::FromScanf)]
-enum TestEnumNoFormat { A, B }
+#[sscanf(transparent)]
+struct TestTransparentMultiField(usize, u8);
+
+#[derive(sscanf::FromScanf)]
+#[sscanf(transparent(5))]
+struct TestTransparentArg(usize);
+
+#[derive(sscanf::FromScanf)]
+#[sscanf(transparent = "true")]
+struct TestTransparentValue(usize);
 
 fn main() {}

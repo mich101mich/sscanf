@@ -1,0 +1,54 @@
+error: attribute `format` can only be used on structs or variants.
+       enums can have the following attributes: `autogen` or `autogenerate`
+ --> tests/fail/derive_enum_attributes.rs:2:10
+  |
+2 | #[sscanf(format = "")]
+  |          ^^^^^^
+
+error: at least one variant has to be constructable from sscanf.
+       To do this, add #[sscanf(format = "...")] to a variant
+ --> tests/fail/derive_enum_attributes.rs:6:6
+  |
+6 | enum TestNoFormat { A, B }
+  |      ^^^^^^^^^^^^
+
+error: FromScanf: enums must have at least one variant
+ --> tests/fail/derive_enum_attributes.rs:9:6
+  |
+9 | enum TestNoVariants { }
+  |      ^^^^^^^^^^^^^^
+
+error: FromScanf: autogen only works if the variants have no fields.
+       Use `#[sscanf(format = "...")]` to specify a format for a variant with fields or `#[sscanf(skip)]` to skip a variant
+  --> tests/fail/derive_enum_attributes.rs:13:33
+   |
+13 | enum TestAutogenHasFields { A, B(usize) }
+   |                                 ^^^^^^^
+
+error: at least one variant has to be constructable from sscanf and not skipped.
+  --> tests/fail/derive_enum_attributes.rs:17:6
+   |
+17 | enum TestAutogenAllSkip { #[sscanf(skip)] A, #[sscanf(skip)] B }
+   |      ^^^^^^^^^^^^^^^^^^
+
+error: expected string literal
+  --> tests/fail/derive_enum_attributes.rs:20:20
+   |
+20 | #[sscanf(autogen = {})]
+   |                    ^^
+
+error: invalid value for autogen: "bob". valid values are: "lower case", "UPPER CASE", "lowercase", "UPPERCASE", "PascalCase", "camelCase", "snake_case", "SCREAMING_SNAKE_CASE", "kebab-case", "SCREAMING-KEBAB-CASE", "CaseSensitive", or "CaseInsensitive"
+  --> tests/fail/derive_enum_attributes.rs:23:10
+   |
+23 | #[derive(sscanf::FromScanf)]
+   |          ^^^^^^^^^^^^^^^^^
+   |
+   = note: this error originates in the derive macro `sscanf::FromScanf` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: invalid value for autogen: "casesensitive". Did you mean "CaseInsensitive"?
+  --> tests/fail/derive_enum_attributes.rs:27:10
+   |
+27 | #[derive(sscanf::FromScanf)]
+   |          ^^^^^^^^^^^^^^^^^
+   |
+   = note: this error originates in the derive macro `sscanf::FromScanf` (in Nightly builds, run with -Z macro-backtrace for more info)

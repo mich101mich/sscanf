@@ -1,4 +1,7 @@
-use std::error;
+//! Various error types used by the crate. The most important one is [`Error`], which is returned by [`sscanf`](crate::sscanf).
+
+use std::error; // can't use `Error` directly because of naming conflict; can't alias because that would show up in docs
+use std::fmt::{self, Display};
 use std::str::FromStr;
 
 #[doc(hidden)]
@@ -15,7 +18,6 @@ pub static WRONG_CAPTURES_HINT: &str = r#"
 If you use ( ) in a custom Regex, please add a '?:' at the beginning to avoid forming a capture group like this:
     "  (  )  "  =>  "  (?:  )  "
 "#;
-
 
 /// The Error returned by [`sscanf`](crate::sscanf).
 #[derive(Debug)]
@@ -44,8 +46,8 @@ impl error::Error for Error {
     }
 }
 
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Error::MatchFailed => write!(f, "sscanf: The input did not match the format string"),
             Error::ParsingFailed(e) => write!(f, "sscanf: Parsing failed: {}", e),
@@ -76,11 +78,11 @@ where
     }
 }
 
-impl<T: FromStr> std::fmt::Display for FromStrFailedError<T>
+impl<T: FromStr> Display for FromStrFailedError<T>
 where
     <T as FromStr>::Err: error::Error + 'static,
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "type {} failed to parse from a string: {}",
@@ -88,11 +90,11 @@ where
         )
     }
 }
-impl<T: FromStr> std::fmt::Debug for FromStrFailedError<T>
+impl<T: FromStr> fmt::Debug for FromStrFailedError<T>
 where
     <T as FromStr>::Err: error::Error + 'static,
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // has to be manually implemented because derive adds a `where T: Debug` bound,
         // even though T itself is not used in the Debug impl
         f.debug_struct("FromStrFailedError")
@@ -106,7 +108,7 @@ impl<T: FromStr> error::Error for FromStrFailedError<T>
 where
     <T as FromStr>::Err: error::Error + 'static,
 {
-    /// Returns the underlying error
+    /// Returns the underlying [`FromStr::Err`] error
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         Some(&self.error)
     }
@@ -115,15 +117,19 @@ where
 /// Error type for derived [`FromScanf`](crate::FromScanf) implementations
 #[derive(Debug)]
 pub struct FromScanfFailedError {
-    /// Type name of the type that failed to parse (for display purposes only)
+    /// The name of the implementing type (for display purposes only)
     pub type_name: &'static str,
     /// Error that was returned by the underlying impl
     pub error: Box<dyn error::Error>,
 }
 
-impl std::fmt::Display for FromScanfFailedError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "type {} failed to parse from sscanf: {}", self.type_name, self.error)
+impl Display for FromScanfFailedError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "type {} failed to parse from sscanf: {}",
+            self.type_name, self.error
+        )
     }
 }
 
@@ -134,14 +140,48 @@ impl error::Error for FromScanfFailedError {
     }
 }
 
-#[doc(hidden)]
-#[derive(Debug, Clone, Copy)]
-pub struct MissingPrefixError(&'static str);
+/// Error type used when using the `{:#x}` etc. format options if there was no prefix
+#[derive(Debug)]
+pub enum MissingPrefixError {
+    /// The `0x` prefix was missing
+    Hex,
+    /// The `0o` prefix was missing
+    Octal,
+    /// The `0b` prefix was missing
+    Binary,
+}
 
-impl std::fmt::Display for MissingPrefixError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Missing prefix: {}", self.0)
+impl Display for MissingPrefixError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Missing prefix: {}",
+            match self {
+                MissingPrefixError::Hex => "0x",
+                MissingPrefixError::Octal => "0o",
+                MissingPrefixError::Binary => "0b",
+            }
+        )
     }
 }
 
 impl error::Error for MissingPrefixError {}
+
+/// Error type used when a `[sscanf(filter_map = ...)]` closure returns `None`
+#[derive(Debug)]
+pub struct FilterMapNoneError {
+    /// Type name of the field that the attribute is on (for display purposes only)
+    pub field_name: &'static str,
+}
+
+impl Display for FilterMapNoneError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "The closure of `{}`s `filter_map` attribute returned None",
+            self.field_name
+        )
+    }
+}
+
+impl error::Error for FilterMapNoneError {}

@@ -1,7 +1,6 @@
 #![deny(
     missing_docs,
     missing_debug_implementations,
-    missing_copy_implementations,
     trivial_casts,
     trivial_numeric_casts,
     unsafe_code,
@@ -15,10 +14,6 @@
     rustdoc::invalid_codeblock_attributes,
     rustdoc::bare_urls
 )]
-// TODO: multiline format strings
-// TODO: check for option in derive
-// TODO: #[sscanf(filter_map = ...)]
-// TODO: comparison to other crates
 #![doc = include_str!("../Readme.md")]
 //! # A Note on Compiler Errors
 //!
@@ -74,8 +69,14 @@ pub use from_scanf::*;
 mod types;
 pub use types::*;
 
-mod error;
-pub use error::*;
+pub mod errors;
+#[doc(inline)]
+pub use errors::Error;
+#[doc(hidden)]
+pub use errors::{FromScanfFailedError, FromStrFailedError}; // for backwards compatibility
+
+#[doc = include_str!("../Changelog.md")]
+pub mod changelog {}
 
 #[doc(hidden)]
 pub use const_format;

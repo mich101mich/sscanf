@@ -9,10 +9,9 @@ mod types {
 
 mod derive {
     mod r#enum;
+    mod r#field;
     mod r#struct;
 }
-
-use sscanf::RegexRepresentation;
 
 #[test]
 fn basic() {
@@ -90,6 +89,7 @@ fn generic_types() {
 
 #[test]
 fn config_numbers() {
+    // example from lib.rs
     let input = "A Sentence with Spaces. Number formats: 0xab01 0o127 0b101010.";
     let parsed = sscanf!(input, "{str}. Number formats: {usize:x} {i32:o} {u8:b}.");
     let (a, b, c, d) = parsed.unwrap();
@@ -98,6 +98,7 @@ fn config_numbers() {
     assert_eq!(c, 0o127);
     assert_eq!(d, 0b101010);
 
+    // negative numbers
     let input = "-10 -0xab01 -0o127 -0b101010";
     let parsed = sscanf!(input, "{i32:r3} {isize:x} {i32:o} {i8:b}");
     let (a, b, c, d) = parsed.unwrap();
@@ -106,6 +107,11 @@ fn config_numbers() {
     assert_eq!(c, -0o127);
     assert_eq!(d, -0b101010);
 
+    let input = "-80 -0x80 7f 0x7f";
+    let parsed = sscanf!(input, "{i8:x} {i8:x} {i8:x} {i8:x}");
+    assert_eq!(parsed.unwrap(), (-128, -128, 127, 127)); // note that +128 would be out of range of i8
+
+    // explicit positive numbers
     let input = "+10 +0xab01 +0o127 +0b101010";
     let parsed = sscanf!(input, "{i32:r3} {isize:x} {i32:o} {i8:b}");
     let (a, b, c, d) = parsed.unwrap();
@@ -114,10 +120,12 @@ fn config_numbers() {
     assert_eq!(c, 0o127);
     assert_eq!(d, 0b101010);
 
+    // negative number on unsigned
     let input = "-0xab01";
     let parsed = sscanf!(input, "{usize:x}");
     parsed.unwrap_err();
 
+    // explicit positive number with prefix
     let input = "+10 +0xab01 +0o127 +0b101010";
     let parsed = sscanf!(input, "{u32:r3} {usize:x} {u32:o} {u8:b}");
     let (a, b, c, d) = parsed.unwrap();
@@ -125,22 +133,23 @@ fn config_numbers() {
     assert_eq!(b, 0xab01);
     assert_eq!(c, 0o127);
     assert_eq!(d, 0b101010);
-}
 
-#[test]
-#[should_panic(expected = "sscanf: Cannot generate Regex")]
-fn invalid_regex_representation() {
-    struct Test;
-    impl FromStr for Test {
-        type Err = std::convert::Infallible;
-        fn from_str(_: &str) -> Result<Self, Self::Err> {
-            Ok(Test)
-        }
-    }
-    impl RegexRepresentation for Test {
-        const REGEX: &'static str = ")";
-    }
-    sscanf!("hi", "{Test}").unwrap();
+    // forced and optional prefixes
+    let prefix = "0xa1 0o17 0b101010";
+    let no_prefix = "a1 17 101010";
+    let out = (0xa1, 0o17, 0b101010);
+
+    // :x etc have optional prefixes
+    assert_eq!(out, sscanf!(prefix, "{u8:x} {u8:o} {u8:b}").unwrap());
+    assert_eq!(out, sscanf!(no_prefix, "{u8:x} {u8:o} {u8:b}").unwrap());
+
+    // :#x etc forces the prefix
+    assert_eq!(out, sscanf!(prefix, "{u8:#x} {u8:#o} {u8:#b}").unwrap());
+    sscanf!(no_prefix, "{u8:#x} {u8:#o} {u8:#b}").unwrap_err();
+
+    // :r16 etc have no prefix
+    sscanf!(prefix, "{u8:r16} {u8:r8} {u8:r2}").unwrap_err();
+    assert_eq!(out, sscanf!(no_prefix, "{u8:r16} {u8:r8} {u8:r2}").unwrap());
 }
 
 #[test]
@@ -166,33 +175,26 @@ fn custom_regex() {
 }
 
 #[test]
-#[should_panic(expected = "MatchFailed")]
-fn check_error_regex() {
-    sscanf!("hi", "bob").unwrap();
-}
-#[test]
-#[should_panic(
-    expected = "FromStrFailedError { type_name: \"usize\", error: ParseIntError { kind: InvalidDigit } }"
-)]
-fn check_error_from_str_1() {
-    sscanf!("5bobhibob", "{u32}bob{usize:/.*/}bob").unwrap();
-}
-#[test]
-#[should_panic(
-    expected = "FromStrFailedError { type_name: \"test::check_error_from_str_2::Test\", error: ParseIntError { kind: InvalidDigit } }"
-)]
-fn check_error_from_str_2() {
-    struct Test(usize);
-    impl FromStr for Test {
-        type Err = <usize as FromStr>::Err;
-        fn from_str(s: &str) -> Result<Self, Self::Err> {
-            s.parse().map(Test)
-        }
+fn derived_from_str() {
+    #[derive(Debug, PartialEq, FromScanf)]
+    #[sscanf("{}: {}")]
+    struct Bob {
+        name: String,
+        value: usize,
     }
-    impl RegexRepresentation for Test {
-        const REGEX: &'static str = ".*";
-    }
-    sscanf!("bobhibob", "bob{}bob", Test).unwrap();
+
+    let expected = Bob {
+        name: "bob".to_string(),
+        value: 5,
+    };
+
+    assert_eq!(Bob::from_str("bob: 5").unwrap(), expected);
+    assert!(Bob::from_str("bob: 6").unwrap() != expected);
+    assert!(Bob::from_str("bob : 5").unwrap() != expected);
+
+    assert!(Bob::from_str("{bob: 5}").is_err());
+    assert!(Bob::from_str("bob: a").is_err());
+    assert!(Bob::from_str("bob").is_err());
 }
 
 #[test]
@@ -205,10 +207,26 @@ fn string_lifetime() {
     }
     println!("{}", s);
 
-    // check if sscanf works with this function signature
-    fn _process(a: &str) -> &str {
+    // check if sscanf works with various function signatures
+    fn process(a: &str) -> &str {
         sscanf!(a, "{str}").unwrap()
     }
+    process("hi");
+
+    fn process_with_borrow(a: &str) -> &str {
+        sscanf!(a, "{&str}").unwrap()
+    }
+    process_with_borrow("hi");
+
+    fn process_with_lifetime<'a, 'b>(_a: &'a str, b: &'b str) -> &'b str {
+        sscanf!(b, "{&str}").unwrap()
+    }
+    process_with_lifetime("hi", "hi");
+
+    fn process_cow<'a>(a: &'a str) -> std::borrow::Cow<'a, str> {
+        sscanf!(a, "{Cow<str>}").unwrap()
+    }
+    process_cow("hi");
 }
 
 #[test]
@@ -219,25 +237,6 @@ fn error_lifetime() {
         Ok(())
     }
     foo().unwrap();
-}
-
-#[test]
-#[should_panic(expected = r#"sscanf: Regex has 3 capture groups, but 2 were expected.
-If you use ( ) in a custom Regex, please add a '?:' at the beginning to avoid forming a capture group like this:
-    "  (  )  "  =>  "  (?:  )  "
-"#)]
-fn custom_regex_with_capture_group() {
-    struct Test(usize);
-    impl FromStr for Test {
-        type Err = <usize as FromStr>::Err;
-        fn from_str(s: &str) -> Result<Self, Self::Err> {
-            s.parse().map(Test)
-        }
-    }
-    impl RegexRepresentation for Test {
-        const REGEX: &'static str = "(.*)";
-    }
-    sscanf!("5", "{Test}").unwrap();
 }
 
 #[test]

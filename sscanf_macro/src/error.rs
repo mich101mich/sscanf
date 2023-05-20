@@ -21,9 +21,6 @@ impl Error {
     pub fn builder() -> ErrorBuilder {
         ErrorBuilder::new()
     }
-    pub fn to_compile_error(self) -> TokenStream {
-        self.0
-    }
 }
 
 pub struct ErrorBuilder(TokenStream);
@@ -43,7 +40,7 @@ impl ErrorBuilder {
         self.with_error(Error::new_spanned(tokens, message))
     }
     pub fn with_error(&mut self, error: Error) -> &mut Self {
-        self.0.extend(error.to_compile_error());
+        self.0.extend(TokenStream::from(error));
         self
     }
     pub fn push(&mut self, error: Error) {
@@ -55,7 +52,7 @@ impl ErrorBuilder {
     }
 
     pub fn build(&mut self) -> Error {
-        Error(std::mem::replace(&mut self.0, TokenStream::new()))
+        Error(std::mem::take(&mut self.0))
     }
     pub fn build_err<R>(&mut self) -> Result<R> {
         Err(self.build())
@@ -64,7 +61,7 @@ impl ErrorBuilder {
         if self.is_empty() {
             Ok(())
         } else {
-            Err(self.build())
+            self.build_err()
         }
     }
 }
@@ -83,11 +80,11 @@ impl From<TokenStream> for Error {
 
 impl From<Error> for TokenStream {
     fn from(err: Error) -> Self {
-        err.to_compile_error()
+        err.0
     }
 }
 impl From<Error> for proc_macro::TokenStream {
     fn from(err: Error) -> Self {
-        err.to_compile_error().into()
+        err.0.into()
     }
 }

@@ -15,12 +15,12 @@
 /// * `Type...`: The types to parse. See [Custom Types](index.html#custom-types) for more information.
 ///
 /// ## Return Value
-/// A [`Result`](std::result::Result) with a tuple of the parsed types or a [`sscanf::Error`](crate::Error).
+/// A [`Result`](std::result::Result) with a tuple of the parsed types or a [`sscanf::Error`](crate::errors::Error).
 /// Note that an error usually indicates that the input didn't match the format string, making the
 /// returned [`Result`](std::result::Result) functionally equivalent to an [`Option`](std::option::Option),
 /// and most applications should treat it that way. An error is only useful when debugging
 /// custom implementations of [`FromStr`](std::str::FromStr) or [`FromScanf`](crate::FromScanf).
-/// See [`sscanf::Error`](crate::Error) for more information.
+/// See [`sscanf::Error`](crate::errors::Error) for more information.
 ///
 /// ## Details
 /// The format string _has_ to be a string literal (with some form of `"` on either side),
@@ -175,30 +175,47 @@ pub use sscanf_macro::sscanf_unescaped as scanf_unescaped;
 /// struct MyTupleStruct(<type>, #[sscanf(default)] <type>, ...);
 /// ```
 ///
-/// **\<format>**: The format string to parse the struct from. Similar to the format string for
-/// [`sscanf`], but with field names/indices instead of types for the placeholders. So, if you have
-/// a struct with fields `a`, `b` and `c`, the format string could be something like
-/// `"{a} {b:/.*?/} {c}"`. All fields that are not annotated with `default` must appear exactly
-/// once in the format string. Indices can be omitted if the fields are in the same order as the
-/// placeholders `{}` in the format string. So, the above example could also be written as
-/// `"{} {:/.*?/} {}"`.
+/// ### Attributes
 ///
-/// Any fields that don't appear in the format string must be annotated with `default`. The field
-/// will then be initialized to either [`Default::default()`](std::default::Default) or the evaluation of the expression
-/// given to the `default` attribute. The expression can be any code, including function calls or
-/// `{ <code> }` blocks, as long as they can be assigned to the field type. In the syntax overview
-/// above, the `<format>` must contain `<field>`, `<field_2>` and `<field_with_conversion>`
-/// exactly once and neither `<field_with_default>` nor `<field_with_custom_default>` must appear
-/// in the format string.
+/// #### On the struct
 ///
-/// Mapping allows matching against a different type than the field type. The `map` attribute takes
-/// a closure that takes the matched type as input and returns the field type. The type of the
-/// parameter of the closure has to be explicitly specified, since it is needed to generate the
-/// matching code.
+/// - `format`: The format string to parse the struct from. Similar to the format string for
+///   [`sscanf`], but with field names/indices instead of types for the placeholders. So, if you have
+///   a struct with fields `a`, `b` and `c`, the format string could be something like
+///   `"{a} {b:/.*?/} {c}"`. All fields that are not annotated with `default` must appear exactly
+///   once in the format string. Indices can be omitted if the fields are in the same order as the
+///   placeholders `{}` in the format string. So, the above example could also be written as
+///   `"{} {:/.*?/} {}"`.
+/// - `format_unescaped`: Same as `format`, but allows use of Regex in the format String. See
+///   [`sscanf_unescaped`] for more information.
+/// - `transparent`: If the struct has exactly one field, the struct will be constructed from the
+///   field directly. This is useful for newtype structs, where the struct is just a wrapper around
+///   another type. The field has to implement [`FromScanf`](crate::FromScanf).
 ///
-/// The types of the used fields of their matching types have to implement [`FromScanf`](crate::FromScanf)
-/// and either [`RegexRepresentation`](crate::RegexRepresentation) or have a `{<field>:/<regex>/}`
-/// placeholder.
+/// Note that only one of the above attributes can be used on a struct. The `format = ` part can
+/// be omitted, so `#[sscanf("<format>")]` is also valid. In this case, the distinction between
+/// `format` and `format_unescaped` is made by using a regular string literal for `format` and a
+/// raw string literal (starting with `r#"` or `r#"`) for `format_unescaped`.
+///
+/// #### On the fields
+/// - `default` or `default = <expression>`: Marks the field to be set from a default value rather than the input string. A
+///   simple `#[sscanf(default)]` will set the field to [`Default::default()`](std::default::Default).
+///   If the field type doesn't implement [`Default`](std::default::Default), the attribute can
+///   take an expression that will be evaluated to get the default value. The expression can be
+///   any code, including function calls or `{ <code> }` blocks, as long as they can be assigned
+///   to the field type.
+/// - `map = |<param>: <type>| <conversion>`: Allows matching against a different type than the field type. The `map` attribute takes
+///   a closure that takes the matched type as input and returns the field type. The type of the
+///   parameter of the closure has to be explicitly specified, since it is needed to generate the
+///   matching code.
+/// - `filter_map = |<param>: <type>| <conversion>`: Same as `map`, but the closure returns an [`Option`](std::option::Option) instead
+///   of the field type. If the closure returns [`None`](std::option::Option::None), the parsing
+///   fails.
+/// - `from = <type>`: Allows matching against a different type than the field type. The `from` attribute
+///   takes a Type as input, which implements [`FromScanf`](crate::FromScanf) and can be converted
+///   to the field type using [`From`](std::convert::From).
+/// - `try_from = <type>`: Same as `from`, but the conversion can fail. If the conversion fails,
+///   the parsing fails.
 ///
 /// ## For enums
 /// ```ignore
@@ -227,14 +244,32 @@ pub use sscanf_macro::sscanf_unescaped as scanf_unescaped;
 /// is constructed from the variant that matched the input. If multiple variants match, the first
 /// one in the enum definition is used. No variant matching means the entire enum won't match.
 ///
-/// The requirements for a format string on a variant are identical to those for a struct: Each
-/// field of the variant, that is not annotated with `default`, must appear exactly once in the
-/// format string. This means that the format string for `Variant1` must contain `<field>`,
-/// the format string for `Variant2` must contain `{0}` or `{}` and the format string for
-/// `Variant3` has no placeholders.
+/// ### Attributes
 ///
-/// Any variants that don't have a format string (like `Variant4` in the example above) won't be
-/// constructed by `sscanf`.
+/// #### On the enum
+/// - `autogen = "<case>"` or `autogenerate = "<case>"`: Automatically create the format strings for
+///   all variants based on the variant names. This only works for variants without fields. The
+///   format can be overridden by specifying a `format = ` attribute on the variant. The `case`
+///   parameter can be one of:
+///   - `"CaseSensitive"`: The variant name is used as-is. Default if no `case` parameter is specified.
+///   - `"CaseInsensitive"`: Same as `"CaseSensitive"`, but case is ignored.
+///   - `"lower case"`: Lower case with spaces between words.
+///   - `"UPPER CASE"`: Upper case with spaces between words.
+///   - `"lowercase"`: Lower case, but without spaces.
+///   - `"UPPERCASE"`: Upper case, but without spaces.
+///   - `"PascalCase"`
+///   - `"camelCase"`
+///   - `"snake_case"`
+///   - `"SCREAMING_SNAKE_CASE"`
+///   - `"kebab-case"`
+///   - `"SCREAMING-KEBAB-CASE"`
+///
+/// #### On the variants
+///
+/// Same as for structs. If no format string or `transparent` attribute is specified, the variant
+/// won't be constructed by `sscanf`. Unless `autogen` is specified, in which case the format string
+/// is generated automatically. To avoid this, add the `skip` attribute to the variant. `skip` has
+/// no effect without `autogen`.
 ///
 /// ## A note on Generics
 /// Any lifetime parameters will be carried over. Any type `&'a str` will contain a borrow of the
@@ -276,3 +311,6 @@ pub use sscanf_macro::sscanf_unescaped as scanf_unescaped;
 /// currently not possible. Implementations that don't rely on capture groups are usually those
 /// that were blanket-implemented based on their `FromStr` implementation.
 pub use sscanf_macro::FromScanf;
+
+#[doc(hidden)]
+pub use sscanf_macro::FromScanf as FromSscanf;

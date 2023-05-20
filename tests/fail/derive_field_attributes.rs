@@ -74,6 +74,27 @@ struct TestMapNoType(#[sscanf(map = |x| { x as u8 })] u8);
 #[sscanf(format = "{}")]
 struct TestMapMoreTypes(#[sscanf(map = |x: usize, y: usize| { x as u8 })] u8);
 
+#[derive(sscanf::FromScanf)]
+#[sscanf(format = "{}")]
+struct TestFilterMapNoOption(#[sscanf(filter_map = |x: usize| { x as u8 })] u8);
+
+#[derive(sscanf::FromScanf)]
+#[sscanf(format = "{}")]
+struct TestFilterMapNoValue(#[sscanf(filter_map)] u8);
+
+#[derive(sscanf::FromScanf)]
+#[sscanf(format = "{}")]
+struct TestFromNoType(#[sscanf(from)] u8);
+
+#[derive(sscanf::FromScanf)]
+#[sscanf(format = "{}")]
+struct TestFromNotType(#[sscanf(from = "")] u8);
+
+#[derive(sscanf::FromScanf)]
+#[sscanf(format = "{}")]
+struct TestTryFromNoType(#[sscanf(try_from)] u8);
+
+
 // mismatched types appear at the end of the error message
 
 #[derive(sscanf::FromScanf)]
@@ -86,7 +107,11 @@ struct TestMapWrongReturn(#[sscanf(map = |x: usize| { x })] u8);
 
 #[derive(sscanf::FromScanf)]
 #[sscanf(format = "")]
-struct TestDefaultNoDefault(#[sscanf(default)] &'static usize);
+struct TestDefaultNoDefault(#[sscanf(default)] std::num::ParseIntError);
+
+#[derive(sscanf::FromScanf)]
+#[sscanf(format = "{}")]
+struct TestFromNoFrom(#[sscanf(from = f32)] u8);
 
 
 fn main() {}
