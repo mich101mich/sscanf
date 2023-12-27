@@ -240,7 +240,8 @@ fn error_lifetime() {
 }
 
 #[test]
-fn failing_tests() {
+#[ignore]
+fn error_message_tests() {
     let root = std::path::PathBuf::from("tests/fail");
     let mut paths = vec![root.clone()];
 

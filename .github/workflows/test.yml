@@ -18,6 +18,9 @@ jobs:
     - name: Run tests
       uses: actions-rs/cargo@v1
       with: { command: test }
+    - name: Run tests for error messages
+      uses: actions-rs/cargo@v1
+      with: { command: test, args: error_message_tests -- --ignored }
     - name: Run fmt
       uses: actions-rs/cargo@v1
       with: { command: fmt, args: --check }
@@ -31,6 +34,9 @@ jobs:
     - name: Run tests
       uses: actions-rs/cargo@v1
       with: { command: test }
+    - name: Run tests for error messages
+      uses: actions-rs/cargo@v1
+      with: { command: test, args: error_message_tests -- --ignored }
     - name: Run docs
       uses: actions-rs/cargo@v1
       with: { command: doc, args: --no-deps }
@@ -64,10 +70,10 @@ jobs:
       run: cargo +nightly update -Z minimal-versions
     - name: Run minimal version stable tests
       uses: actions-rs/cargo@v1
-      with: { command: test, args: -- --skip failing_tests, toolchain: stable }
+      with: { command: test, toolchain: stable }
     - name: Run minimal version nightly tests
       uses: actions-rs/cargo@v1
-      with: { command: test, args: -- --skip failing_tests, toolchain: nightly }
+      with: { command: test, toolchain: nightly }
 
   minimum-rust-version:
     runs-on: ubuntu-latest
@@ -78,4 +84,4 @@ jobs:
       with: { toolchain: 1.56.0 }
     - name: Run tests
       uses: actions-rs/cargo@v1
-      with: { command: test, args: -- --skip failing_tests, toolchain: 1.56.0 }
+      with: { command: test, toolchain: 1.56.0 }
