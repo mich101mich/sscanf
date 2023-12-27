@@ -5,14 +5,14 @@ error[E0277]: the trait bound `NoFromStr: FromStr` is not satisfied
   |                                 ^^^^^^^^^^^^^^^^^ the trait `FromStr` is not implemented for `NoFromStr`
   |
   = help: the following other types implement trait `FromStr`:
-            FullF32
-            FullF64
-            HexNumber
-            IpAddr
-            Ipv4Addr
-            Ipv6Addr
-            NonZeroI128
-            NonZeroI16
+            bool
+            char
+            isize
+            i8
+            i16
+            i32
+            i64
+            i128
           and $N others
   = note: required for `NoFromStr` to implement `FromScanf<'_>`
 
@@ -23,14 +23,14 @@ error[E0277]: the trait bound `NoFromStr: FromStr` is not satisfied
    |                             ^^^^^^^^^^^^^^^^^ the trait `FromStr` is not implemented for `NoFromStr`
    |
    = help: the following other types implement trait `FromStr`:
-             FullF32
-             FullF64
-             HexNumber
-             IpAddr
-             Ipv4Addr
-             Ipv6Addr
-             NonZeroI128
-             NonZeroI16
+             bool
+             char
+             isize
+             i8
+             i16
+             i32
+             i64
+             i128
            and $N others
    = note: required for `NoFromStr` to implement `FromScanf<'_>`
 
@@ -41,14 +41,14 @@ error[E0277]: the trait bound `NoFromStr: FromStr` is not satisfied
    |                                 ^^^^^^^^^ the trait `FromStr` is not implemented for `NoFromStr`
    |
    = help: the following other types implement trait `FromStr`:
-             FullF32
-             FullF64
-             HexNumber
-             IpAddr
-             Ipv4Addr
-             Ipv6Addr
-             NonZeroI128
-             NonZeroI16
+             bool
+             char
+             isize
+             i8
+             i16
+             i32
+             i64
+             i128
            and $N others
    = note: required for `NoFromStr` to implement `FromScanf<'_>`
 
@@ -59,13 +59,13 @@ error[E0277]: the trait bound `NoFromStr: FromStr` is not satisfied
    |                             ^^^^^^^^^ the trait `FromStr` is not implemented for `NoFromStr`
    |
    = help: the following other types implement trait `FromStr`:
-             FullF32
-             FullF64
-             HexNumber
-             IpAddr
-             Ipv4Addr
-             Ipv6Addr
-             NonZeroI128
-             NonZeroI16
+             bool
+             char
+             isize
+             i8
+             i16
+             i32
+             i64
+             i128
            and $N others
    = note: required for `NoFromStr` to implement `FromScanf<'_>`

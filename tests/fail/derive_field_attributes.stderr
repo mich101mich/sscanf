@@ -210,5 +210,5 @@ error[E0277]: the trait bound `u8: From<f32>` is not satisfied
     |                                       ^^^ the trait `From<f32>` is not implemented for `u8`
     |
     = help: the following other types implement trait `From<T>`:
-              <u8 as From<NonZeroU8>>
               <u8 as From<bool>>
+              <u8 as From<NonZeroU8>>

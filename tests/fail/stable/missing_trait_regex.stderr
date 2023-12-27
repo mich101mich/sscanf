@@ -2,34 +2,18 @@ error[E0277]: the trait bound `Vec<usize>: RegexRepresentation` is not satisfied
   --> tests/fail/stable/missing_trait_regex.rs:10:33
    |
 10 |     sscanf::sscanf!("hi", "{}", std::vec::Vec<usize>);
-   |                                 ^^^^^^^^^^^^^^^^^^^^ the trait `RegexRepresentation` is not implemented for `Vec<usize>`
+   |                                 ^^^ the trait `RegexRepresentation` is not implemented for `Vec<usize>`
    |
    = help: the following other types implement trait `RegexRepresentation`:
-             FullF32
-             FullF64
-             HexNumber
-             NonZeroI128
-             NonZeroI16
-             NonZeroI32
-             NonZeroI64
-             NonZeroI8
+             bool
+             char
+             isize
+             i8
+             i16
+             i32
+             i64
+             i128
            and $N others
-
-note: erroneous constant used
-  --> tests/fail/stable/missing_trait_regex.rs:10:5
-   |
-10 |     sscanf::sscanf!("hi", "{}", std::vec::Vec<usize>);
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-   = note: this note originates in the macro `$crate::pmr::__concatcp_impl` which comes from the expansion of the macro `sscanf::sscanf` (in Nightly builds, run with -Z macro-backtrace for more info)
-
-note: erroneous constant used
-  --> tests/fail/stable/missing_trait_regex.rs:10:5
-   |
-10 |     sscanf::sscanf!("hi", "{}", std::vec::Vec<usize>);
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-   = note: this note originates in the macro `__cf_osRcTFl4A::__concatcp_inner` which comes from the expansion of the macro `sscanf::sscanf` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `NoRegex: RegexRepresentation` is not satisfied
   --> tests/fail/stable/missing_trait_regex.rs:11:33
@@ -38,61 +22,29 @@ error[E0277]: the trait bound `NoRegex: RegexRepresentation` is not satisfied
    |                                 ^^^^^^^ the trait `RegexRepresentation` is not implemented for `NoRegex`
    |
    = help: the following other types implement trait `RegexRepresentation`:
-             FullF32
-             FullF64
-             HexNumber
-             NonZeroI128
-             NonZeroI16
-             NonZeroI32
-             NonZeroI64
-             NonZeroI8
+             bool
+             char
+             isize
+             i8
+             i16
+             i32
+             i64
+             i128
            and $N others
-
-note: erroneous constant used
-  --> tests/fail/stable/missing_trait_regex.rs:11:5
-   |
-11 |     sscanf::sscanf!("hi", "{}", NoRegex);
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-   = note: this note originates in the macro `$crate::pmr::__concatcp_impl` which comes from the expansion of the macro `sscanf::sscanf` (in Nightly builds, run with -Z macro-backtrace for more info)
-
-note: erroneous constant used
-  --> tests/fail/stable/missing_trait_regex.rs:11:5
-   |
-11 |     sscanf::sscanf!("hi", "{}", NoRegex);
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-   |
-   = note: this note originates in the macro `__cf_osRcTFl4A::__concatcp_inner` which comes from the expansion of the macro `sscanf::sscanf` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `&[u8]: RegexRepresentation` is not satisfied
   --> tests/fail/stable/missing_trait_regex.rs:19:47
    |
 19 | struct TestMapParamNoScanf(#[sscanf(map = |x: &[u8]| { x[0] })] u8);
-   |                                               ^^^^^ the trait `RegexRepresentation` is not implemented for `&[u8]`
+   |                                               ^ the trait `RegexRepresentation` is not implemented for `&[u8]`
    |
    = help: the following other types implement trait `RegexRepresentation`:
-             FullF32
-             FullF64
-             HexNumber
-             NonZeroI128
-             NonZeroI16
-             NonZeroI32
-             NonZeroI64
-             NonZeroI8
+             bool
+             char
+             isize
+             i8
+             i16
+             i32
+             i64
+             i128
            and $N others
-
-note: erroneous constant used
-  --> tests/fail/stable/missing_trait_regex.rs:17:10
-   |
-17 | #[derive(sscanf::FromScanf)]
-   |          ^^^^^^^^^^^^^^^^^
-   |
-   = note: this note originates in the macro `$crate::pmr::__concatcp_impl` which comes from the expansion of the derive macro `sscanf::FromScanf` (in Nightly builds, run with -Z macro-backtrace for more info)
-
-note: erroneous constant used
-  --> tests/fail/stable/missing_trait_regex.rs:17:10
-   |
-17 | #[derive(sscanf::FromScanf)]
-   |          ^^^^^^^^^^^^^^^^^
-   |
-   = note: this note originates in the macro `__cf_osRcTFl4A::__concatcp_inner` which comes from the expansion of the derive macro `sscanf::FromScanf` (in Nightly builds, run with -Z macro-backtrace for more info)
