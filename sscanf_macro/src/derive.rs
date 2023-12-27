@@ -365,7 +365,6 @@ Alternatively, you can use #[sscanf(transparent)] to derive FromScanf for a sing
             fn from_matches(src: &mut ::sscanf::regex::SubCaptureMatches<'_, #lifetime>) -> ::std::result::Result<Self, Self::Err> {
                 let start_len = src.len();
                 src.next().unwrap(); // skip the whole match
-                let mut len = src.len();
 
                 let mut catcher = || -> ::std::result::Result<Self, ::std::boxed::Box<dyn ::std::error::Error>> {
                     ::std::result::Result::Ok(#name #from_matches)
@@ -511,8 +510,6 @@ To do this, add #[sscanf(format = \"...\")] to a variant"
                 let mut remaining = Self::NUM_CAPTURES;
                 src.next().unwrap(); // skip the whole match
                 remaining -= 1;
-
-                let mut len = src.len();
 
                 let mut catcher = || -> ::std::result::Result<Self, ::std::boxed::Box<dyn ::std::error::Error>> {
                     #(#variant_constructors)*
