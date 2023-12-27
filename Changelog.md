@@ -10,7 +10,7 @@ and its wrapper crate [sscanf](https://crates.io/crates/sscanf), as neither work
 and versions are always released in parallel.
 
 
-## 0.4.1 (Unreleased)
+## [0.4.1](https://github.com/mich101mich/sscanf/releases/tag/0.4.1) - 2023-05-20
 
 ### Added
 - More attributes for deriving [`FromScanf`](https://docs.rs/sscanf/0.4.1/sscanf/derive.FromScanf.html)
@@ -19,6 +19,7 @@ and versions are always released in parallel.
   - For Enums: `autogen` (or `autogenerate`)
 - [`FromScanf::from_str`](https://docs.rs/sscanf/0.4.1/sscanf/trait.FromScanf.html#method.from_str)
   as a direct shortcut to do string->type conversion without calling `sscanf`
+- This changelog
 
 ## [0.4.0](https://github.com/mich101mich/sscanf/releases/tag/0.4.0) - 2022-11-22
 
