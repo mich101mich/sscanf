@@ -1,36 +1,77 @@
 #!/bin/bash
 
-function try_silent {
-    echo "Running $@"
-    unbuffer "$@" > /tmp/sscanf_test_out.txt || (cat /tmp/sscanf_test_out.txt && return 1)
+TMP_FILE="/tmp/sscanf_test_out.txt"
+
+function handle_output {
+    rm -f "${TMP_FILE}"
+    while read -r line
+    do
+        echo "${line}" >> "${TMP_FILE}"
+
+        # make sure line is not longer than the terminal width
+        width=$(tput cols) # read this again in case the terminal was resized
+        width=$((width - 3)) # leave space for the "..."
+        TRIMMED_LINE=$(echo "> ${line}" | sed "s/\(.\{${width}\}\).*/\1.../")
+        echo -en "\033[2K\r${TRIMMED_LINE}"
+        tput init # trimmed line may have messed up coloring
+    done
+    echo -ne "\033[2K\r";
 }
 
+function try_silent {
+    echo "Running $*"
+    unbuffer "$@" | handle_output
+    if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
+        cat "${TMP_FILE}"
+        return 1
+    fi
+}
+
+BASE_DIR="$(realpath "$(dirname "$0")")"
+OUT_DIRS="${BASE_DIR}/test_dirs"
+MSRV_DIR="${OUT_DIRS}/msrv"
+MIN_VERSIONS_DIR="${OUT_DIRS}/min_versions"
+
+for dir in "${MSRV_DIR}" "${MIN_VERSIONS_DIR}"; do
+    [[ -d "${dir}" ]] && continue
+    mkdir -p "${dir}"
+    ln -s "${BASE_DIR}/Cargo.toml" "${dir}/Cargo.toml"
+    ln -s "${BASE_DIR}/src" "${dir}/src"
+    ln -s "${BASE_DIR}/tests" "${dir}/tests"
+    ln -s "${BASE_DIR}/sscanf_macro" "${dir}/sscanf_macro"
+done
+
 # main tests
-pushd ~/projects/sscanf
-try_silent cargo update || exit 1
-try_silent cargo +stable test || exit 1
-try_silent cargo +nightly test || exit 1
-try_silent cargo +stable test error_message_tests -- --ignored || exit 1
-try_silent cargo +nightly test error_message_tests -- --ignored || exit 1
-try_silent cargo +nightly doc --no-deps || exit 1
-try_silent cargo +nightly clippy -- -D warnings || exit 1
-try_silent cargo +stable fmt --check || exit 1
-popd
+(
+    cd "${BASE_DIR}" || (echo "Failed to cd to ${BASE_DIR}"; exit 1)
+    try_silent cargo update || exit 1
+    try_silent cargo +stable test || exit 1
+    try_silent cargo +nightly test || exit 1
+    try_silent cargo +stable test error_message_tests -- --ignored || exit 1
+    try_silent cargo +nightly test error_message_tests -- --ignored || exit 1
+    export RUSTDOCFLAGS="-D warnings"
+    try_silent cargo +nightly doc --no-deps || exit 1
+    try_silent cargo +nightly clippy -- -D warnings || exit 1
+    try_silent cargo +stable fmt --check || exit 1
+) || exit 1
 
-pushd ~/projects/sscanf/sscanf_macro
-try_silent cargo +nightly clippy -- -D warnings || exit 1
-try_silent cargo +stable fmt --check || exit 1
-popd
+(
+    cd "${BASE_DIR}/sscanf_macro" || (echo "Failed to cd to ${BASE_DIR}/sscanf_macro"; exit 1)
+    try_silent cargo +nightly clippy -- -D warnings || exit 1
+    try_silent cargo +stable fmt --check || exit 1
+) || exit 1
 
-# old rustc version
-pushd ~/projects/sscanf_old_rustc
-try_silent cargo +1.56.0 test || exit 1
-popd
+# minimum supported rust version
+(
+    cd "${MSRV_DIR}" || (echo "Failed to cd to ${MSRV_DIR}"; exit 1)
+    try_silent cargo +1.56.0 test || exit 1
+) || exit 1
 
-# minimum version
-pushd ~/projects/sscanf_min_version
-try_silent cargo +nightly -Z minimal-versions update || exit 1
+# minimum versions
+(
+    cd "${MIN_VERSIONS_DIR}" || (echo "Failed to cd to ${MIN_VERSIONS_DIR}"; exit 1)
+    try_silent cargo +nightly -Z minimal-versions update || exit 1
 
-try_silent cargo +stable test || exit 1
-try_silent cargo +nightly test || exit 1
-popd
+    try_silent cargo +stable test || exit 1
+    try_silent cargo +nightly test || exit 1
+) || exit 1
