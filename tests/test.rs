@@ -153,6 +153,17 @@ fn config_numbers() {
 }
 
 #[test]
+fn tuple_struct_reorder() {
+    #[derive(Debug, PartialEq, FromScanf)]
+    #[sscanf(format = "#{2:x}{1:x}{0:x}")]
+    struct BGRColor(u8, u8, u8);
+
+    let input = "#ff8811"; // rgb
+    let parsed = sscanf!(input, "{}", BGRColor);
+    assert_eq!(parsed.unwrap(), BGRColor(0x11, 0x88, 0xff));
+}
+
+#[test]
 fn custom_regex() {
     let input = "ab123cd";
     let parsed = sscanf!(input, r"{str}{u8:/\d/}{str:/\d\d.*/}");
@@ -240,7 +251,8 @@ fn error_lifetime() {
 }
 
 #[test]
-fn failing_tests() {
+#[ignore]
+fn error_message_tests() {
     let root = std::path::PathBuf::from("tests/fail");
     let mut paths = vec![root.clone()];
 

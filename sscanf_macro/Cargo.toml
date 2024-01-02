@@ -1,6 +1,6 @@
 [package]
 name = "sscanf_macro"
-version = "0.4.1"
+version = "0.4.2"
 authors = ["mich101mich <mich101mich@gmail.com>"]
 edition = "2018"
 rust-version = "1.56.0"
@@ -15,7 +15,7 @@ proc-macro = true
 [dependencies]
 syn = { version = "2.0.1", features = ["parsing", "derive", "full"] }
 quote = "1.0.0"
-proc-macro2 = "1.0.0"
+proc-macro2 = "1.0.60"
 regex-syntax = "0.6.0"
 unicode-width = "0.1.5"
 strsim = "0.10.0"

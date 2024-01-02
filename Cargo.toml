@@ -1,6 +1,6 @@
 [package]
 name = "sscanf"
-version = "0.4.1"
+version = "0.4.2"
 authors = ["mich101mich <mich101mich@gmail.com>"]
 edition = "2018"
 rust-version = "1.56.0"
@@ -13,9 +13,9 @@ categories = ["parsing"]
 exclude = ["/.vscode/*", "/.gitignore", "/.github/*", "/*.bat", "/*.sh"]
 
 [dependencies]
-sscanf_macro = { path = "sscanf_macro", version = "=0.4.1"}
+sscanf_macro = { path = "sscanf_macro", version = "=0.4.2"}
 regex = "1.6.0"
-const_format = "0.2.26"
+const_format = "0.2.26,<0.2.32" # FIXME: 0.2.32 bumps the msrv
 lazy_static = "1.4.0"
 
 [dev-dependencies]

@@ -283,7 +283,7 @@ fn find_attrs<A: Attr>(attrs: Vec<syn::Attribute>) -> Result<HashMap<A, Attribut
             syn::Meta::NameValue(nv) => {
                 let msg = format!(
                     "attribute arguments must be in parentheses: `sscanf({})`",
-                    nv.value.to_token_stream().to_string()
+                    nv.value.to_token_stream()
                 );
                 return Error::err_spanned(nv, msg); // checked in tests/fail/derive_struct_attributes.rs
             }
