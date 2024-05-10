@@ -144,7 +144,7 @@ fn find_match<A: Attr>(s: &str, src: &TokenStream) -> syn::Result<A> {
     }
 
     let context = A::context();
-    let valid = list_items(context.all_attr_names(), |s| format!("`{}`", s));
+    let valid = list_items(context.all_attr_names(), |s| format!("`{s}`"));
 
     let mut others = Context::ALL.to_vec();
     others.retain(|&other| other != context);
@@ -158,28 +158,26 @@ fn find_match<A: Attr>(s: &str, src: &TokenStream) -> syn::Result<A> {
     if !found_others.is_empty() {
         let others = list_items(&found_others, |other| other.to_string());
         let msg = format!(
-            "attribute `{}` can only be used on {}.\n{} can have the following attributes: {}",
-            s, others, context, valid
+            "attribute `{s}` can only be used on {others}.
+{context} can have the following attributes: {valid}"
         );
         return Err(syn::Error::new_spanned(src, msg)); // checked in tests/fail/derive_struct_attributes.rs
     }
 
     if let Some(similar) = find_closest(s, context.all_attr_names()) {
-        let msg = format!("unknown attribute `{}`. Did you mean `{}`?", s, similar);
+        let msg = format!("unknown attribute `{s}`. Did you mean `{similar}`?");
         return Err(syn::Error::new_spanned(src, msg)); // checked in tests/fail/derive_struct_attributes.rs
     }
 
     for other in &others {
         if let Some(similar) = find_closest(s, other.all_attr_names()) {
-            let msg = format!(
-                "unknown attribute `{}` is similar to `{}`, which can only be used on {}.\n{} can have the following attributes: {}",
-                s, similar, other, context, valid
-            );
+            let msg = format!("unknown attribute `{s}` is similar to `{similar}`, which can only be used on {other}.
+{context} can have the following attributes: {valid}");
             return Err(syn::Error::new_spanned(src, msg)); // checked in tests/fail/derive_struct_attributes.rs
         }
     }
 
-    let msg = format!("unknown attribute `{}`. Valid attributes are: {}", s, valid);
+    let msg = format!("unknown attribute `{s}`. Valid attributes are: {valid}");
     Err(syn::Error::new_spanned(src, msg)) // checked in tests/fail/derive_struct_attributes.rs
 }
 
@@ -220,8 +218,7 @@ impl<A: Attr> Attribute<A> {
             let valid = list_items(&valid, |c| c.to_string());
 
             let msg = format!(
-                "omitting the attribute name is only valid for the `{}` attribute on {}",
-                name, valid,
+                "omitting the attribute name is only valid for the `{name}` attribute on {valid}"
             );
             return Err(syn::Error::new_spanned(value, msg)); // checked in tests/fail/derive_field_attributes.rs
         }
@@ -254,8 +251,8 @@ impl<A: Attr> Attribute<A> {
             Ok(syn::parse2(quote! { #value })?)
         } else {
             let mut msg = format!(
-                "attribute `{0}` has the format: `#[sscanf({0} = {1})]`",
-                self.kind, description
+                "attribute `{0}` has the format: `#[sscanf({0} = {description})]`",
+                self.kind
             );
             if let Some(addition) = addition {
                 msg.push('\n');
@@ -336,7 +333,7 @@ fn expect_one<A: Attr>(attrs: HashMap<A, Attribute<A>>) -> Result<Option<Attribu
         }
         _ => {
             let items = list_items(&attrs, |attr| format!("`{}`", attr.kind));
-            let msg = format!("only one of {} is allowed", items);
+            let msg = format!("only one of {items} is allowed");
             let mut error = Error::builder();
             for attr in attrs {
                 error.with_spanned(attr.src, &msg);

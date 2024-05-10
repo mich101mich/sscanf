@@ -31,8 +31,7 @@ pub(crate) use utils::*;
 
 mod derive;
 
-const WRONG_CAPTURES_HINT: &str = r#"
-If you use ( ) in a custom Regex, please add a '?:' at the beginning to avoid forming a capture group like this:
+const WRONG_CAPTURES_HINT: &str = r#"If you use ( ) in a custom Regex, please add a '?:' at the beginning to avoid forming a capture group like this:
     "  (  )  "  =>  "  (?:  )  "
 "#;
 
@@ -212,15 +211,15 @@ fn generate_regex(input: &ScanfInner, escape_input: bool) -> Result<(TokenStream
         let n = if let Some(name) = ph.ident.as_ref() {
             if let Ok(n) = name.text().parse::<usize>() {
                 if n >= visited.len() {
-                    let msg = format!("type index {} out of range of {} types", n, visited.len());
+                    let msg = format!("type index {n} out of range of {} types", visited.len());
                     return name.err(&msg); // checked in tests/fail/<channel>/invalid_type_in_placeholder.rs
                 }
                 n
             } else {
                 return Type::from_str(name.clone()).map_err(|err| {
-                    let hint =  "The syntax for placeholders is {<type>} or {<type>:<config>}. Make sure <type> is a valid type or index.";
-                    let hint2 = "If you want syntax highlighting and better errors, place the type in the arguments after the format string while debugging";
-                    let msg = format!("invalid type in placeholder: {}.\nHint: {}\n{}", err, hint, hint2);
+                    let msg = format!("invalid type in placeholder: {err}.
+Hint: The syntax for placeholders is {{<type>}} or {{<type>:<config>}}. Make sure <type> is a valid type or index.
+If you want syntax highlighting and better errors, place the type in the arguments after the format string while debugging");
                     name.error(msg) // checked in tests/fail/<channel>/invalid_type_in_placeholder.rs
                 });
             }
@@ -263,8 +262,8 @@ fn generate_regex(input: &ScanfInner, escape_input: bool) -> Result<(TokenStream
     let num_captures = regex_parts.num_captures();
 
     let captures_len_error = format!(
-        "sscanf: Regex has {{}} capture groups, but {{}} were expected.{}",
-        WRONG_CAPTURES_HINT
+        "sscanf: Regex has {{}} capture groups, but {{}} were expected.
+{WRONG_CAPTURES_HINT}"
     );
 
     let regex = quote! { ::sscanf::lazy_static::lazy_static! {

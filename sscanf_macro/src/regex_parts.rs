@@ -103,9 +103,9 @@ impl ToTokens for Matcher {
         let converter = &self.converter;
 
         let taken_error = format!(
-            "sscanf: {}::NUM_CAPTURES = {{}} but {{}} were taken{}",
-            ty.to_token_stream(),
-            WRONG_CAPTURES_HINT
+            "sscanf: {}::NUM_CAPTURES = {{}} but {{}} were taken
+{WRONG_CAPTURES_HINT}",
+            ty.to_token_stream()
         );
 
         tokens.extend(quote! {
@@ -242,7 +242,7 @@ fn regex_from_radix(
     let sign = if signed { "[-+]?" } else { "\\+?" };
 
     let prefix_string = match prefix_policy {
-        PrefixPolicy::Optional(prefix) => format!("(?:{})?", prefix),
+        PrefixPolicy::Optional(prefix) => format!("(?:{prefix})?"),
         PrefixPolicy::Forced(prefix) => prefix.to_string(),
         PrefixPolicy::Never => String::new(),
     };
@@ -254,7 +254,7 @@ fn regex_from_radix(
         Equal => "0-9a".to_string(),
         Greater => {
             let last_letter = (b'a' + radix - 10) as char;
-            format!("0-9a-{}", last_letter)
+            format!("0-9a-{last_letter}")
         }
     };
 
@@ -267,13 +267,7 @@ fn regex_from_radix(
         f32::ceil(num_digits_binary as f32 / f32::log2(radix as f32)) as u32
     };
 
-    let regex = format!(
-        "(?i:{sign}{prefix}[{digits}]{{1,{n}}})",
-        sign = sign,
-        prefix = prefix_string,
-        digits = possible_chars,
-        n = num_digits
-    );
+    let regex = format!("(?i:{sign}{prefix_string}[{possible_chars}]{{1,{num_digits}}})");
 
     // we know ty is a primitive type without path, which are always just one token
     // => no Span voodoo necessary
@@ -326,7 +320,7 @@ fn regex_from_radix(
                     if negative {
                         // re-package `no_sign_prefix` into a string that includes the sign, because otherwise
                         // it might cause faulty overflow errors on numbers like -128i8
-                        let input = ::std::format!("-{}", no_sign_prefix);
+                        let input = ::std::format!("-{no_sign_prefix}");
                         #ty::from_str_radix(&input, #radix).ok()?
                     } else {
                         #ty::from_str_radix(no_sign_prefix, #radix).ok()?

@@ -119,7 +119,7 @@ impl<'a> FormatOption<'a> {
                 let src = src.slice(start..=end);
 
                 if let Err(err) = regex_syntax::Parser::new().parse(&regex) {
-                    let msg = format!("{}\n\nIn custom Regex format option", err);
+                    let msg = format!("{err}\n\nIn custom Regex format option");
                     return src.err(&msg); // checked in tests/fail/<channel>/invalid_custom_regex.rs
                 }
 

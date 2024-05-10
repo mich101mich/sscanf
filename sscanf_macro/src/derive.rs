@@ -210,7 +210,7 @@ fn parse_format(
         } else {
             let msg = if let Ok(n) = name.text().parse::<usize>() {
                 // checked in tests/fail/derive_placeholders.rs
-                format!("field index {} out of range of {} fields", n, fields.len())
+                format!("field index {n} out of range of {} fields", fields.len())
             } else {
                 // checked in tests/fail/derive_placeholders.rs
                 format!("field `{}` does not exist", name.text())
@@ -357,8 +357,8 @@ Alternatively, you can use #[sscanf(transparent)] to derive FromScanf for a sing
     let num_captures = regex_parts.num_captures();
 
     let taken_error = format!(
-        "sscanf: {}::NUM_CAPTURES = {{}} but {{}} were taken{}",
-        name, WRONG_CAPTURES_HINT
+        "sscanf: {name}::NUM_CAPTURES = {{}} but {{}} were taken.
+{WRONG_CAPTURES_HINT}"
     );
 
     let from_sscanf_impl = quote! {
@@ -454,8 +454,8 @@ Use `#[sscanf(format = \"...\")]` to specify a format for a variant with fields 
         str_lifetimes.extend(variant_str_lifetimes);
 
         let remaining_error = format!(
-            "sscanf: {}::{} is expected to take {{}} captures but only {{}} remain{}",
-            name, ident, WRONG_CAPTURES_HINT
+            "sscanf: {name}::{ident} is expected to take {{}} captures but only {{}} remain.
+{WRONG_CAPTURES_HINT}"
         );
 
         let matcher = quote! {
@@ -501,12 +501,12 @@ To do this, add #[sscanf(format = \"...\")] to a variant"
     let (impl_generics, _, where_clause) = lt_generics.split_for_impl();
 
     let start_len_error = format!(
-        "sscanf: {}::NUM_CAPTURES = {{}} but only {{}} captures remain{}",
-        name, WRONG_CAPTURES_HINT
+        "sscanf: {name}::NUM_CAPTURES = {{}} but only {{}} captures remain.
+{WRONG_CAPTURES_HINT}"
     );
     let taken_error = format!(
-        "sscanf: {}::NUM_CAPTURES = {{}} but {{}} were taken{}",
-        name, WRONG_CAPTURES_HINT
+        "sscanf: {name}::NUM_CAPTURES = {{}} but {{}} were taken.
+{WRONG_CAPTURES_HINT}"
     );
 
     let from_sscanf_impl = quote! {
