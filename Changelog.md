@@ -10,6 +10,11 @@ and its wrapper crate [sscanf](https://crates.io/crates/sscanf), as neither work
 and versions are always released in parallel.
 
 
+## 0.5.0
+
+### Changed
+- Changed output of sscanf to `Option` instead of `Result`
+
 ## 0.4.2 (unreleased)
 
 ### Fixed

@@ -4,7 +4,7 @@
 ///
 /// ## Signature
 /// ```ignore
-/// sscanf!(input: impl Deref<Target=str>, format: <literal>, Type...) -> Result<(Type...), sscanf::Error>
+/// sscanf!(input: impl Deref<Target=str>, format: <literal>, Type...) -> Option<(Type...)>
 /// ```
 ///
 /// ## Parameters
@@ -15,12 +15,7 @@
 /// * `Type...`: The types to parse. See [Custom Types](index.html#custom-types) for more information.
 ///
 /// ## Return Value
-/// A [`Result`](std::result::Result) with a tuple of the parsed types or a [`sscanf::Error`](crate::errors::Error).
-/// Note that an error usually indicates that the input didn't match the format string, making the
-/// returned [`Result`](std::result::Result) functionally equivalent to an [`Option`](std::option::Option),
-/// and most applications should treat it that way. An error is only useful when debugging
-/// custom implementations of [`FromStr`](std::str::FromStr) or [`FromScanf`](crate::FromScanf).
-/// See [`sscanf::Error`](crate::errors::Error) for more information.
+/// An [`Option`] with a tuple of the parsed types or `None` if the input did not match.
 ///
 /// ## Details
 /// The format string _has_ to be a string literal (with some form of `"` on either side),
@@ -127,7 +122,7 @@ pub use sscanf_macro::sscanf_get_regex as scanf_get_regex;
 /// use sscanf::sscanf;
 /// let input = "5.0SOME_RANDOM_TEXT3";
 /// let output = sscanf!(input, "{f32}.*{usize}");
-/// assert!(output.is_err()); // does not match
+/// assert!(output.is_none()); // does not match
 ///
 /// let input2 = "5.0.*3";
 /// let output2 = sscanf!(input2, "{f32}.*{usize}"); // regular sscanf is unaffected by special characters
@@ -214,8 +209,8 @@ pub use sscanf_macro::sscanf_unescaped as scanf_unescaped;
 /// - `from = <type>`: Allows matching against a different type than the field type. The `from` attribute
 ///   takes a Type as input, which implements [`FromScanf`](crate::FromScanf) and can be converted
 ///   to the field type using [`From`](std::convert::From).
-/// - `try_from = <type>`: Same as `from`, but the conversion can fail. If the conversion fails,
-///   the parsing fails.
+/// - `try_from = <type>`: Same as `from`, but using [`TryFrom`](std::convert::TryFrom), meaning the conversion can fail.
+///   If the conversion fails, the parsing fails.
 ///
 /// ## For enums
 /// ```ignore
@@ -286,7 +281,6 @@ pub use sscanf_macro::sscanf_unescaped as scanf_unescaped;
 /// struct MyGenericStruct<T>
 /// where
 ///     T: std::str::FromStr + 'static,
-///     <T as std::str::FromStr>::Err: std::error::Error + 'static,
 /// {
 ///     field: T,
 /// }

@@ -18,23 +18,19 @@ fn invalid_regex_representation() {
 }
 
 #[test]
-#[should_panic(expected = "MatchFailed")]
+#[should_panic(expected = "None")]
 fn check_error_regex() {
     sscanf!("hi", "bob").unwrap();
 }
 
 #[test]
-#[should_panic(
-    expected = "FromStrFailedError { type_name: \"usize\", error: ParseIntError { kind: InvalidDigit } }"
-)]
+#[should_panic(expected = "None")]
 fn check_error_from_str_1() {
     sscanf!("5bobhibob", "{u32}bob{usize:/.*/}bob").unwrap();
 }
 
 #[test]
-#[should_panic(
-    expected = "FromStrFailedError { type_name: \"should_panic::check_error_from_str_2::Test\", error: ParseIntError { kind: InvalidDigit } }"
-)]
+#[should_panic(expected = "None")]
 fn check_error_from_str_2() {
     struct Test(usize);
     impl FromStr for Test {

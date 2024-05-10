@@ -51,7 +51,7 @@ done
 
 # main tests
 (
-    cd "${BASE_DIR}" || (echo "Failed to cd to ${BASE_DIR}"; exit 1)
+    cd "${BASE_DIR}" || exit 1
     try_silent cargo update || exit 1
     try_silent cargo +stable test || exit 1
     try_silent cargo +nightly test || exit 1
@@ -73,20 +73,20 @@ done
 ) || exit 1
 
 (
-    cd "${BASE_DIR}/sscanf_macro" || (echo "Failed to cd to ${BASE_DIR}/sscanf_macro"; exit 1)
+    cd "${BASE_DIR}/sscanf_macro" || exit 1
     try_silent cargo +nightly clippy -- -D warnings || exit 1
     try_silent cargo +stable fmt --check || exit 1
 ) || exit 1
 
 # minimum supported rust version
 (
-    cd "${MSRV_DIR}" || (echo "Failed to cd to ${MSRV_DIR}"; exit 1)
+    cd "${MSRV_DIR}" || exit 1
     try_silent cargo +1.56.0 test || exit 1
 ) || exit 1
 
 # minimum versions
 (
-    cd "${MIN_VERSIONS_DIR}" || (echo "Failed to cd to ${MIN_VERSIONS_DIR}"; exit 1)
+    cd "${MIN_VERSIONS_DIR}" || exit 1
     try_silent cargo +nightly -Z minimal-versions update || exit 1
 
     try_silent cargo +stable test || exit 1

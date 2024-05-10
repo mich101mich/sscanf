@@ -1,7 +1,4 @@
-use std::error::Error;
 use std::str::FromStr;
-
-use crate::errors::FromStrFailedError;
 
 /// A trait that allows you to use a custom regex for parsing a type.
 ///
@@ -98,28 +95,26 @@ use crate::errors::FromStrFailedError;
 /// }
 ///
 /// impl sscanf::FromScanf<'_> for Color {
-///     /// The Error type in case parsing fails. In this case it is set to never fail (Infallible),
-///     /// since if the above regex matches, the parsing cannot fail.
-///     type Err = std::convert::Infallible;
 ///     const NUM_CAPTURES: usize = 4; // 3 capture groups + the whole match
-///     fn from_matches(src: &mut regex::SubCaptureMatches) -> Result<Self, Self::Err> {
+///     fn from_matches(src: &mut regex::SubCaptureMatches) -> Option<Self> {
+///         let start_len = src.len(); // Keep track of initial length to compare to NUM_CAPTURES
+///
 ///         let _ = src.next().unwrap().unwrap(); // skip the whole match
 ///         // note the double-unwrap, since SubCaptureMatches::next() returns an Option<Option<Match>>
 ///
 ///         // checking the prefix is not necessary here, since the regex already enforces it
 ///
-///         let r_str = src.next().unwrap().unwrap().as_str(); // unwrap is ok because the regex only matches if all capture groups match
-///         let r = u8::from_str_radix(r_str, 16).unwrap();
-///         let g_str = src.next().unwrap().unwrap().as_str();
-///         let g = u8::from_str_radix(g_str, 16).unwrap();
-///         let b_str = src.next().unwrap().unwrap().as_str();
-///         let b = u8::from_str_radix(b_str, 16).unwrap();
-///         // note that every result can be unwrapped here:
-///         // This is possible because this trait is only used on a match to the RegexRepresentation::REGEX,
-///         // which guarantees that everything is in the correct format. This means that the matched
-///         // text for each capture group is guaranteed to be a valid u8 in hexadecimal format.
+///         let mut iter = src.by_ref().filter_map(|m| u8::from_str_radix(m.unwrap().as_str(), 16).ok());
+///         let r = iter.next().unwrap();
+///         let g = iter.next().unwrap();
+///         let b = iter.next().unwrap();
+///         // note the use of unwrap() here, since we know that the iterator has the right amount of elements.
+///         // If the number of elements is wrong, that is an implementation error and not a parsing error.
 ///
-///         Ok(Color { r, g, b })
+///         let taken = start_len - src.len(); // check if we took the right amount of captures
+///         assert_eq!(taken, Self::NUM_CAPTURES, "Wrong number of captures taken");
+///
+///         Some(Color { r, g, b })
 ///     }
 /// }
 ///
@@ -132,10 +127,9 @@ use crate::errors::FromStrFailedError;
 /// [`FromStr`] implementation.
 ///
 /// The downside is that it requires manually upholding the [`NUM_CAPTURES`](FromScanf::NUM_CAPTURES)
-/// contract, which cannot be checked at compile time. It is also mostly not checked at runtime,
-/// since this would require overhead that is unnecessary in all intended cases. This means that
-/// an error in one implementation might cause a panic in another implementation, which is
-/// near-impossible to debug.
+/// contract. This contract cannot be checked at compile time, and runtime checks are only
+/// partially possible. This means that an error in one implementation might cause a panic in
+/// another implementation, which is near-impossible to debug.
 ///
 /// The contract is:
 /// - `NUM_CAPTURES` **IS EQUAL TO**
@@ -161,18 +155,29 @@ use crate::errors::FromStrFailedError;
 /// }
 ///
 /// impl<'t> sscanf::FromScanf<'t> for Name<'t, 't> { // both parts are given the same input => same lifetime
-///     type Err = std::convert::Infallible;
 ///     const NUM_CAPTURES: usize = 3;
-///     fn from_matches(src: &mut regex::SubCaptureMatches<'_, 't>) -> Result<Self, Self::Err> {
+///     fn from_matches(src: &mut regex::SubCaptureMatches<'_, 't>) -> Option<Self> {
 ///         let _ = src.next().unwrap().unwrap(); // skip the whole match
 ///         let first = src.next().unwrap().unwrap().as_str();
 ///         let last = src.next().unwrap().unwrap().as_str();
-///         Ok(Self { first, last })
+///         Some(Self { first, last })
 ///     }
 /// }
 ///
 /// let input = String::from("John Doe");
 /// let parsed = sscanf::sscanf!(input, "{Name}").unwrap();
+/// assert_eq!(parsed.first, "John");
+/// assert_eq!(parsed.last, "Doe");
+///
+/// // Note that the derive macro also takes care of this:
+/// #[derive(sscanf::FromScanf)]
+/// #[sscanf(format = "{} {}")]
+/// struct NameDerived<'a, 'b> {
+///     first: &'a str,
+///     last: &'b str,
+/// }
+///
+/// let parsed = sscanf::sscanf!(input, "{NameDerived}").unwrap();
 /// assert_eq!(parsed.first, "John");
 /// assert_eq!(parsed.last, "Doe");
 /// ```
@@ -181,13 +186,12 @@ use crate::errors::FromStrFailedError;
 /// of the returned value is that of the input string:
 ///
 /// ```compile_fail
-/// # #[derive(sscanf::FromScanf)]
-/// # #[sscanf(format = "{} {}")]
+/// #[derive(sscanf::FromScanf)]
+/// #[sscanf(format = "{} {}")]
 /// struct Name<'a, 'b> {
 ///     first: &'a str,
 ///     last: &'b str,
 /// }
-/// // ...same impl setup as above...
 ///
 /// let parsed;
 /// {
@@ -201,9 +205,6 @@ pub trait FromScanf<'t>
 where
     Self: Sized,
 {
-    /// Error type
-    type Err: Error + 'static;
-
     /// Number of captures taken by this regex.
     ///
     /// **HAS** to match the number of unescaped capture groups in the [`RegexRepresentation`](crate::RegexRepresentation)
@@ -213,73 +214,18 @@ where
     /// The implementation of the parsing.
     ///
     /// **HAS** to take **EXACTLY** `NUM_CAPTURES` elements from the iterator.
-    fn from_matches(src: &mut regex::SubCaptureMatches<'_, 't>) -> Result<Self, Self::Err>;
-
-    /// Convenience shortcut for directly using this trait.
-    ///
-    /// If you have a string containing just the formatted version of the implementing type without
-    /// any text around it, it would normally still be necessary to call
-    /// ```ignore
-    /// sscanf::sscanf!(input, "{<type>}")
-    /// ```
-    /// in order to use the [`FromScanf`] implementation.
-    ///
-    /// This method allows you to call
-    /// ```ignore
-    /// <type>::from_str(input)
-    /// ```
-    /// instead.
-    ///
-    /// On types that were auto-implemented based on their [`FromStr`] implementation, this method
-    /// is functionally identical to [`FromStr::from_str`].
-    ///
-    /// Note that the returned [`Error`](crate::errors::Error) is the same as the one returned by
-    /// [`sscanf!`](crate::sscanf), potentially wrapping a [`FromScanf::Err`].
-    fn from_str(src: &'t str) -> Result<Self, crate::errors::Error>
-    where
-        Self: crate::RegexRepresentation,
-    {
-        let regex = format!("^{}$", Self::REGEX);
-        let regex = crate::regex::Regex::new(&regex).unwrap_or_else(|err| {
-            panic!(
-                "sscanf: Type {} has invalid RegexRepresentation `{}`: {}",
-                std::any::type_name::<Self>(),
-                Self::REGEX,
-                err
-            )
-        });
-
-        regex
-            .captures(src)
-            .ok_or_else(|| crate::errors::Error::MatchFailed)
-            .and_then(|cap| {
-                let mut src = cap.iter();
-
-                Self::from_matches(&mut src)
-                    .map_err(|e| crate::errors::Error::ParsingFailed(Box::new(e)))
-            })
-    }
+    fn from_matches(src: &mut regex::SubCaptureMatches<'_, 't>) -> Option<Self>;
 }
 
-impl<'t, T> FromScanf<'t> for T
-where
-    T: FromStr + 'static,
-    <T as FromStr>::Err: Error + 'static,
-{
-    type Err = FromStrFailedError<T>;
+impl<'t, T: FromStr> FromScanf<'t> for T {
     const NUM_CAPTURES: usize = 1;
-    fn from_matches(src: &mut regex::SubCaptureMatches<'_, 't>) -> Result<Self, Self::Err> {
+    fn from_matches(src: &mut regex::SubCaptureMatches<'_, 't>) -> Option<Self> {
         src.next()
-            .expect(crate::errors::EXPECT_NEXT_HINT)
-            .expect(crate::errors::EXPECT_CAPTURE_HINT)
+            .expect(crate::EXPECT_NEXT_HINT)
+            .expect(crate::EXPECT_CAPTURE_HINT)
             .as_str()
             .parse()
-            .map_err(Self::Err::new)
-    }
-    fn from_str(src: &'t str) -> Result<Self, crate::errors::Error> {
-        src.parse()
-            .map_err(Self::Err::new)
-            .map_err(|e| crate::errors::Error::ParsingFailed(Box::new(e)))
+            .ok()
     }
 }
 

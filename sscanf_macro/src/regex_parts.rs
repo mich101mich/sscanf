@@ -61,15 +61,15 @@ impl ToTokens for Converter {
         match self {
             Converter::Str => tokens.extend(quote! {
                 src.next()
-                   .expect(::sscanf::errors::EXPECT_NEXT_HINT)
-                   .expect(::sscanf::errors::EXPECT_CAPTURE_HINT)
+                   .expect(::sscanf::EXPECT_NEXT_HINT)
+                   .expect(::sscanf::EXPECT_CAPTURE_HINT)
                    .as_str()
             }),
             Converter::CowStr => tokens.extend(quote! {
                 ::std::borrow::Cow::Borrowed(
                     src.next()
-                        .expect(::sscanf::errors::EXPECT_NEXT_HINT)
-                        .expect(::sscanf::errors::EXPECT_CAPTURE_HINT)
+                        .expect(::sscanf::EXPECT_NEXT_HINT)
+                        .expect(::sscanf::EXPECT_CAPTURE_HINT)
                         .as_str()
                 )
             }),
@@ -101,24 +101,23 @@ impl ToTokens for Matcher {
         let ty = &self.ty;
         let num_captures = &self.num_captures;
         let converter = &self.converter;
+
+        let taken_error = format!(
+            "sscanf: {}::NUM_CAPTURES = {{}} but {{}} were taken{}",
+            ty.to_token_stream(),
+            WRONG_CAPTURES_HINT
+        );
+
         tokens.extend(quote! {
             {
-                #[cfg(debug_assertions)]
                 let start_len = src.len();
 
                 let value = #converter;
 
-                #[cfg(debug_assertions)]
-                {
-                    let n = start_len - src.len();
-                    let expected = #num_captures;
-                    if n != expected {
-                        panic!(
-                            "sscanf: {}::NUM_CAPTURES = {} but {} were taken{}",
-                            stringify!(#ty), expected, n, ::sscanf::errors::WRONG_CAPTURES_HINT
-                        );
-                    }
-                }
+                let taken = start_len - src.len();
+                let expected = #num_captures;
+                assert_eq!(taken, expected, #taken_error, expected, taken);
+
                 value
             }
         });
@@ -282,8 +281,8 @@ fn regex_from_radix(
     let span = ty.span();
 
     let get_input = quote! { src.next()
-        .expect(::sscanf::errors::EXPECT_NEXT_HINT)
-        .expect(::sscanf::errors::EXPECT_CAPTURE_HINT)
+        .expect(::sscanf::EXPECT_NEXT_HINT)
+        .expect(::sscanf::EXPECT_CAPTURE_HINT)
         .as_str()
     };
 
@@ -298,14 +297,14 @@ fn regex_from_radix(
             PrefixPolicy::Never => {
                 return quote! {{
                     let input = #get_input;
-                    #ty::from_str_radix(input, #radix)?
+                    #ty::from_str_radix(input, #radix).ok()?
                 }};
             }
             PrefixPolicy::Optional(prefix) => (prefix, quote! { /* do nothing */ }),
             PrefixPolicy::Forced(prefix) => (
                 prefix,
                 quote! {
-                    ::std::option::Option::None.ok_or(::sscanf::errors::MissingPrefixError::#prefix)?;
+                    ::std::option::Option::None?;
                     #[allow(unreachable_code)]
                 },
             ),
@@ -328,13 +327,13 @@ fn regex_from_radix(
                         // re-package `no_sign_prefix` into a string that includes the sign, because otherwise
                         // it might cause faulty overflow errors on numbers like -128i8
                         let input = ::std::format!("-{}", no_sign_prefix);
-                        #ty::from_str_radix(&input, #radix)?
+                        #ty::from_str_radix(&input, #radix).ok()?
                     } else {
-                        #ty::from_str_radix(no_sign_prefix, #radix)?
+                        #ty::from_str_radix(no_sign_prefix, #radix).ok()?
                     }
                 } else {
                     #no_prefix_handler
-                    #ty::from_str_radix(input, #radix)? // note the use of `input` here to include the sign
+                    #ty::from_str_radix(input, #radix).ok()? // note the use of `input` here to include the sign
                 }
             }}
         } else {
@@ -342,10 +341,10 @@ fn regex_from_radix(
                 let input = #get_input;
                 let no_sign = input.strip_prefix('+').unwrap_or(input);
                 if let ::std::option::Option::Some(no_sign_prefix) = #prefix_matcher {
-                    #ty::from_str_radix(no_sign_prefix, #radix)?
+                    #ty::from_str_radix(no_sign_prefix, #radix).ok()?
                 } else {
                     #no_prefix_handler
-                    #ty::from_str_radix(no_sign, #radix)?
+                    #ty::from_str_radix(no_sign, #radix).ok()?
                 }
             }}
         }

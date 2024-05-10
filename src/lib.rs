@@ -69,11 +69,14 @@ pub use from_scanf::*;
 mod types;
 pub use types::*;
 
-pub mod errors;
-#[doc(inline)]
-pub use errors::Error;
 #[doc(hidden)]
-pub use errors::{FromScanfFailedError, FromStrFailedError}; // for backwards compatibility
+pub static EXPECT_NEXT_HINT: &str = r#"sscanf: Invalid number of capture groups in regex.
+If you use ( ) in a custom Regex, please add a '?:' at the beginning to avoid forming a capture group like this:
+    "  (  )  "  =>  "  (?:  )  ""#;
+
+#[doc(hidden)]
+pub static EXPECT_CAPTURE_HINT: &str = r#"sscanf: Non-optional capture group marked as optional.
+This is either a problem with a custom regex or RegexRepresentation implementation or an internal error."#;
 
 #[doc = include_str!("../Changelog.md")]
 pub mod changelog {}

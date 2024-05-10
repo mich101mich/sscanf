@@ -27,11 +27,11 @@ assert_eq!(parsed2.unwrap(), ("World", 5));
 `sscanf!()` takes a format string like `format!()`, but doesn't write the values into the
 placeholders (`{}`), but extracts the values at those `{}` into the return tuple.
 
-If matching the format string failed, an Error is returned:
+If matching the format string failed, `None` is returned:
 ```rust
 let msg = "Text that doesn't match the format string";
 let parsed = sscanf::sscanf!(msg, "Hello {str}{usize}!");
-assert!(matches!(parsed, Err(sscanf::Error::MatchFailed)));
+assert!(parsed.is_none());
 ```
 
 **Types in Placeholders:**

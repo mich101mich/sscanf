@@ -89,7 +89,7 @@ enum ValueConversionMethod {
     FilterMap(syn::ExprClosure),
 }
 impl ValueConversion {
-    fn apply(&self, value: TokenStream, field_name: &FieldIdent) -> TokenStream {
+    fn apply(&self, value: TokenStream) -> TokenStream {
         let ValueConversion { from, to, with } = self;
         use ValueConversionMethod::*;
         match with {
@@ -99,7 +99,7 @@ impl ValueConversion {
             ),
             TryFrom => FullSpan::from_spanned(from).apply(
                 quote! { <#to as ::std::convert::TryFrom<#from>> },
-                quote! { ::try_from(#value)? },
+                quote! { ::try_from(#value).ok()? },
             ),
             Map(closure) => {
                 let span = closure.body.span();
@@ -112,9 +112,7 @@ impl ValueConversion {
                 let span = closure.body.span();
                 quote::quote_spanned! {span=> {
                     let f: fn(#from) -> ::std::option::Option<#to> = #closure;
-                    f(#value).ok_or(::sscanf::errors::FilterMapNoneError {
-                        field_name: stringify!(#field_name)
-                    })?
+                    f(#value)?
                 }}
             }
         }
@@ -286,7 +284,7 @@ The syntax for default values is: `#[sscanf(default)]` to use Default::default()
         // unwrap is safe because the unused_field_iter above ensures that all fields have a value_source
 
         if let Some(conv) = field.conversion {
-            value = conv.apply(value, &ident);
+            value = conv.apply(value);
         }
 
         from_matches.push(quote! { #ident: #value });
@@ -357,30 +355,26 @@ Alternatively, you can use #[sscanf(transparent)] to derive FromScanf for a sing
     let (impl_generics, _, where_clause) = lt_generics.split_for_impl();
 
     let num_captures = regex_parts.num_captures();
+
+    let taken_error = format!(
+        "sscanf: {}::NUM_CAPTURES = {{}} but {{}} were taken{}",
+        name, WRONG_CAPTURES_HINT
+    );
+
     let from_sscanf_impl = quote! {
         #[automatically_derived]
         impl #impl_generics ::sscanf::FromScanf<#lifetime> for #name #ty_generics #where_clause {
-            type Err = ::sscanf::errors::FromScanfFailedError;
             const NUM_CAPTURES: usize = #num_captures;
-            fn from_matches(src: &mut ::sscanf::regex::SubCaptureMatches<'_, #lifetime>) -> ::std::result::Result<Self, Self::Err> {
+            fn from_matches(src: &mut ::sscanf::regex::SubCaptureMatches<'_, #lifetime>) -> ::std::option::Option<Self> {
                 let start_len = src.len();
                 src.next().unwrap(); // skip the whole match
 
-                let mut catcher = || -> ::std::result::Result<Self, ::std::boxed::Box<dyn ::std::error::Error>> {
-                    ::std::result::Result::Ok(#name #from_matches)
-                };
-                let res = catcher().map_err(|error| ::sscanf::errors::FromScanfFailedError {
-                    type_name: stringify!(#name),
-                    error,
-                })?;
-                let n = start_len - src.len();
-                if n != Self::NUM_CAPTURES {
-                    panic!(
-                        "sscanf: {}::NUM_CAPTURES = {} but {} were taken{}",
-                        stringify!(#name), Self::NUM_CAPTURES, n, ::sscanf::errors::WRONG_CAPTURES_HINT
-                    );
-                }
-                Ok(res)
+                let res = #name #from_matches;
+
+                let taken = start_len - src.len();
+                assert_eq!(taken, Self::NUM_CAPTURES, #taken_error, Self::NUM_CAPTURES, taken);
+
+                ::std::option::Option::Some(res)
             }
         }
     };
@@ -459,14 +453,22 @@ Use `#[sscanf(format = \"...\")]` to specify a format for a variant with fields 
 
         str_lifetimes.extend(variant_str_lifetimes);
 
-        let matcher = quote! {
-            let expected = #num_captures;
+        let remaining_error = format!(
+            "sscanf: {}::{} is expected to take {{}} captures but only {{}} remain{}",
+            name, ident, WRONG_CAPTURES_HINT
+        );
 
-            remaining -= expected;
-            if src.next().expect(::sscanf::errors::EXPECT_NEXT_HINT).is_some() {
-                return ::std::result::Result::Ok(#name::#ident #from_matches);
-            } else if expected > 1 { // one was already taken by `src.next()` above
-                src.nth(expected - 2).expect(::sscanf::errors::EXPECT_NEXT_HINT);
+        let matcher = quote! {
+            {
+                const EXPECTED: usize = #num_captures;
+
+                assert!(remaining >= EXPECTED, #remaining_error, EXPECTED, remaining);
+                remaining -= EXPECTED;
+                if src.next().expect(::sscanf::EXPECT_NEXT_HINT).is_some() {
+                    return ::std::option::Option::Some(#name::#ident #from_matches);
+                } else if EXPECTED > 1 { // one was already taken by `src.next()` above
+                    src.nth(EXPECTED - 2).expect(::sscanf::EXPECT_NEXT_HINT);
+                }
             }
         };
         variant_constructors.push(matcher);
@@ -498,41 +500,44 @@ To do this, add #[sscanf(format = \"...\")] to a variant"
     let (lifetime, lt_generics) = merge_lifetimes(str_lifetimes, generics);
     let (impl_generics, _, where_clause) = lt_generics.split_for_impl();
 
+    let start_len_error = format!(
+        "sscanf: {}::NUM_CAPTURES = {{}} but only {{}} captures remain{}",
+        name, WRONG_CAPTURES_HINT
+    );
+    let taken_error = format!(
+        "sscanf: {}::NUM_CAPTURES = {{}} but {{}} were taken{}",
+        name, WRONG_CAPTURES_HINT
+    );
+
     let from_sscanf_impl = quote! {
         #[automatically_derived]
         impl #impl_generics ::sscanf::FromScanf<#lifetime> for #name #ty_generics #where_clause {
-            type Err = ::sscanf::errors::FromScanfFailedError;
-
             const NUM_CAPTURES: usize = #(#num_captures_list)+*;
 
-            fn from_matches(src: &mut ::sscanf::regex::SubCaptureMatches<'_, #lifetime>) -> ::std::result::Result<Self, Self::Err> {
+            fn from_matches(src: &mut ::sscanf::regex::SubCaptureMatches<'_, #lifetime>) -> ::std::option::Option<Self> {
                 let start_len = src.len();
                 let mut remaining = Self::NUM_CAPTURES;
+
+                assert!(start_len >= remaining, #start_len_error, start_len, remaining);
+
                 src.next().unwrap(); // skip the whole match
                 remaining -= 1;
 
-                let mut catcher = || -> ::std::result::Result<Self, ::std::boxed::Box<dyn ::std::error::Error>> {
+                let mut catcher = || -> ::std::option::Option<Self> {
                     #(#variant_constructors)*
 
                     unreachable!("sscanf: enum regex matched but no variant was captured");
                 };
-                let res = catcher().map_err(|error| ::sscanf::errors::FromScanfFailedError {
-                    type_name: stringify!(#name),
-                    error,
-                })?;
+                let res = catcher()?;
 
                 if remaining > 0 {
-                    src.nth(remaining - 1).expect(::sscanf::errors::EXPECT_NEXT_HINT);
+                    src.nth(remaining - 1).expect(::sscanf::EXPECT_NEXT_HINT);
                 }
 
-                let n = start_len - src.len();
-                if n != Self::NUM_CAPTURES {
-                    panic!(
-                        "sscanf: {}::NUM_CAPTURES = {} but {} were taken{}",
-                        stringify!(#name), Self::NUM_CAPTURES, n, ::sscanf::errors::WRONG_CAPTURES_HINT
-                    );
-                }
-                Ok(res)
+                let taken = start_len - src.len();
+                assert_eq!(taken, Self::NUM_CAPTURES, #taken_error, Self::NUM_CAPTURES, taken);
+
+                ::std::option::Option::Some(res)
             }
         }
     };

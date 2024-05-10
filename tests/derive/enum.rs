@@ -63,8 +63,8 @@ fn not_constructible() {
     }
 
     assert_eq!(sscanf!("0", "{Number}").unwrap(), Number::Zero);
-    assert!(sscanf!("5", "{Number}").is_err());
-    assert!(sscanf!("-1/2", "{Number}").is_err());
+    assert!(sscanf!("5", "{Number}").is_none());
+    assert!(sscanf!("-1/2", "{Number}").is_none());
 }
 
 #[test]
@@ -102,7 +102,7 @@ fn autogen() {
     assert_eq!(parsed, expected);
 
     let input_lower = "hello world hi";
-    sscanf!(input_lower, "{Words} {Words} {Words}").unwrap_err();
+    assert!(sscanf!(input_lower, "{Words} {Words} {Words}").is_none());
 
     #[derive(FromScanf, Debug, PartialEq)]
     #[allow(dead_code)]
@@ -121,7 +121,7 @@ fn autogen() {
     assert_eq!(parsed, expected);
 
     let input_world = "World";
-    sscanf!(input_world, "{WordsWithFields}").unwrap_err();
+    assert!(sscanf!(input_world, "{WordsWithFields}").is_none());
 }
 
 #[test]
@@ -159,11 +159,11 @@ fn autogen_cases() {
             for (name, input) in &cases {
                 let result = sscanf!(input, "{Word}");
                 if accepted.contains(name) {
-                    if result.is_err() {
+                    if result.is_none() {
                         errors.push_str(&format!(r#"input "{}" should match autogen="{}""#, input, $case));
                     }
                 } else {
-                    if result.is_ok() {
+                    if result.is_some() {
                         errors.push_str(&format!(r#"input "{}" incorrectly matched autogen="{}""#, input, $case));
                     }
                 }

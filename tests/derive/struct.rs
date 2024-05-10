@@ -40,7 +40,7 @@ fn basic() {
 
     for input in WRONG_INPUTS {
         let res = sscanf!(input, "Testing with {TestStruct}!");
-        res.unwrap_err();
+        assert!(res.is_none());
     }
 }
 
@@ -60,7 +60,7 @@ fn indexed() {
 
     for input in WRONG_INPUTS {
         let res = sscanf!(input, "Testing with {TestStruct}!");
-        res.unwrap_err();
+        assert!(res.is_none());
     }
 }
 
@@ -80,7 +80,7 @@ fn auto_indexed() {
 
     for input in WRONG_INPUTS {
         let res = sscanf!(input, "Testing with {TestStruct}!");
-        res.unwrap_err();
+        assert!(res.is_none());
     }
 }
 
@@ -95,7 +95,7 @@ fn tuple_struct() {
 
     for input in WRONG_INPUTS {
         let res = sscanf!(input, "Testing with {TestStruct}!");
-        res.unwrap_err();
+        assert!(res.is_none());
     }
 }
 

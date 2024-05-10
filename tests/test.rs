@@ -23,7 +23,7 @@ fn basic() {
     assert_eq!(c, "bob");
 
     let n = sscanf!(input, "hi");
-    n.unwrap_err();
+    assert!(n.is_none());
 
     let input = "Position<5,0.3,2>; Dir: N24E10";
     let output = sscanf!(
@@ -41,7 +41,7 @@ fn no_types() {
     let result = sscanf!("hi", "hi");
     result.unwrap();
     let result = sscanf!("hi", "no");
-    result.unwrap_err();
+    assert!(result.is_none());
 }
 
 #[test]
@@ -123,7 +123,7 @@ fn config_numbers() {
     // negative number on unsigned
     let input = "-0xab01";
     let parsed = sscanf!(input, "{usize:x}");
-    parsed.unwrap_err();
+    assert!(parsed.is_none());
 
     // explicit positive number with prefix
     let input = "+10 +0xab01 +0o127 +0b101010";
@@ -145,10 +145,10 @@ fn config_numbers() {
 
     // :#x etc forces the prefix
     assert_eq!(out, sscanf!(prefix, "{u8:#x} {u8:#o} {u8:#b}").unwrap());
-    sscanf!(no_prefix, "{u8:#x} {u8:#o} {u8:#b}").unwrap_err();
+    assert!(sscanf!(no_prefix, "{u8:#x} {u8:#o} {u8:#b}").is_none());
 
     // :r16 etc have no prefix
-    sscanf!(prefix, "{u8:r16} {u8:r8} {u8:r2}").unwrap_err();
+    assert!(sscanf!(prefix, "{u8:r16} {u8:r8} {u8:r2}").is_none());
     assert_eq!(out, sscanf!(no_prefix, "{u8:r16} {u8:r8} {u8:r2}").unwrap());
 }
 
@@ -186,29 +186,6 @@ fn custom_regex() {
 }
 
 #[test]
-fn derived_from_str() {
-    #[derive(Debug, PartialEq, FromScanf)]
-    #[sscanf("{}: {}")]
-    struct Bob {
-        name: String,
-        value: usize,
-    }
-
-    let expected = Bob {
-        name: "bob".to_string(),
-        value: 5,
-    };
-
-    assert_eq!(Bob::from_str("bob: 5").unwrap(), expected);
-    assert!(Bob::from_str("bob: 6").unwrap() != expected);
-    assert!(Bob::from_str("bob : 5").unwrap() != expected);
-
-    assert!(Bob::from_str("{bob: 5}").is_err());
-    assert!(Bob::from_str("bob: a").is_err());
-    assert!(Bob::from_str("bob").is_err());
-}
-
-#[test]
 fn string_lifetime() {
     // compare with tests/fail/str_lifetime.rs
     let s;
@@ -238,16 +215,6 @@ fn string_lifetime() {
         sscanf!(a, "{Cow<str>}").unwrap()
     }
     process_cow("hi");
-}
-
-#[test]
-fn error_lifetime() {
-    fn foo() -> Result<(), Box<dyn std::error::Error>> {
-        let input = String::from("hi");
-        sscanf!(input, "{String}").map_err(|err| err.to_string())?;
-        Ok(())
-    }
-    foo().unwrap();
 }
 
 #[test]

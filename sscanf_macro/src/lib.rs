@@ -31,6 +31,11 @@ pub(crate) use utils::*;
 
 mod derive;
 
+const WRONG_CAPTURES_HINT: &str = r#"
+If you use ( ) in a custom Regex, please add a '?:' at the beginning to avoid forming a capture group like this:
+    "  (  )  "  =>  "  (?:  )  "
+"#;
+
 /// Format string and types for `sscanf_get_regex`. Shared by `sscanf` and `sscanf_unescaped`
 struct ScanfInner {
     /// the format string
@@ -173,25 +178,22 @@ fn sscanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
         let input: &str = #src_str;
         #[allow(clippy::needless_question_mark)]
         REGEX.captures(input)
-            .ok_or_else(|| ::sscanf::errors::Error::MatchFailed)
             .and_then(|cap| {
                 let mut src = cap.iter();
                 let src = &mut src;
                 src.next().unwrap(); // skip the whole match
 
-                let mut matcher = || -> ::std::result::Result<_, ::std::boxed::Box<dyn ::std::error::Error>> {
-                    ::std::result::Result::Ok( ( #(#matcher),* ) )
-                };
-                let res = matcher().map_err(|e| ::sscanf::errors::Error::ParsingFailed(e));
+                let res = ( #(#matcher),* );
 
-                if res.is_ok() && src.len() != 0 {
+                if src.len() != 0 {
                     panic!("sscanf: {} captures generated, but {} were taken",
                         REGEX.captures_len(), REGEX.captures_len() - src.len()
                     );
                 }
-                res
+                ::std::option::Option::Some(res)
             })
     }};
+    // panic!("{}", ret.to_string());
     ret.into()
 }
 
@@ -259,6 +261,12 @@ fn generate_regex(input: &ScanfInner, escape_input: bool) -> Result<(TokenStream
 
     let regex = regex_parts.regex();
     let num_captures = regex_parts.num_captures();
+
+    let captures_len_error = format!(
+        "sscanf: Regex has {{}} capture groups, but {{}} were expected.{}",
+        WRONG_CAPTURES_HINT
+    );
+
     let regex = quote! { ::sscanf::lazy_static::lazy_static! {
         static ref REGEX: ::sscanf::regex::Regex = {
             let regex_str = #regex;
@@ -267,12 +275,7 @@ fn generate_regex(input: &ScanfInner, escape_input: bool) -> Result<(TokenStream
 
             const NUM_CAPTURES: ::std::primitive::usize = #num_captures;
 
-            if regex.captures_len() != NUM_CAPTURES {
-                panic!(
-                    "sscanf: Regex has {} capture groups, but {} were expected.{}",
-                    regex.captures_len(), NUM_CAPTURES, ::sscanf::errors::WRONG_CAPTURES_HINT
-                );
-            }
+            assert_eq!(regex.captures_len(), NUM_CAPTURES, #captures_len_error, regex.captures_len(), NUM_CAPTURES);
             regex
         };
     }};

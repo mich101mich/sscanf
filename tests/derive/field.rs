@@ -70,7 +70,7 @@ fn defaults() {
 
     for input in WRONG_INPUTS {
         let res = sscanf!(input, "Testing with {TestStruct}!");
-        res.unwrap_err();
+        assert!(res.is_none());
     }
 }
 
@@ -93,7 +93,7 @@ fn mapper() {
 
     for input in WRONG_INPUTS {
         let res = sscanf!(input, "Testing with {TestStruct}!");
-        res.unwrap_err();
+        assert!(res.is_none());
     }
 }
 
@@ -115,28 +115,18 @@ fn filter_mapper() {
     let ret = sscanf!(input, "Testing with {TestStruct}!").unwrap();
     assert_eq!(ret, correct_result!(named));
 
-    for (input, field) in [
-        (
-            "Testing with (3.4,1,-2,a)!", // a is not a digit
-            "a",
-        ),
-        (
-            "Testing with (3.4,2,-2,0)!", // b != 1
-            "b",
-        ),
-        (
-            "Testing with (3.4,1,2,0)!", // c is not negative
-            "c",
-        ),
+    for input in [
+        "Testing with (3.4,1,-2,a)!", // a is not a digit
+        "Testing with (3.4,2,-2,0)!", // b != 1
+        "Testing with (3.4,1,2,0)!",  // c is not negative
     ] {
         let res = sscanf!(input, "Testing with {TestStruct}!");
-        let error = format!("sscanf: Parsing failed: type TestStruct failed to parse from sscanf: The closure of `{}`s `filter_map` attribute returned None", field);
-        assert_eq!(res.unwrap_err().to_string(), error);
+        assert!(res.is_none());
     }
 
     for input in WRONG_INPUTS {
         let res = sscanf!(input, "Testing with {TestStruct}!");
-        res.unwrap_err();
+        assert!(res.is_none());
     }
 }
 
@@ -159,7 +149,7 @@ fn from() {
 
     for input in WRONG_INPUTS {
         let res = sscanf!(input, "Testing with {TestStruct}!");
-        res.unwrap_err();
+        assert!(res.is_none());
     }
 }
 

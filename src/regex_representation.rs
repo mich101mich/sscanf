@@ -86,10 +86,10 @@ use const_format::formatcp;
 /// assert_eq!(output.unwrap(), Fraction(8, 1));
 ///
 /// let output = sscanf!("6e/3", "{}", Fraction);
-/// assert!(output.is_err());
+/// assert!(output.is_none());
 ///
 /// let output = sscanf!("6/-3", "{}", Fraction);
-/// assert!(output.is_err()); // only first number can be negative
+/// assert!(output.is_none()); // only first number can be negative
 ///
 /// let output = sscanf!("6/3", "{}", Fraction);
 /// assert_eq!(output.unwrap(), Fraction(6, 3));
