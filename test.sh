@@ -36,8 +36,13 @@ function try_silent {
 }
 
 BASE_DIR="$(realpath "$(dirname "$0")")"
+
+MSRV=$(grep '^rust-version = ".*"$' "${BASE_DIR}/Cargo.toml" | sed -E 's/^rust-version = "(.*)"$/\1/') || exit 1
+[[ -n "${MSRV}" ]] || exit 1
+echo "Minimum supported Rust version: ${MSRV}"
+
 OUT_DIRS="${BASE_DIR}/test_dirs"
-MSRV_DIR="${OUT_DIRS}/msrv"
+MSRV_DIR="${OUT_DIRS}/msrv_${MSRV}"
 MIN_VERSIONS_DIR="${OUT_DIRS}/min_versions"
 
 for dir in "${MSRV_DIR}" "${MIN_VERSIONS_DIR}"; do
@@ -49,9 +54,13 @@ for dir in "${MSRV_DIR}" "${MIN_VERSIONS_DIR}"; do
     ln -s "${BASE_DIR}/sscanf_macro" "${dir}/sscanf_macro"
 done
 
+export RUSTFLAGS="-D warnings"
+export RUSTDOCFLAGS="-D warnings"
+
 # main tests
 (
     cd "${BASE_DIR}" || exit 1
+    try_silent rustup update || exit 1
     try_silent cargo update || exit 1
     try_silent cargo +stable test || exit 1
     try_silent cargo +nightly test || exit 1
@@ -66,7 +75,6 @@ done
         try_silent cargo +stable test error_message_tests -- --ignored || exit 1
         try_silent cargo +nightly test error_message_tests -- --ignored || exit 1
     fi
-    export RUSTDOCFLAGS="-D warnings"
     try_silent cargo +nightly doc --no-deps || exit 1
     try_silent cargo +nightly clippy -- -D warnings || exit 1
     try_silent cargo +stable fmt --check || exit 1
@@ -81,7 +89,8 @@ done
 # minimum supported rust version
 (
     cd "${MSRV_DIR}" || exit 1
-    try_silent cargo +1.56.0 test || exit 1
+    try_silent rustup install "${MSRV}" || exit 1
+    try_silent cargo "+${MSRV}" test || exit 1
 ) || exit 1
 
 # minimum versions

@@ -68,6 +68,7 @@ pub fn list_items<T>(items: &[T], mut display: impl FnMut(&T) -> String) -> Stri
 }
 
 /// Extension trait for [`TokenStream`] that allows setting the span of all tokens in the stream.
+#[allow(dead_code)]
 pub trait TokenStreamExt {
     fn set_span(&mut self, span: Span);
     fn with_span(self, span: Span) -> Self;

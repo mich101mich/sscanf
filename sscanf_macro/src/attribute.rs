@@ -13,6 +13,7 @@ pub use r#field::*;
 pub use r#struct::*;
 pub use r#variant::*;
 
+#[allow(dead_code)]
 pub trait Attr: Debug + Display + Copy + Ord + Hash + 'static {
     fn all() -> &'static [Self];
     fn all_names() -> &'static [&'static str];

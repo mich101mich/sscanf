@@ -32,6 +32,7 @@ fn check_error_from_str_1() {
 #[test]
 #[should_panic(expected = "None")]
 fn check_error_from_str_2() {
+    #![allow(dead_code)]
     struct Test(usize);
     impl FromStr for Test {
         type Err = <usize as FromStr>::Err;
@@ -51,6 +52,7 @@ If you use ( ) in a custom Regex, please add a '?:' at the beginning to avoid fo
     "  (  )  "  =>  "  (?:  )  "
 "#)]
 fn custom_regex_with_capture_group() {
+    #![allow(dead_code)]
     struct Test(usize);
     impl FromStr for Test {
         type Err = <usize as FromStr>::Err;

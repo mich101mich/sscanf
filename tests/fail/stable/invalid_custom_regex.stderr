@@ -66,12 +66,3 @@ error: regex parse error:
    |
 11 |     sscanf::sscanf!("", "{:/ab(ab/}", str);
    |                         ^^^^^^^^^^^^
-
-error: custom regex cannot contain capture groups '(...)'.
-       Either make them non-capturing by adding '?:' after the '(' or remove/escape the '(' and ')':
-       At "{:/ab()ab/}"
-             ^^^^^^^^
-  --> tests/fail/stable/invalid_custom_regex.rs:12:25
-   |
-12 |     sscanf::sscanf!("", "{:/ab()ab/}", str);
-   |                         ^^^^^^^^^^^^^

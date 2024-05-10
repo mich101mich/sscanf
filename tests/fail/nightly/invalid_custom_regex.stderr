@@ -50,10 +50,3 @@ error: regex parse error:
    |
 11 |     sscanf::sscanf!("", "{:/ab(ab/}", str);
    |                            ^^^^^^^
-
-error: custom regex cannot contain capture groups '(...)'.
-       Either make them non-capturing by adding '?:' after the '(' or remove/escape the '(' and ')'
-  --> tests/fail/nightly/invalid_custom_regex.rs:12:28
-   |
-12 |     sscanf::sscanf!("", "{:/ab()ab/}", str);
-   |                            ^^^^^^^^
