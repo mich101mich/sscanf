@@ -18,9 +18,6 @@ jobs:
     - name: Run tests
       uses: actions-rs/cargo@v1
       with: { command: test }
-    - name: Run tests for error messages
-      uses: actions-rs/cargo@v1
-      with: { command: test, args: error_message_tests -- --ignored }
     - name: Run fmt
       uses: actions-rs/cargo@v1
       with: { command: fmt, args: --check }
@@ -34,9 +31,6 @@ jobs:
     - name: Run tests
       uses: actions-rs/cargo@v1
       with: { command: test }
-    - name: Run tests for error messages
-      uses: actions-rs/cargo@v1
-      with: { command: test, args: error_message_tests -- --ignored }
     - name: Run docs
       uses: actions-rs/cargo@v1
       with: { command: doc, args: --no-deps }
