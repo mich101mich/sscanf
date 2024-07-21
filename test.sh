@@ -54,13 +54,16 @@ elif [[ -n "$1" ]]; then
     exit 1
 fi
 
-MSRV=$(grep '^rust-version = ".*"$' "${BASE_DIR}/Cargo.toml" | sed -E 's/^rust-version = "(.*)"$/\1/')
-[[ -n "${MSRV}" ]]
+MSRV=$(sed -n -r -e 's/^rust-version = "(.*)"$/\1/p' "${BASE_DIR}/Cargo.toml")
+if [[ -z "${MSRV}" ]]; then
+    >&2 echo "Could not determine minimum supported Rust version. Missing 'rust-version' in Cargo.toml"
+    exit 1
+fi
 echo "Minimum supported Rust version: ${MSRV}"
 
-OUT_DIRS="${BASE_DIR}/test_dirs"
-MSRV_DIR="${OUT_DIRS}/msrv_${MSRV}"
-MIN_VERSIONS_DIR="${OUT_DIRS}/min_versions"
+TARGET_DIR="${BASE_DIR}/target"
+MSRV_DIR="${TARGET_DIR}/msrv_${MSRV}"
+MIN_VERSIONS_DIR="${TARGET_DIR}/min_versions"
 
 for dir in "${MSRV_DIR}" "${MIN_VERSIONS_DIR}"; do
     [[ -d "${dir}" ]] && continue
