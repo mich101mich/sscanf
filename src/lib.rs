@@ -7,7 +7,7 @@
     unstable_features,
     unused_import_braces,
     unused_qualifications,
-    rustdoc::missing_doc_code_examples,
+    // rustdoc::missing_doc_code_examples,
     rustdoc::broken_intra_doc_links,
     rustdoc::private_intra_doc_links,
     rustdoc::missing_crate_level_docs,

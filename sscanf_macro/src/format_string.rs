@@ -1,7 +1,6 @@
 use crate::*;
 
 pub struct FormatString<'a> {
-    pub src: StrLitSlice<'a>,
     pub placeholders: Vec<Placeholder<'a>>,
     pub parts: Vec<String>, // contains placeholders.len() + 1 escaped parts
 }
@@ -44,7 +43,6 @@ impl<'a> FormatString<'a> {
 
         parts.push(current_part);
         Ok(Self {
-            src,
             placeholders,
             parts,
         })

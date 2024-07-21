@@ -1,4 +1,6 @@
-**/target
 **/*.rs.bk
-Cargo*.lock
-.vscode
+**/target
+**/Cargo.lock
+/.vscode/
+/test_dirs/
+/wip/

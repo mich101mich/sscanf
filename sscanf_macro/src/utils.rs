@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use crate::*;
 
 /// A workaround for Spans on stable Rust.

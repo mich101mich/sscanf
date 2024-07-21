@@ -64,10 +64,10 @@ jobs:
       run: cargo +nightly update -Z minimal-versions
     - name: Run minimal version stable tests
       uses: actions-rs/cargo@v1
-      with: { command: test, args: -- --skip failing_tests, toolchain: stable }
+      with: { command: test, toolchain: stable }
     - name: Run minimal version nightly tests
       uses: actions-rs/cargo@v1
-      with: { command: test, args: -- --skip failing_tests, toolchain: nightly }
+      with: { command: test, toolchain: nightly }
 
   minimum-rust-version:
     runs-on: ubuntu-latest
@@ -78,4 +78,6 @@ jobs:
       with: { toolchain: 1.56.0 }
     - name: Run tests
       uses: actions-rs/cargo@v1
-      with: { command: test, args: -- --skip failing_tests, toolchain: 1.56.0 }
+      with: { command: test, toolchain: 1.56.0 }
+      env:
+        RUSTFLAGS: "--cfg msrv_build" 
