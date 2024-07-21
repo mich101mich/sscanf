@@ -119,7 +119,10 @@ try_silent cargo +stable fmt --check
 ########
 cd "${MSRV_DIR}"
 try_silent rustup install "${MSRV}"
+ORIGINAL_RUSTFLAGS="${RUSTFLAGS}"
+RUSTFLAGS="${RUSTFLAGS} --cfg msrv_build"
 try_silent cargo "+${MSRV}" test --tests # only run --tests, which excludes the doctests from Readme.md
+RUSTFLAGS="${ORIGINAL_RUSTFLAGS}"
 
 ########
 # minimum versions
