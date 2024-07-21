@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use sscanf::*;
 use std::str::FromStr;
 

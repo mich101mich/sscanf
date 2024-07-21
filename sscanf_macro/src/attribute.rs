@@ -15,7 +15,6 @@ pub use r#variant::*;
 
 pub trait Attr: Debug + Display + Copy + Ord + Hash + 'static {
     fn all() -> &'static [Self];
-    fn all_names() -> &'static [&'static str];
     fn context() -> Context;
 
     fn as_str(&self) -> &'static str;
@@ -88,9 +87,6 @@ macro_rules! declare_attr {
                 impl super::Attr for $context {
                     fn all() -> &'static [Self] {
                         Self::ALL
-                    }
-                    fn all_names() -> &'static [&'static str] {
-                        Self::ALL_NAMES
                     }
                     fn context() -> super::$context_enum {
                         super::$context_enum::$context

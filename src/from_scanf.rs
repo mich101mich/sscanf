@@ -140,8 +140,8 @@ use crate::errors::FromStrFailedError;
 /// The contract is:
 /// - `NUM_CAPTURES` **IS EQUAL TO**
 /// - the number of consumed elements from the iterator passed to [`from_matches`](FromScanf::from_matches) **IS EQUAL TO**
-/// -  1 + the number of unescaped capture groups in [`RegexRepresentation`](crate::RegexRepresentation) (or `{:/.../}`).
-/// The 1 is for the whole match, which is a capture group added by `sscanf`.
+/// - 1 + the number of unescaped capture groups in [`RegexRepresentation`](crate::RegexRepresentation) (or `{:/.../}`).
+///   The 1 is for the whole match, which is a capture group added by `sscanf`.
 ///
 /// All of these are automatically enforced by the derive macro or the [`FromStr`] implementation,
 /// which is why they should be preferred over this option.
@@ -240,6 +240,8 @@ where
         Self: crate::RegexRepresentation,
     {
         let regex = format!("^{}$", Self::REGEX);
+        #[allow(unused_qualifications)] // would complain about the `crate::` prefix, but we
+        // specifically want the bundled regex rather than whatever a user has renamed to `regex`
         let regex = crate::regex::Regex::new(&regex).unwrap_or_else(|err| {
             panic!(
                 "sscanf: Type {} has invalid RegexRepresentation `{}`: {}",
