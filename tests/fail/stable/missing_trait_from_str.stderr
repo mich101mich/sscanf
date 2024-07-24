@@ -2,7 +2,7 @@ error[E0277]: the trait bound `NoFromStr: FromScanf<'_>` is not satisfied
  --> tests/fail/stable/missing_trait_from_str.rs:9:33
   |
 9 |     sscanf::sscanf!("hi", "{}", module::NoFromStr);
-  |                                 ^^^^^^ the trait `FromStr` is not implemented for `NoFromStr`, which is required by `NoFromStr: FromScanf<'_>`
+  |                                 ^^^^^^^^^^^^^^^^^ the trait `FromStr` is not implemented for `NoFromStr`, which is required by `NoFromStr: FromScanf<'_>`
   |
   = note: required for `NoFromStr` to implement `FromScanf<'_>`
 
@@ -29,11 +29,3 @@ error[E0277]: the trait bound `NoFromStr: FromScanf<'_>` is not satisfied
    |                           ^^^^^^^^^^^^^ the trait `FromStr` is not implemented for `NoFromStr`, which is required by `NoFromStr: FromScanf<'_>`
    |
    = note: required for `NoFromStr` to implement `FromScanf<'_>`
-
-error[E0277]: the trait bound `NoFromStr: FromScanf<'_>` is not satisfied
- --> tests/fail/stable/missing_trait_from_str.rs:9:33
-  |
-9 |     sscanf::sscanf!("hi", "{}", module::NoFromStr);
-  |                                 ^^^^^^^^^^^^^^^^^ the trait `FromStr` is not implemented for `NoFromStr`, which is required by `NoFromStr: FromScanf<'_>`
-  |
-  = note: required for `NoFromStr` to implement `FromScanf<'_>`

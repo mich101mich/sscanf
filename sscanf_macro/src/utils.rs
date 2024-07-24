@@ -30,9 +30,15 @@ impl FullSpan {
         Self(start, end)
     }
     pub fn apply(self, a: TokenStream, b: TokenStream) -> TokenStream {
-        let mut ret = a.with_span(self.0);
-        ret.extend(b.with_span(self.1));
+        let mut ret = self.apply_start(a);
+        ret.extend(self.apply_end(b));
         ret
+    }
+    pub fn apply_start(self, a: TokenStream) -> TokenStream {
+        a.with_span(self.0)
+    }
+    pub fn apply_end(self, b: TokenStream) -> TokenStream {
+        b.with_span(self.1)
     }
 }
 
