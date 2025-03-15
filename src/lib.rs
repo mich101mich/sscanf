@@ -1,13 +1,11 @@
 #![deny(
     missing_docs,
-    missing_debug_implementations,
     trivial_casts,
     trivial_numeric_casts,
     unsafe_code,
     unstable_features,
     unused_import_braces,
     unused_qualifications,
-    // rustdoc::missing_doc_code_examples,
     rustdoc::broken_intra_doc_links,
     rustdoc::private_intra_doc_links,
     rustdoc::missing_crate_level_docs,
@@ -57,33 +55,16 @@
 //! with no drawbacks in functionality or performance. The only difference is the compiler errors
 //! that you get while writing format strings.
 
-mod macros;
-pub use macros::*;
-
-mod regex_representation;
-pub use regex_representation::*;
-
 mod from_scanf;
+mod macros;
+mod parser_object;
+
 pub use from_scanf::*;
-
-mod types;
-pub use types::*;
-
-pub mod errors;
-#[doc(inline)]
-pub use errors::Error;
-#[doc(hidden)]
-pub use errors::{FromScanfFailedError, FromStrFailedError}; // for backwards compatibility
+pub use macros::*;
+pub use parser_object::*;
 
 #[doc = include_str!("../Changelog.md")]
 pub mod changelog {}
 
 #[doc(hidden)]
-pub use const_format;
-#[doc(hidden)]
-pub use lazy_static;
-#[doc(hidden)]
 pub use regex;
-
-#[allow(unused_imports)]
-use std::str::FromStr; // for links in the documentation

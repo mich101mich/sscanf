@@ -2,12 +2,12 @@ use crate::*;
 
 pub const MISSING_CLOSE_STRING: &str = "missing '}' to close a placeholder. If the '{' was intended to be a literal, escape it with '{{'";
 
-pub struct FormatOption<'a> {
+pub struct FormatOptions<'a> {
     pub src: StrLitSlice<'a>,
-    pub kind: FormatOptionKind,
+    pub kind: FormatOptionsKind,
 }
 
-pub enum FormatOptionKind {
+pub enum FormatOptionsKind {
     Radix { radix: u8, prefix: PrefixPolicy },
     Regex(String),
     Hashtag,
@@ -43,7 +43,7 @@ impl ToTokens for PrefixKind {
     }
 }
 
-impl<'a> FormatOption<'a> {
+impl<'a> FormatOptions<'a> {
     pub fn new<I: Iterator<Item = (usize, char)>>(
         input: &'_ mut std::iter::Peekable<I>,
         src: &'_ StrLitSlice<'a>,
@@ -55,55 +55,7 @@ impl<'a> FormatOption<'a> {
 
         match c {
             '/' => {
-                let mut end = None;
-                let mut regex = String::new();
-                let mut escape = None;
-                while let Some((i, c)) = input.next() {
-                    if c == '/' {
-                        if escape.take().is_some() {
-                            regex.push('/');
-                        } else {
-                            end = Some(i);
-                            break;
-                        }
-                    } else if c == '\\' {
-                        if !src.is_raw() {
-                            let (_, next) = input
-                                .next()
-                                .ok_or_else(|| src.slice(i..).error("unexpected end of regex"))?;
-                            // the above error is probably not possible, since a single \ at
-                            // the end of a non-raw string would escape the closing " and the
-                            // compiler would already complain about that.
-                            // the check is still here just in case
-
-                            if next != '\\' {
-                                // regular escaped char (\n, \t, etc)
-                                if escape.take().is_some() {
-                                    regex.push('\\');
-                                }
-                                regex.push('\\');
-                                regex.push(next);
-                                continue;
-                            }
-                        }
-                        if escape.take().is_some() {
-                            regex.push('\\');
-                            regex.push('\\');
-                        } else {
-                            escape = Some(i);
-                        }
-                    } else {
-                        if escape.take().is_some() {
-                            regex.push('\\');
-                        }
-                        regex.push(c);
-                    }
-                }
-                if let Some(i) = escape {
-                    return src.slice(i..).err("unexpected end of regex"); // checked in tests/fail/<channel>/invalid_custom_regex.rs
-                }
-                let end =
-                    end.ok_or_else(|| src.slice(start..).error("missing '/' to end regex"))?; // checked in tests/fail/<channel>/invalid_custom_regex.rs
+                let regex = Self::parse_custom_regex(input, src, start)?;
 
                 // take } from input
                 let close_bracket_index = if let Some((i, c)) = input.next() {
@@ -116,24 +68,7 @@ impl<'a> FormatOption<'a> {
                     return src.slice(outer_start..).err(MISSING_CLOSE_STRING); // checked in tests/fail/<channel>/invalid_placeholder.rs
                 };
 
-                let src = src.slice(start..=end);
-
-                match regex_syntax::Parser::new().parse(&regex) {
-                    Ok(hir) => {
-                        if contains_capture_group(&hir) {
-                            let msg = "custom regex cannot contain capture groups '(...)'.
-Either make them non-capturing by adding '?:' after the '(' or remove/escape the '(' and ')'";
-                            return src.err(msg);
-                        }
-                    }
-                    Err(err) => {
-                        let msg = format!("{}\n\nIn custom Regex format option", err);
-                        return src.err(&msg); // checked in tests/fail/<channel>/invalid_custom_regex.rs
-                    }
-                }
-
-                let kind = FormatOptionKind::Regex(regex);
-                Ok((Self { src, kind }, close_bracket_index))
+                Ok((regex, close_bracket_index))
             }
             '}' => {
                 let msg = "format options cannot be empty. Consider removing the ':'";
@@ -157,7 +92,7 @@ Either make them non-capturing by adding '?:' after the '(' or remove/escape the
 
         let (radix, prefix) = match src.text() {
             "#" => {
-                let kind = FormatOptionKind::Hashtag;
+                let kind = FormatOptionsKind::Hashtag;
                 return Ok((Self { src, kind }, close_bracket_index));
             }
             "x" => (16, PrefixPolicy::Optional(PrefixKind::Hex)),
@@ -191,8 +126,83 @@ Hint: Regex format options must start and end with '/'";
             }
         };
 
-        let kind = FormatOptionKind::Radix { radix, prefix };
+        let kind = FormatOptionsKind::Radix { radix, prefix };
         Ok((Self { src, kind }, close_bracket_index))
+    }
+
+    fn parse_custom_regex<I: Iterator<Item = (usize, char)>>(
+        input: &'_ mut std::iter::Peekable<I>,
+        src: &'_ StrLitSlice<'a>,
+        start: usize,
+    ) -> Result<Self> {
+        let mut end = None;
+        let mut regex = String::new();
+        let mut escape = None;
+        while let Some((i, c)) = input.next() {
+            if c == '/' {
+                if escape.take().is_some() {
+                    regex.push('/');
+                } else {
+                    end = Some(i);
+                    break;
+                }
+            } else if c == '\\' {
+                if !src.is_raw() {
+                    let (_, next) = input
+                        .next()
+                        .ok_or_else(|| src.slice(i..).error("unexpected end of regex"))?;
+                    // the above error is probably not possible, since a single \ at
+                    // the end of a non-raw string would escape the closing " and the
+                    // compiler would already complain about that.
+                    // the check is still here just in case
+
+                    if next != '\\' {
+                        // TODO: what if next is a '/'?
+                        // regular escaped char (\n, \t, etc)
+                        if escape.take().is_some() {
+                            regex.push('\\');
+                        }
+                        regex.push('\\');
+                        regex.push(next);
+                        continue;
+                    }
+                }
+                if escape.take().is_some() {
+                    regex.push('\\');
+                    regex.push('\\');
+                } else {
+                    escape = Some(i);
+                }
+            } else {
+                if escape.take().is_some() {
+                    regex.push('\\');
+                }
+                regex.push(c);
+            }
+        }
+        if let Some(i) = escape {
+            return src.slice(i..).err("unexpected end of regex"); // checked in tests/fail/<channel>/invalid_custom_regex.rs
+        }
+        let end = end.ok_or_else(|| src.slice(start..).error("missing '/' to end regex"))?; // checked in tests/fail/<channel>/invalid_custom_regex.rs
+
+        let src = src.slice(start..=end);
+
+        match regex_syntax::Parser::new().parse(&regex) {
+            Ok(hir) => {
+                if contains_capture_group(&hir) {
+                    let msg = "custom regex cannot contain capture groups '(...)'.
+Either make them non-capturing by adding '?:' after the '(' or remove/escape the '(' and ')'";
+                    return src.err(msg);
+                }
+            }
+            Err(err) => {
+                let msg = format!("{}\n\nIn custom Regex format option", err);
+                return src.err(&msg); // checked in tests/fail/<channel>/invalid_custom_regex.rs
+            }
+        }
+
+        let kind = FormatOptionsKind::Regex(regex);
+        Ok(Self { src, kind })
     }
 }
 
@@ -214,4 +224,49 @@ fn contains_capture_group(hir: &regex_syntax::hir::Hir) -> bool {
         // Repetition(r) => contains_capture_group(r.sub.as_ref()),
         // _ => false,
     }
+}
+
+#[test]
+fn test_custom_regex() {
+    fn parse(tokens: TokenStream) -> std::result::Result<String, String> {
+        let str_lit: StrLit = syn::parse2(tokens).map_err(|e| e.to_string())?;
+        let src = str_lit.to_slice();
+        let mut iter = src.text().char_indices().peekable();
+        let (start, c) = iter.next().unwrap();
+        assert_eq!(c, '/');
+        let regex = FormatOptions::parse_custom_regex(&mut iter, &src, start)
+            .map_err(|e| TokenStream1::from(e).to_string())?;
+        let FormatOptionsKind::Regex(regex) = regex.kind else {
+            return Err("expected regex".to_string());
+        };
+        Ok(regex)
+    }
+
+    let tests = [
+        (quote! { "/[a-z]/" }, "[a-z]"),
+        (quote! { r"/[a-z]/" }, "[a-z]"),
+        (quote! { r#"/[a-z]/"# }, "[a-z]"),
+        (quote! { "/[a-z]{1}/" }, "[a-z]{1}"),
+        (quote! { r"/[a-z]{1}/" }, "[a-z]{1}"),
+        (quote! { r#"/[a-z]{1}/"# }, "[a-z]{1}"),
+    ];
+
+    let mut failed = 0;
+    for (tokens, expected) in tests {
+        let printed = tokens.to_string();
+        let actual = parse(tokens);
+        match actual {
+            Ok(actual) => {
+                if actual != *expected {
+                    eprintln!("Test for {printed} failed:\nExpected: {expected}\nActual: {actual}");
+                    failed += 1;
+                }
+            }
+            Err(err) => {
+                eprintln!("Test for {printed} failed: {err}");
+                failed += 1;
+            }
+        }
+    }
+    assert_eq!(failed, 0);
 }

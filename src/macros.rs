@@ -15,12 +15,7 @@
 /// * `Type...`: The types to parse. See [Custom Types](index.html#custom-types) for more information.
 ///
 /// ## Return Value
-/// A [`Result`](std::result::Result) with a tuple of the parsed types or a [`sscanf::Error`](crate::errors::Error).
-/// Note that an error usually indicates that the input didn't match the format string, making the
-/// returned [`Result`](std::result::Result) functionally equivalent to an [`Option`](std::option::Option),
-/// and most applications should treat it that way. An error is only useful when debugging
-/// custom implementations of [`FromStr`](std::str::FromStr) or [`FromScanf`](crate::FromScanf).
-/// See [`sscanf::Error`](crate::errors::Error) for more information.
+/// An [`Option`](std::option::Option) with a tuple of the parsed types.
 ///
 /// ## Details
 /// The format string _has_ to be a string literal (with some form of `"` on either side),
@@ -270,46 +265,6 @@ pub use sscanf_macro::sscanf_unescaped as scanf_unescaped;
 /// won't be constructed by `sscanf`. Unless `autogen` is specified, in which case the format string
 /// is generated automatically. To avoid this, add the `skip` attribute to the variant. `skip` has
 /// no effect without `autogen`.
-///
-/// ## A note on Generics
-/// Any lifetime parameters will be carried over. Any type `&'a str` will contain a borrow of the
-/// input string, with an appropriate lifetime.
-///
-/// As for type generics: [`RegexRepresentation`](crate::RegexRepresentation) cannot be implemented
-/// for generic types, since the contained associated `const` is only created once by Rust for all
-/// generic instances, meaning that different regexes for different `T` are not possible. This
-/// also means that deriving `FromScanf` for a struct that wants to match a generic field without
-/// a `map` or `default` attribute will generally fail. The only possibilities are:
-/// ```
-/// #[derive(sscanf::FromScanf)]
-/// #[sscanf(format = "...{field:/<regex>/}...")]
-/// struct MyGenericStruct<T>
-/// where
-///     T: std::str::FromStr + 'static,
-///     <T as std::str::FromStr>::Err: std::error::Error + 'static,
-/// {
-///     field: T,
-/// }
-///
-/// let input = "...<regex>...";
-/// let res = sscanf::sscanf!(input, "{MyGenericStruct<String>}").unwrap();
-/// assert_eq!(res.field, String::from("<regex>"));
-/// ```
-/// There are two important things in this example:
-/// 1. Since `RegexRepresentation` cannot be used, every occurrence of generic fields in the format
-///    string have to have a regex (`{:/.../}) attached to them.
-/// 2. The type bounds on `T` have to contain all of those exact bounds.
-///
-/// Any `T` has to be constructed by [`FromStr`](std::str::FromStr) from what is matched by the
-/// specified regex, making this setup virtually useless for all but a few selected types. Since
-/// the generic parameter has to be specified in the actual `sscanf` call, it is usually better
-/// to just use a concrete type in the struct itself.
-///
-/// It is possible to have `T` directly require `FromScanf` like this: `T: for<'a> FromScanf<'a>`.
-/// However, since `FromScanf` implementations usually rely on capture groups inside of their regex,
-/// this would require also having the exact same capture groups in the format string, which is
-/// currently not possible. Implementations that don't rely on capture groups are usually those
-/// that were blanket-implemented based on their `FromStr` implementation.
 pub use sscanf_macro::FromScanf;
 
 #[doc(hidden)]

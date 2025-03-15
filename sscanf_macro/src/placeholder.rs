@@ -11,7 +11,7 @@ use crate::*;
 pub struct Placeholder<'a> {
     pub src: StrLitSlice<'a>,
     pub ident: Option<StrLitSlice<'a>>,
-    pub config: Option<FormatOption<'a>>,
+    pub config: Option<FormatOptions<'a>>,
 }
 
 impl<'a> Placeholder<'a> {
@@ -44,7 +44,7 @@ impl<'a> Placeholder<'a> {
         }
         let mut config = None;
         if has_colon {
-            let (cfg, end_i) = FormatOption::new(input, src, start)?;
+            let (cfg, end_i) = FormatOptions::new(input, src, start)?;
             config = Some(cfg);
             end = Some(end_i);
         } else if let Some(ident) = ident.as_ref() {

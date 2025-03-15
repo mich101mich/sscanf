@@ -184,7 +184,7 @@ impl RegexParts {
             let mut converter = None;
 
             let regex = if let Some(config) = ph.config.as_ref() {
-                use FormatOptionKind::*;
+                use FormatOptionsKind::*;
                 match &config.kind {
                     Regex(regex) => RegexPart::Custom(regex.clone()),
                     Radix { radix, prefix } => {
