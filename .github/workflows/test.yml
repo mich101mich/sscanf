@@ -76,8 +76,14 @@ jobs:
     - uses: Swatinem/rust-cache@v2
     - uses: actions-rs/toolchain@v1
       with: { toolchain: 1.56.0 }
+    # script to change toml file for MSRV. See test.sh for details
+    - run: |
+        if ! grep -q '^const_format = "0.2.26"$' Cargo.toml; then
+          >&2 echo "const_format version is not 0.2.26"
+          exit 1
+        fi
+        sed -i -e 's/^const_format = "0.2.26"$/const_format = "0.2.26,<0.2.32"/' Cargo.toml
+        echo 'unicode-width = "0.1.5,<0.1.13"' >> Cargo.toml
     - name: Run tests
       uses: actions-rs/cargo@v1
       with: { command: test, toolchain: 1.56.0 }
-      env:
-        RUSTFLAGS: "--cfg msrv_build" 

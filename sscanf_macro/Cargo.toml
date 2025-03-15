@@ -1,6 +1,6 @@
 [package]
 name = "sscanf_macro"
-version = "0.4.2"
+version = "0.4.3"
 authors = ["mich101mich <mich101mich@gmail.com>"]
 edition = "2018"
 rust-version = "1.56.0"
@@ -19,9 +19,4 @@ proc-macro2 = "1.0.60"
 regex-syntax = "0.6.0"
 strsim = "0.11.1"
 convert_case = "0.6.0"
-
-[target.'cfg(not(msrv_build))'.dependencies]
 unicode-width = "0.1.5"
-
-[target.'cfg(msrv_build)'.dependencies]
-unicode-width = "0.1.5,<0.1.13" # 0.1.13 uses features which aren't supported by our MSRV of 1.56. Please standardize having an MSRVs with tests.

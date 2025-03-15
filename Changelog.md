@@ -10,6 +10,11 @@ and its wrapper crate [sscanf](https://crates.io/crates/sscanf), as neither work
 and versions are always released in parallel.
 
 
+## [0.4.3](https://github.com/mich101mich/sscanf/releases/tag/0.4.3) 2024-12-01
+
+### Fixed
+- Fixed Cargo updating the `const_format` and `unicode-width` dependencies to the wrong version
+
 ## [0.4.2](https://github.com/mich101mich/sscanf/releases/tag/0.4.2) 2024-07-21
 
 ### Fixed

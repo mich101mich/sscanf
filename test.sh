@@ -1,6 +1,4 @@
-#!/bin/bash
-
-set -e
+#!/bin/bash -e
 
 ########
 # functions
@@ -143,11 +141,17 @@ try_silent cargo +stable fmt --check
 # minimum supported rust version
 ########
 cd "${MSRV_DIR}"
+
+cp "${BASE_DIR}/Cargo.toml" "${MSRV_DIR}/Cargo.toml" # Hard copy to allow for changes
+# Quote from the const_format Changelog for 0.2.32: "Breaking change: bumped Minimum Supported Rust Version to Rust 1.57"
+# Writes "breaking change" and proceeds to only bump the patch version 😞. Thanks.
+grep -q '^const_format = "0.2.26"$' "${MSRV_DIR}/Cargo.toml"
+sed -i -e 's/^const_format = "0.2.26"$/const_format = "0.2.26,<0.2.32"/' "${MSRV_DIR}/Cargo.toml"
+# unicode-width version 0.1.13 uses features which aren't supported by our MSRV of 1.56. Please standardize having an MSRVs with tests.
+echo 'unicode-width = "0.1.5,<0.1.13"' >> "${MSRV_DIR}/Cargo.toml"
+
 try_silent rustup install "${MSRV}"
-ORIGINAL_RUSTFLAGS="${RUSTFLAGS}"
-RUSTFLAGS="${RUSTFLAGS} --cfg msrv_build"
 try_silent cargo "+${MSRV}" test --tests # only run --tests, which excludes the doctests from Readme.md
-RUSTFLAGS="${ORIGINAL_RUSTFLAGS}"
 
 ########
 # minimum versions
