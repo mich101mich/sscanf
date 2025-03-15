@@ -19,9 +19,6 @@ as neither works without the other and versions are always released in parallel.
 - Removed dev-dependency to `thiserror`, as it was only used to simplify a code example
 - Added comments to the Cargo.toml for dependencies that can't be updated due to MSRV
 
-### Fixed
-- Fixed Cargo updating the `const_format` and `unicode-width` dependencies to the wrong version
-
 [0.4.3]:  https://github.com/mich101mich/sscanf/releases/tag/0.4.3
 [#12]:    https://github.com/mich101mich/sscanf/pull/12
 
