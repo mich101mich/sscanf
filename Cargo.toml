@@ -10,7 +10,7 @@ readme = "Readme.md"
 license = "MIT OR Apache-2.0"
 keywords = ["parsing", "regex", "text", "string", "scanf"]
 categories = ["parsing"]
-exclude = ["/.vscode/*", "/.gitignore", "/.github/*", "/*.bat", "/*.sh"]
+exclude = ["/.vscode", "/.gitignore", "/.github", "/*.bat", "/*.sh", "/todo.md", "/submodules", "/.gitmodules"]
 
 [dependencies]
 sscanf_macro = { path = "sscanf_macro", version = "=0.4.3" }
