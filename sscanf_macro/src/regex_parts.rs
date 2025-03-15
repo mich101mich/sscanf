@@ -4,6 +4,7 @@ use quote::quote;
 use crate::*;
 
 #[derive(Clone)]
+#[allow(clippy::large_enum_variant)] // don't care
 pub enum NumCaptures {
     One,
     FromType(syn::Type, FullSpan),
@@ -13,14 +14,36 @@ impl ToTokens for NumCaptures {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match self {
             NumCaptures::One => tokens.extend(quote! { 1 }),
-            NumCaptures::FromType(ty, span) => tokens.extend(span.apply(
-                quote! { <#ty as },
-                quote! { ::sscanf::FromScanf>::NUM_CAPTURES },
-            )),
+            NumCaptures::FromType(ty, span) => {
+                // proc_macros don't have any type information, so we cannot check if the type
+                // implements the trait, so we wrap it in this verbose <#ty as Trait> code,
+                // so that the compiler can check if the trait is implemented, and, most importantly,
+                // tell the user if they forgot to implement the trait.
+                // The code is split into two parts in case the type consists of more
+                // than one token (like `std::vec::Vec`), so that the FullSpan workaround can be
+                // applied.
+                // Addition: In older rust versions (before 1.70 or so), the compiler underlined the
+                // entire `<#ty as Trait>::MEMBER` code, so the spans of the type needed to be fully
+                // applied to the entire expression. In newer versions, it only underlines the `#ty`
+                // itself, so the type should ideally keep its original spans.
+                // Combined solution: apply the span to everything around the `#ty` token, but not to
+                // the `#ty` token itself.
+                // Final expression: `<#ty as ::sscanf::FromScanf>::NUM_CAPTURES`
+                //            start:  ^   ^^^^
+                //              end:          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                //         original:   ^^^
+                tokens.extend(span.apply_start(quote! { < }));
+                ty.to_tokens(tokens);
+                tokens.extend(span.apply(
+                    quote! { as },
+                    quote! { ::sscanf::FromScanf >::NUM_CAPTURES },
+                ));
+            }
         }
     }
 }
 
+#[allow(clippy::large_enum_variant)] // don't care
 pub enum RegexPart {
     Literal(String),
     FromType(syn::Type, FullSpan),
@@ -32,16 +55,16 @@ impl ToTokens for RegexPart {
         match self {
             RegexPart::Literal(literal) => tokens.extend(quote! { #literal }),
             RegexPart::FromType(ty, span) => {
-                // proc_macros don't have any type information, so we cannot check if the type
-                // implements the trait, so we wrap it in this verbose <#ty as Trait> code,
-                // so that the compiler can check if the trait is implemented, and, most importantly,
-                // tell the user if they forgot to implement the trait.
-                // The code is split into two parts in case the type consists of more
-                // than one token (like `std::vec::Vec`), so that the FullSpan workaround can be
-                // applied.
+                // See the comment in `NumCaptures::FromType` for an explanation of the span
+                // Final expression: `<#ty as ::sscanf::RegexRepresentation>::REGEX`
+                //            start:  ^   ^^^^
+                //              end:          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                //         original:   ^^^
+                tokens.extend(span.apply_start(quote! { < }));
+                ty.to_tokens(tokens);
                 tokens.extend(span.apply(
-                    quote! { <#ty as },
-                    quote! { ::sscanf::RegexRepresentation>::REGEX },
+                    quote! { as },
+                    quote! { ::sscanf::RegexRepresentation >::REGEX },
                 ));
             }
             RegexPart::Custom(custom) => tokens.extend(quote! { #custom }),

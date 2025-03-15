@@ -1,5 +1,5 @@
 error[E0597]: `input` does not live long enough
- --> tests/fail/nightly/str_lifetime.rs:5:29
+ --> tests/fail/str_lifetime.rs:5:29
   |
 4 |         let input = String::from("hi");
   |             ----- binding `input` declared here
@@ -11,7 +11,7 @@ error[E0597]: `input` does not live long enough
   |                    - borrow later used here
 
 error[E0597]: `input` does not live long enough
-  --> tests/fail/nightly/str_lifetime.rs:16:29
+  --> tests/fail/str_lifetime.rs:16:29
    |
 15 |         let input = String::from("hi");
    |             ----- binding `input` declared here

@@ -45,20 +45,29 @@ use crate::errors::FromStrFailedError;
 ///     const REGEX: &'static str = r"#[0-9a-fA-F]{6}";
 /// }
 ///
-/// #[derive(Debug, thiserror::Error)]
-/// enum ColorParseError {
-///     #[error("Invalid digit")]
-///     InvalidHexDigit(#[from] std::num::ParseIntError),
-///     #[error("Expected 6 hex digits, found {0}")]
+/// #[derive(Debug)]
+/// enum ColorParseError { // arbitrary error type for demonstration purposes
+///     InvalidHexDigit(std::num::ParseIntError),
 ///     InvalidLength(usize),
-///     #[error("Color has to be prefixed with '#'")]
 ///     InvalidPrefix,
 /// }
+/// // ... implementation of From<ParseIntError>, Display, and Error omitted here ...
+/// # impl From<std::num::ParseIntError> for ColorParseError {
+/// #     fn from(e: std::num::ParseIntError) -> Self {
+/// #         ColorParseError::InvalidHexDigit(e)
+/// #     }
+/// # }
+/// # impl std::fmt::Display for ColorParseError {
+/// #     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+/// #         <Self as std::fmt::Debug>::fmt(self, f)
+/// #     }
+/// # }
+/// # impl std::error::Error for ColorParseError {}
+///
 /// impl std::str::FromStr for Color {
 ///     type Err = ColorParseError;
 ///     fn from_str(s: &str) -> Result<Self, Self::Err> {
-///         let s = s.strip_prefix('#')
-///                  .ok_or(ColorParseError::InvalidPrefix)?;
+///         let s = s.strip_prefix('#').ok_or(ColorParseError::InvalidPrefix)?;
 ///         if s.len() != 6 {
 ///             return Err(ColorParseError::InvalidLength(s.len()));
 ///         }

@@ -79,5 +79,3 @@ jobs:
     - name: Run tests
       uses: actions-rs/cargo@v1
       with: { command: test, toolchain: 1.56.0 }
-      env:
-        RUSTFLAGS: "--cfg msrv_build" 

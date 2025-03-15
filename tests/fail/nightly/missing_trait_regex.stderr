@@ -1,8 +1,8 @@
-error[E0277]: the trait bound `Vec<usize>: RegexRepresentation` is not satisfied
-  --> tests/fail/nightly/missing_trait_regex.rs:10:33
+error[E0277]: the trait bound `NoRegex: RegexRepresentation` is not satisfied
+  --> tests/fail/nightly/missing_trait_regex.rs:12:33
    |
-10 |     sscanf::sscanf!("hi", "{}", std::vec::Vec<usize>);
-   |                                 ^^^^^^^^^^^^^^^^^^^^ the trait `RegexRepresentation` is not implemented for `Vec<usize>`
+12 |     sscanf::sscanf!("hi", "{}", module::NoRegex);
+   |                                 ^^^^^^^^^^^^^^^ the trait `RegexRepresentation` is not implemented for `NoRegex`
    |
    = help: the following other types implement trait `RegexRepresentation`:
              FullF32
@@ -15,28 +15,27 @@ error[E0277]: the trait bound `Vec<usize>: RegexRepresentation` is not satisfied
              NonZero<i8>
            and $N others
 
-error[E0277]: the trait bound `Vec<usize>: FromScanf<'_>` is not satisfied
-  --> tests/fail/nightly/missing_trait_regex.rs:10:33
+error[E0277]: the trait bound `NoRegex: RegexRepresentation` is not satisfied
+  --> tests/fail/nightly/missing_trait_regex.rs:13:29
    |
-10 |     sscanf::sscanf!("hi", "{}", std::vec::Vec<usize>);
-   |                                 ^^^^^^^^^^^^^^^^^^^^ the trait `FromStr` is not implemented for `Vec<usize>`, which is required by `Vec<usize>: FromScanf<'_>`
+13 |     sscanf::sscanf!("hi", "{module::NoRegex}");
+   |                             ^^^^^^^^^^^^^^^ the trait `RegexRepresentation` is not implemented for `NoRegex`
    |
-   = help: the following other types implement trait `FromStr`:
+   = help: the following other types implement trait `RegexRepresentation`:
              FullF32
              FullF64
              HexNumber
-             IpAddr
-             Ipv4Addr
-             Ipv6Addr
-             NoRegex
              NonZero<i128>
+             NonZero<i16>
+             NonZero<i32>
+             NonZero<i64>
+             NonZero<i8>
            and $N others
-   = note: required for `Vec<usize>` to implement `FromScanf<'_>`
 
 error[E0277]: the trait bound `NoRegex: RegexRepresentation` is not satisfied
-  --> tests/fail/nightly/missing_trait_regex.rs:11:33
+  --> tests/fail/nightly/missing_trait_regex.rs:15:33
    |
-11 |     sscanf::sscanf!("hi", "{}", NoRegex);
+15 |     sscanf::sscanf!("hi", "{}", NoRegex);
    |                                 ^^^^^^^ the trait `RegexRepresentation` is not implemented for `NoRegex`
    |
    = help: the following other types implement trait `RegexRepresentation`:
@@ -50,11 +49,11 @@ error[E0277]: the trait bound `NoRegex: RegexRepresentation` is not satisfied
              NonZero<i8>
            and $N others
 
-error[E0277]: the trait bound `&[u8]: RegexRepresentation` is not satisfied
-  --> tests/fail/nightly/missing_trait_regex.rs:19:47
+error[E0277]: the trait bound `NoRegex: RegexRepresentation` is not satisfied
+  --> tests/fail/nightly/missing_trait_regex.rs:16:29
    |
-19 | struct TestMapParamNoScanf(#[sscanf(map = |x: &[u8]| { x[0] })] u8);
-   |                                               ^^^^^ the trait `RegexRepresentation` is not implemented for `&[u8]`
+16 |     sscanf::sscanf!("hi", "{NoRegex}");
+   |                             ^^^^^^^ the trait `RegexRepresentation` is not implemented for `NoRegex`
    |
    = help: the following other types implement trait `RegexRepresentation`:
              FullF32
@@ -67,48 +66,19 @@ error[E0277]: the trait bound `&[u8]: RegexRepresentation` is not satisfied
              NonZero<i8>
            and $N others
 
-error[E0277]: the trait bound `&[u8]: FromScanf<'_>` is not satisfied
-  --> tests/fail/nightly/missing_trait_regex.rs:19:47
+error[E0277]: the trait bound `NoRegex: RegexRepresentation` is not satisfied
+  --> tests/fail/nightly/missing_trait_regex.rs:24:47
    |
-19 | struct TestMapParamNoScanf(#[sscanf(map = |x: &[u8]| { x[0] })] u8);
-   |                                               ^^^^^ the trait `FromStr` is not implemented for `&[u8]`, which is required by `&[u8]: FromScanf<'_>`
+24 | struct TestMapParamNoScanf(#[sscanf(map = |x: module::NoRegex| { x.0 })] u8);
+   |                                               ^^^^^^^^^^^^^^^ the trait `RegexRepresentation` is not implemented for `NoRegex`
    |
-   = help: the following other types implement trait `FromStr`:
+   = help: the following other types implement trait `RegexRepresentation`:
              FullF32
              FullF64
              HexNumber
-             IpAddr
-             Ipv4Addr
-             Ipv6Addr
-             NoRegex
              NonZero<i128>
+             NonZero<i16>
+             NonZero<i32>
+             NonZero<i64>
+             NonZero<i8>
            and $N others
-   = note: required for `&[u8]` to implement `FromScanf<'_>`
-
-error[E0277]: the trait bound `&[u8]: FromStr` is not satisfied in `FromStrFailedError<&[u8]>`
-  --> tests/fail/nightly/missing_trait_regex.rs:17:26
-   |
-17 | #[derive(sscanf::FromScanf)]
-   |                          ^ within `FromStrFailedError<&[u8]>`, the trait `FromStr` is not implemented for `&[u8]`, which is required by `FromStrFailedError<&[u8]>: Sized`
-   |
-   = help: the following other types implement trait `FromStr`:
-             FullF32
-             FullF64
-             HexNumber
-             IpAddr
-             Ipv4Addr
-             Ipv6Addr
-             NoRegex
-             NonZero<i128>
-           and $N others
-note: required because it appears within the type `FromStrFailedError<&[u8]>`
-  --> src/errors.rs
-   |
-   | pub struct FromStrFailedError<T: FromStr>
-   |            ^^^^^^^^^^^^^^^^^^
-note: required by an implicit `Sized` bound in `Result`
-  --> $RUST/core/src/result.rs
-   |
-   | pub enum Result<T, E> {
-   |                    ^ required by the implicit `Sized` requirement on this type parameter in `Result`
-   = note: this error originates in the derive macro `sscanf::FromScanf` (in Nightly builds, run with -Z macro-backtrace for more info)
