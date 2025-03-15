@@ -16,7 +16,8 @@ exclude = ["/.vscode/*", "/.gitignore", "/.github/*", "/*.bat", "/*.sh"]
 sscanf_macro = { path = "sscanf_macro", version = "=0.4.3" }
 regex = "1.6.0"
 lazy_static = "1.4.0"
-const_format = "0.2.26"
+const_format = "0.2.26,<0.2.32" # Quote from the Changelog for 0.2.32: "Breaking change: bumped Minimum Supported Rust Version to Rust 1.57"
+                                # Writes "breaking change" and proceeds to only bump the patch version 😞. Thanks.
 
 [dev-dependencies]
 trybuild = "1.0.78"

@@ -19,4 +19,4 @@ proc-macro2 = "1.0.60"
 regex-syntax = "0.6.0"
 strsim = "0.11.1"
 convert_case = "0.6.0"
-unicode-width = "0.1.5"
+unicode-width = "0.1.5,<0.1.13" # 0.1.13 uses features which aren't supported by our MSRV of 1.56. Please standardize having an MSRVs with tests.
