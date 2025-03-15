@@ -200,7 +200,7 @@ fn generate_regex(input: &ScanfInner, escape_input: bool) -> Result<(TokenStream
     format.parts[0].insert(0, '^');
     format.parts.last_mut().unwrap().push('$');
 
-    // inner function to use ?-operator. This should be a closure, but those can't have lifetimes
+    // inner function to have early returns. This should be a closure, but those can't have lifetimes
     fn find_ph_type<'a>(
         ph: &Placeholder<'a>,
         visited: &mut [bool],
@@ -210,7 +210,7 @@ fn generate_regex(input: &ScanfInner, escape_input: bool) -> Result<(TokenStream
         let n = if let Some(name) = ph.ident.as_ref() {
             if let Ok(n) = name.text().parse::<usize>() {
                 if n >= visited.len() {
-                    let msg = format!("type index {} out of range of {} types", n, visited.len());
+                    let msg = format!("type index {n} out of range of {} types", visited.len());
                     return name.err(&msg); // checked in tests/fail/<channel>/invalid_type_in_placeholder.rs
                 }
                 n
@@ -218,7 +218,7 @@ fn generate_regex(input: &ScanfInner, escape_input: bool) -> Result<(TokenStream
                 return Type::from_str(name.clone()).map_err(|err| {
                     let hint =  "The syntax for placeholders is {<type>} or {<type>:<config>}. Make sure <type> is a valid type or index.";
                     let hint2 = "If you want syntax highlighting and better errors, place the type in the arguments after the format string while debugging";
-                    let msg = format!("invalid type in placeholder: {}.\nHint: {}\n{}", err, hint, hint2);
+                    let msg = format!("invalid type in placeholder: {err}.\nHint: {hint}\n{hint2}");
                     name.error(msg) // checked in tests/fail/<channel>/invalid_type_in_placeholder.rs
                 });
             }

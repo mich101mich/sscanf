@@ -18,7 +18,7 @@ impl<'input, T: FromScanf<'input>> Sscanf<'input, T> {
         let regex = self.raw_regex.regex();
         let full_regex = self
             .full_regex
-            .get_or_insert_with(|| Regex::new(&format!("^{}$", regex)).unwrap());
+            .get_or_insert_with(|| Regex::new(&format!("^{regex}$")).unwrap());
 
         let sub_matches = full_regex
             .captures(input)?

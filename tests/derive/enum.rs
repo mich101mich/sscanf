@@ -160,11 +160,11 @@ fn autogen_cases() {
                 let result = sscanf!(input, "{Word}");
                 if accepted.contains(name) {
                     if result.is_err() {
-                        errors.push_str(&format!(r#"input "{}" should match autogen="{}""#, input, $case));
+                        errors.push_str(&format!(r#"input "{input}" should match autogen="{}""#, $case));
                     }
                 } else {
                     if result.is_ok() {
-                        errors.push_str(&format!(r#"input "{}" incorrectly matched autogen="{}""#, input, $case));
+                        errors.push_str(&format!(r#"input "{input}" incorrectly matched autogen="{}""#, $case));
                     }
                 }
             }

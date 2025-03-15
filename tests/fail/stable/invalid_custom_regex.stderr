@@ -3,7 +3,7 @@ error: end of regex '/' has to be followed by end of placeholder '}':
                ^
  --> tests/fail/stable/invalid_custom_regex.rs:2:25
   |
-2 |     sscanf::sscanf!("", "{://g}", str);
+2 |     sscanf::sscanf!("", "{://g}", &str);
   |                         ^^^^^^^^
 
 error: missing '/' to end regex:
@@ -11,7 +11,7 @@ error: missing '/' to end regex:
              ^^
  --> tests/fail/stable/invalid_custom_regex.rs:3:25
   |
-3 |     sscanf::sscanf!("", "{:/}", str);
+3 |     sscanf::sscanf!("", "{:/}", &str);
   |                         ^^^^^^
 
 error: missing '/' to end regex:
@@ -19,7 +19,7 @@ error: missing '/' to end regex:
              ^
  --> tests/fail/stable/invalid_custom_regex.rs:4:25
   |
-4 |     sscanf::sscanf!("", "{:/", str);
+4 |     sscanf::sscanf!("", "{:/", &str);
   |                         ^^^^^
 
 error: unexpected end of regex:
@@ -27,7 +27,7 @@ error: unexpected end of regex:
                ^
  --> tests/fail/stable/invalid_custom_regex.rs:6:25
   |
-6 |     sscanf::sscanf!("", r"{:/\", str);
+6 |     sscanf::sscanf!("", r"{:/\", &str);
   |                         ^^^^^^^
 
 error: unexpected end of regex:
@@ -35,7 +35,7 @@ error: unexpected end of regex:
               ^^
  --> tests/fail/stable/invalid_custom_regex.rs:7:25
   |
-7 |     sscanf::sscanf!("", "{:/\\", str);
+7 |     sscanf::sscanf!("", "{:/\\", &str);
   |                         ^^^^^^^
 
 error: missing '/' to end regex:
@@ -43,7 +43,7 @@ error: missing '/' to end regex:
               ^^^
  --> tests/fail/stable/invalid_custom_regex.rs:8:25
   |
-8 |     sscanf::sscanf!("", r"{:/\/", str);
+8 |     sscanf::sscanf!("", r"{:/\/", &str);
   |                         ^^^^^^^^
 
 error: missing '/' to end regex:
@@ -51,7 +51,7 @@ error: missing '/' to end regex:
              ^^^^
  --> tests/fail/stable/invalid_custom_regex.rs:9:25
   |
-9 |     sscanf::sscanf!("", "{:/\\/", str);
+9 |     sscanf::sscanf!("", "{:/\\/", &str);
   |                         ^^^^^^^^
 
 error: regex parse error:
@@ -64,7 +64,7 @@ error: regex parse error:
              ^^^^^^^
   --> tests/fail/stable/invalid_custom_regex.rs:11:25
    |
-11 |     sscanf::sscanf!("", "{:/ab(ab/}", str);
+11 |     sscanf::sscanf!("", "{:/ab(ab/}", &str);
    |                         ^^^^^^^^^^^^
 
 error: custom regex cannot contain capture groups '(...)'.
@@ -73,5 +73,5 @@ error: custom regex cannot contain capture groups '(...)'.
              ^^^^^^^^
   --> tests/fail/stable/invalid_custom_regex.rs:12:25
    |
-12 |     sscanf::sscanf!("", "{:/ab()ab/}", str);
+12 |     sscanf::sscanf!("", "{:/ab()ab/}", &str);
    |                         ^^^^^^^^^^^^^

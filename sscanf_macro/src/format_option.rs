@@ -196,7 +196,7 @@ Either make them non-capturing by adding '?:' after the '(' or remove/escape the
                 }
             }
             Err(err) => {
-                let msg = format!("{}\n\nIn custom Regex format option", err);
+                let msg = format!("{err}\n\nIn custom Regex format option");
                 return src.err(&msg); // checked in tests/fail/<channel>/invalid_custom_regex.rs
             }
         }

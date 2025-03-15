@@ -73,8 +73,6 @@ impl ToTokens for RegexPart {
 }
 
 pub enum Converter {
-    Str,
-    CowStr,
     FromType(syn::Type, FullSpan),
     Custom(TokenStream),
 }
@@ -82,20 +80,6 @@ pub enum Converter {
 impl ToTokens for Converter {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match self {
-            Converter::Str => tokens.extend(quote! {
-                src.next()
-                   .expect(::sscanf::errors::EXPECT_NEXT_HINT)
-                   .expect(::sscanf::errors::EXPECT_CAPTURE_HINT)
-                   .as_str()
-            }),
-            Converter::CowStr => tokens.extend(quote! {
-                ::std::borrow::Cow::Borrowed(
-                    src.next()
-                        .expect(::sscanf::errors::EXPECT_NEXT_HINT)
-                        .expect(::sscanf::errors::EXPECT_CAPTURE_HINT)
-                        .as_str()
-                )
-            }),
             Converter::FromType(ty, span) => {
                 let call = span.apply(
                     quote! { ::sscanf::FromScanf },
@@ -108,7 +92,7 @@ impl ToTokens for Converter {
                     }
                 });
             }
-            Converter::Custom(custom) => tokens.extend(custom.clone()),
+            Converter::Custom(custom) => custom.to_tokens(tokens),
         }
     }
 }
@@ -197,25 +181,12 @@ impl RegexParts {
                     }
                 }
             } else {
-                match ty.kind {
-                    TypeKind::Str(_) | TypeKind::CowStr(_) => {
-                        let token = quote! { str }.with_span(inner.span());
-                        let ty = syn::parse2(token).unwrap();
-                        RegexPart::FromType(ty, span)
-                    }
-                    _ => RegexPart::FromType(inner.clone(), span),
-                }
+                RegexPart::FromType(inner.clone(), span)
             };
             ret.regex_builder.push(regex);
 
-            let (num_captures, converter) = match ty.kind {
-                TypeKind::Str(_) => (NumCaptures::One, Converter::Str),
-                TypeKind::CowStr(_) => (NumCaptures::One, Converter::CowStr),
-                TypeKind::Other => (
-                    NumCaptures::FromType(inner.clone(), span),
-                    converter.unwrap_or_else(|| Converter::FromType(inner.clone(), span)),
-                ),
-            };
+            let num_captures = NumCaptures::FromType(inner.clone(), span);
+            let converter = converter.unwrap_or_else(|| Converter::FromType(inner.clone(), span));
 
             ret.matchers.push(Matcher {
                 ty: inner.clone(),
@@ -266,7 +237,7 @@ fn regex_from_radix(
     let sign = if signed { "[-+]?" } else { "\\+?" };
 
     let prefix_string = match prefix_policy {
-        PrefixPolicy::Optional(prefix) => format!("(?:{})?", prefix),
+        PrefixPolicy::Optional(prefix) => format!("(?:{prefix})?"),
         PrefixPolicy::Forced(prefix) => prefix.to_string(),
         PrefixPolicy::Never => String::new(),
     };
@@ -278,7 +249,7 @@ fn regex_from_radix(
         Equal => "0-9a".to_string(),
         Greater => {
             let last_letter = (b'a' + radix - 10) as char;
-            format!("0-9a-{}", last_letter)
+            format!("0-9a-{last_letter}")
         }
     };
 
@@ -350,7 +321,7 @@ fn regex_from_radix(
                     if negative {
                         // re-package `no_sign_prefix` into a string that includes the sign, because otherwise
                         // it might cause faulty overflow errors on numbers like -128i8
-                        let input = ::std::format!("-{}", no_sign_prefix);
+                        let input = ::std::format!("-{no_sign_prefix}");
                         #ty::from_str_radix(&input, #radix)?
                     } else {
                         #ty::from_str_radix(no_sign_prefix, #radix)?

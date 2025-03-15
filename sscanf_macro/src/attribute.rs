@@ -139,7 +139,7 @@ fn find_match<A: Attr>(s: &str, src: &TokenStream) -> syn::Result<A> {
     }
 
     let context = A::context();
-    let valid = list_items(context.all_attr_names(), |s| format!("`{}`", s));
+    let valid = list_items(context.all_attr_names(), |s| format!("`{s}`"));
 
     let mut others = Context::ALL.to_vec();
     others.retain(|&other| other != context);
@@ -160,7 +160,7 @@ fn find_match<A: Attr>(s: &str, src: &TokenStream) -> syn::Result<A> {
     }
 
     if let Some(similar) = find_closest(s, context.all_attr_names()) {
-        let msg = format!("unknown attribute `{}`. Did you mean `{}`?", s, similar);
+        let msg = format!("unknown attribute `{s}`. Did you mean `{similar}`?");
         return Err(syn::Error::new_spanned(src, msg)); // checked in tests/fail/derive_struct_attributes.rs
     }
 
@@ -174,7 +174,7 @@ fn find_match<A: Attr>(s: &str, src: &TokenStream) -> syn::Result<A> {
         }
     }
 
-    let msg = format!("unknown attribute `{}`. Valid attributes are: {}", s, valid);
+    let msg = format!("unknown attribute `{s}`. Valid attributes are: {valid}");
     Err(syn::Error::new_spanned(src, msg)) // checked in tests/fail/derive_struct_attributes.rs
 }
 
@@ -331,7 +331,7 @@ fn expect_one<A: Attr>(attrs: HashMap<A, Attribute<A>>) -> Result<Option<Attribu
         }
         _ => {
             let items = list_items(&attrs, |attr| format!("`{}`", attr.kind));
-            let msg = format!("only one of {} is allowed", items);
+            let msg = format!("only one of {items} is allowed");
             let mut error = Error::builder();
             for attr in attrs {
                 error.with_spanned(attr.src, &msg);

@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::*;
 
@@ -124,7 +124,7 @@ impl ValueConversion {
 fn parse_format(
     attr: StructAttribute,
     raw_fields: syn::Fields,
-) -> Result<(RegexParts, TokenStream, HashSet<syn::Lifetime>)> {
+) -> Result<(RegexParts, TokenStream)> {
     let (value, escape) = match attr.kind {
         StructAttributeKind::Format { value, escape } => (value, escape),
         StructAttributeKind::Transparent => {
@@ -143,7 +143,6 @@ fn parse_format(
 
     let mut fields = vec![];
     let mut field_map = HashMap::new();
-    let mut str_lifetimes = HashSet::new();
     for (i, field) in raw_fields.into_iter().enumerate() {
         let mut ty = field.ty;
         let ident = if let Some(ident) = field.ident {
@@ -185,12 +184,6 @@ fn parse_format(
 
         let ty = Type::from_ty(ty);
 
-        if value_source.is_none() {
-            if let Some(lt) = ty.lifetime() {
-                str_lifetimes.insert(lt.clone());
-            }
-        }
-
         fields.push(Field {
             ident,
             ty,
@@ -212,7 +205,7 @@ fn parse_format(
         } else {
             let msg = if let Ok(n) = name.text().parse::<usize>() {
                 // checked in tests/fail/derive_placeholders.rs
-                format!("field index {} out of range of {} fields", n, fields.len())
+                format!("field index {n} out of range of {} fields", fields.len())
             } else {
                 // checked in tests/fail/derive_placeholders.rs
                 format!("field `{}` does not exist", name.text())
@@ -295,33 +288,31 @@ The syntax for default values is: `#[sscanf(default)]` to use Default::default()
 
     let from_matches = quote! { { #(#from_matches),* } };
 
-    Ok((regex_parts, from_matches, str_lifetimes))
+    Ok((regex_parts, from_matches))
 }
 
-fn merge_lifetimes(
-    str_lifetimes: HashSet<syn::Lifetime>,
-    src_generics: &syn::Generics,
-) -> (syn::Lifetime, syn::Generics) {
-    let mut lifetime = syn::Lifetime::new("'__from_scanf_lifetime", Span::call_site());
-    let mut is_static = false;
-    if let Some(lt) = str_lifetimes.iter().find(|lt| lt.ident == "static") {
-        lifetime = lt.clone();
-        is_static = true;
-    }
+fn merge_lifetimes(src_generics: &syn::Generics) -> (syn::Lifetime, syn::Generics) {
+    let target_lifetime = if src_generics
+        .lifetimes()
+        .all(|l| l.lifetime.ident != "input")
+    {
+        syn::Lifetime::new("'input", Span::call_site())
+    } else {
+        syn::Lifetime::new("'__from_scanf_lifetime", Span::call_site())
+    };
 
     let mut lifetimed_generics = src_generics.clone();
-    if !is_static {
-        lifetimed_generics
-            .params
-            .push(syn::parse_quote! { #lifetime });
+    lifetimed_generics
+        .params
+        .push(syn::parse_quote! { #target_lifetime });
 
-        let where_clause = &mut lifetimed_generics.make_where_clause().predicates;
-        for lt in str_lifetimes {
-            where_clause.push(syn::parse_quote! { #lifetime: #lt });
-        }
+    let where_clause = &mut lifetimed_generics.make_where_clause().predicates;
+    for generic in src_generics.lifetimes() {
+        let lifetime = &generic.lifetime;
+        where_clause.push(syn::parse_quote! { #lifetime: #target_lifetime });
     }
 
-    (lifetime, lifetimed_generics)
+    (target_lifetime, lifetimed_generics)
 }
 
 pub fn parse_struct(
@@ -341,7 +332,7 @@ Alternatively, you can use #[sscanf(transparent)] to derive FromScanf for a sing
             Error::new_spanned(name, msg) // checked in tests/fail/derive_struct_attributes.rs
         })?;
 
-    let (regex_parts, from_matches, str_lifetimes) = parse_format(attr, data.fields)?;
+    let (regex_parts, from_matches) = parse_format(attr, data.fields)?;
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
@@ -353,7 +344,7 @@ Alternatively, you can use #[sscanf(transparent)] to derive FromScanf for a sing
         }
     };
 
-    let (lifetime, lt_generics) = merge_lifetimes(str_lifetimes, generics);
+    let (lifetime, lt_generics) = merge_lifetimes(generics);
     let (impl_generics, _, where_clause) = lt_generics.split_for_impl();
 
     let num_captures = regex_parts.num_captures();
@@ -413,7 +404,6 @@ pub fn parse_enum(
     regex_parts.push_literal("(?:");
     let mut variant_constructors = vec![];
     let mut num_captures_list = vec![NumCaptures::One];
-    let mut str_lifetimes = HashSet::new();
     let mut first = true;
 
     for variant in data.variants {
@@ -446,8 +436,7 @@ Use `#[sscanf(format = \"...\")]` to specify a format for a variant with fields 
 
         let ident = variant.ident;
 
-        let (variant_parts, from_matches, variant_str_lifetimes) =
-            parse_format(variant_attr, variant.fields)?;
+        let (variant_parts, from_matches) = parse_format(variant_attr, variant.fields)?;
 
         let variant_num_captures_list = variant_parts.num_captures_list();
         let num_captures = quote! { #(#variant_num_captures_list)+* };
@@ -456,8 +445,6 @@ Use `#[sscanf(format = \"...\")]` to specify a format for a variant with fields 
         regex_parts
             .regex_builder
             .extend(variant_parts.regex_builder);
-
-        str_lifetimes.extend(variant_str_lifetimes);
 
         let matcher = quote! {
             let expected = #num_captures;
@@ -495,13 +482,19 @@ To do this, add #[sscanf(format = \"...\")] to a variant"
         }
     };
 
-    let (lifetime, lt_generics) = merge_lifetimes(str_lifetimes, generics);
+    let parser_type = syn::Ident::new(&format!("__FromScanf{name}Parser"), Span::call_site());
+
+    let (lifetime, lt_generics) = merge_lifetimes(generics);
     let (impl_generics, _, where_clause) = lt_generics.split_for_impl();
 
     let from_sscanf_impl = quote! {
+        struct #parser_type {
+
+        }
+
         #[automatically_derived]
         impl #impl_generics ::sscanf::FromScanf<#lifetime> for #name #ty_generics #where_clause {
-            type Err = ::sscanf::errors::FromScanfFailedError;
+            type Parser = #parser_type;
 
             const NUM_CAPTURES: usize = #(#num_captures_list)+*;
 

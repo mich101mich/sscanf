@@ -130,7 +130,7 @@ fn filter_mapper() {
         ),
     ] {
         let res = sscanf!(input, "Testing with {TestStruct}!");
-        let error = format!("sscanf: Parsing failed: type TestStruct failed to parse from sscanf: The closure of `{}`s `filter_map` attribute returned None", field);
+        let error = format!("sscanf: Parsing failed: type TestStruct failed to parse from sscanf: The closure of `{field}`s `filter_map` attribute returned None");
         assert_eq!(res.unwrap_err().to_string(), error);
     }
 

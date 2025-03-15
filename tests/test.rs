@@ -1,10 +1,11 @@
 use sscanf::*;
 use std::str::FromStr;
 
-mod types {
-    mod full_f32;
-    mod full_f64;
-    mod hex_number;
+mod src {
+    mod from_scanf;
+    mod impls;
+    mod parser_object;
+    mod sub_type;
 }
 
 mod derive {
@@ -32,7 +33,7 @@ fn basic() {
     );
     assert_eq!(output.unwrap(), (5.0, 0.3, 2.0, 'N', 24, 'E', 10));
 
-    let output = sscanf!("hi", "{str}").unwrap();
+    let output = sscanf!("hi", "{&str}").unwrap();
     assert_eq!(output, "hi");
 }
 
@@ -91,7 +92,7 @@ fn generic_types() {
 fn config_numbers() {
     // example from lib.rs
     let input = "A Sentence with Spaces. Number formats: 0xab01 0o127 0b101010.";
-    let parsed = sscanf!(input, "{str}. Number formats: {usize:x} {i32:o} {u8:b}.");
+    let parsed = sscanf!(input, "{&str}. Number formats: {usize:x} {i32:o} {u8:b}.");
     let (a, b, c, d) = parsed.unwrap();
     assert_eq!(a, "A Sentence with Spaces");
     assert_eq!(b, 0xab01);
@@ -166,11 +167,11 @@ fn tuple_struct_reorder() {
 #[test]
 fn custom_regex() {
     let input = "ab123cd";
-    let parsed = sscanf!(input, r"{str}{u8:/\d/}{str:/\d\d.*/}");
+    let parsed = sscanf!(input, r"{&str}{u8:/\d/}{&str:/\d\d.*/}");
     assert_eq!(parsed.unwrap(), ("ab", 1, "23cd"));
 
     let input = r"({(\}*[\{";
-    let parsed = sscanf!(input, r"{:/\(\{\(\\\}\*/}{:/\[\\\{/}", str, str);
+    let parsed = sscanf!(input, r"{:/\(\{\(\\\}\*/}{:/\[\\\{/}", &str, &str);
     assert_eq!(parsed.unwrap(), (r"({(\}*", r"[\{"));
 
     #[derive(Debug, PartialEq)]
@@ -220,7 +221,7 @@ fn string_lifetime() {
 
     // check if sscanf works with various function signatures
     fn process(a: &str) -> &str {
-        sscanf!(a, "{str}").unwrap()
+        sscanf!(a, "{&str}").unwrap()
     }
     process("hi");
 

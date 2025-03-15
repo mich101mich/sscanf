@@ -65,6 +65,3 @@ pub use parser_object::*;
 
 #[doc = include_str!("../Changelog.md")]
 pub mod changelog {}
-
-#[doc(hidden)]
-pub use regex;

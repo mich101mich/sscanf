@@ -31,7 +31,7 @@ impl RegexSegment {
     /// to risk it unless you are absolutely certain. If you aren't, just use [`RegexSegment::new`].
     pub fn from_known(regex: &str, num_capture_groups: usize) -> Self {
         Self {
-            regex: format!("({})", regex), // add a capture group around the whole regex for the full match
+            regex: format!("({regex})"), // add a capture group around the whole regex for the full match
             num_capture_groups: num_capture_groups + 1, // +1 because we just added a capture group
         }
     }
@@ -124,9 +124,10 @@ pub(crate) fn count_capture_groups(regex: &str) -> usize {
 }
 
 #[cfg(test)]
-pub(crate) mod test_only_traits {
+pub(crate) mod tests {
     use super::RegexSegment;
 
+    // Traits that are only used in tests
     impl PartialEq<RegexSegment> for RegexSegment {
         fn eq(&self, other: &RegexSegment) -> bool {
             self.regex == other.regex && self.num_capture_groups == other.num_capture_groups
@@ -134,7 +135,12 @@ pub(crate) mod test_only_traits {
     }
     impl PartialEq<&str> for RegexSegment {
         fn eq(&self, other: &&str) -> bool {
-            self.regex == format!("({})", other) && self.num_capture_groups == 1
+            self.regex == format!("({other})") && self.num_capture_groups == 1
         }
+    }
+
+    #[test]
+    fn dev_added_tests_for_count_capture_groups() {
+        panic!("No he didn't");
     }
 }

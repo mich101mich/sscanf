@@ -43,7 +43,7 @@ where
         let custom_regex = format.regex.take();
         let (inner_regex, inner) = SubType::<T>::new(format);
         let mut regex = RegexSegment::from_known(
-            &format!("{}?", inner_regex),
+            &format!("{inner_regex}?"),
             inner_regex.num_capture_groups(),
         );
         regex._maybe_replace_with::<Self>(custom_regex);
@@ -279,7 +279,7 @@ mod tests {
             let (a_regex, a) = SubType::<A>::new(format.clone()); // clone is fine, because the only non-copy component is the regex, which we took out
             let (b_regex, b) = SubType::<B>::new(format);
             let mut regex = RegexSegment::from_known(
-                &format!(r"\({},\s*{}\)", a_regex, b_regex),
+                &format!(r"\({a_regex},\s*{b_regex}\)"),
                 a_regex.num_capture_groups() + b_regex.num_capture_groups(),
             );
             regex._maybe_replace_with::<Self>(custom_regex);

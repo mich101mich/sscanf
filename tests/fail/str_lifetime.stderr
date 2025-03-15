@@ -3,7 +3,7 @@ error[E0597]: `input` does not live long enough
   |
 4 |         let input = String::from("hi");
   |             ----- binding `input` declared here
-5 |         s = sscanf::sscanf!(input, "{str}").unwrap();
+5 |         s = sscanf::sscanf!(input, "{&str}").unwrap();
   |                             ^^^^^ borrowed value does not live long enough
 6 |     }
   |     - `input` dropped here while still borrowed

@@ -1,59 +1,59 @@
 error: missing '}' to close a placeholder. If the '{' was intended to be a literal, escape it with '{{'
  --> tests/fail/nightly/invalid_placeholder.rs:2:26
   |
-2 |     sscanf::sscanf!("", "{", str);
+2 |     sscanf::sscanf!("", "{", &str);
   |                          ^
 
 error: missing '}' to close a placeholder. If the '{' was intended to be a literal, escape it with '{{'
  --> tests/fail/nightly/invalid_placeholder.rs:3:26
   |
-3 |     sscanf::sscanf!("", "{str");
+3 |     sscanf::sscanf!("", "{&str");
   |                          ^^^^
 
 error: missing '}' to close a placeholder. If the '{' was intended to be a literal, escape it with '{{'
  --> tests/fail/nightly/invalid_placeholder.rs:4:26
   |
-4 |     sscanf::sscanf!("", "{:", str);
+4 |     sscanf::sscanf!("", "{:", &str);
   |                          ^^
 
 error: missing '}' to close a placeholder. If the '{' was intended to be a literal, escape it with '{{'
  --> tests/fail/nightly/invalid_placeholder.rs:5:26
   |
-5 |     sscanf::sscanf!("", "{:b", str);
+5 |     sscanf::sscanf!("", "{:b", &str);
   |                          ^^^
 
 error: missing '}' to close a placeholder. If the '{' was intended to be a literal, escape it with '{{'
  --> tests/fail/nightly/invalid_placeholder.rs:6:26
   |
-6 |     sscanf::sscanf!("", "{://", str);
+6 |     sscanf::sscanf!("", "{://", &str);
   |                          ^^^^
 
 error: format options cannot be empty. Consider removing the ':'
  --> tests/fail/nightly/invalid_placeholder.rs:7:28
   |
-7 |     sscanf::sscanf!("", "{:}}", str);
+7 |     sscanf::sscanf!("", "{:}}", &str);
   |                            ^
 
 error: unexpected standalone '}'. Literal '}' need to be escaped as '}}'
  --> tests/fail/nightly/invalid_placeholder.rs:8:26
   |
-8 |     sscanf::sscanf!("", "}", str);
+8 |     sscanf::sscanf!("", "}", &str);
   |                          ^
 
 error: unexpected standalone '}'. Literal '}' need to be escaped as '}}'
  --> tests/fail/nightly/invalid_placeholder.rs:9:27
   |
-9 |     sscanf::sscanf!("", ":}", str);
+9 |     sscanf::sscanf!("", ":}", &str);
   |                           ^
 
 error: unexpected standalone '}'. Literal '}' need to be escaped as '}}'
   --> tests/fail/nightly/invalid_placeholder.rs:10:29
    |
-10 |     sscanf::sscanf!("", "{{:}", str);
+10 |     sscanf::sscanf!("", "{{:}", &str);
    |                             ^
 
 error: missing `:` in front of custom regex. Write `{:/.*?/}` instead
   --> tests/fail/nightly/invalid_placeholder.rs:11:27
    |
-11 |     sscanf::sscanf!("", "{/.*?/}", str);
+11 |     sscanf::sscanf!("", "{/.*?/}", &str);
    |                           ^^^^^
