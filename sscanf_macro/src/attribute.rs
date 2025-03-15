@@ -146,7 +146,7 @@ fn find_match<A: Attr>(s: &str, src: &TokenStream) -> syn::Result<A> {
 
     let mut found_others = vec![];
     for other in &others {
-        if other.all_attr_names().iter().any(|name| *name == s) {
+        if other.all_attr_names().contains(&s) {
             found_others.push(other);
         }
     }

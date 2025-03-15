@@ -4,6 +4,7 @@ use quote::quote;
 use crate::*;
 
 #[derive(Clone)]
+#[allow(clippy::large_enum_variant)] // don't care
 pub enum NumCaptures {
     One,
     FromType(syn::Type, FullSpan),
@@ -42,6 +43,7 @@ impl ToTokens for NumCaptures {
     }
 }
 
+#[allow(clippy::large_enum_variant)] // don't care
 pub enum RegexPart {
     Literal(String),
     FromType(syn::Type, FullSpan),

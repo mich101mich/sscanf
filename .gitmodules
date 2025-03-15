@@ -1,0 +1,3 @@
+[submodule "submodules/test_script"]
+	path = submodules/test_script
+	url = git@github.com:mich101mich/test_script
