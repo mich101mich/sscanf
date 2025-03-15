@@ -85,9 +85,9 @@ declare_autogen!(
         PascalCase: ("PascalCase", Pascal),
         CamelCase: ("camelCase", Camel),
         SnakeCase: ("snake_case", Snake),
-        ScreamingSnakeCase: ("SCREAMING_SNAKE_CASE", ScreamingSnake),
+        UpperSnakeCase: ("UPPER_SNAKE_CASE", UpperSnake),
         KebabCase: ("kebab-case", Kebab),
-        ScreamingKebabCase: ("SCREAMING-KEBAB-CASE", UpperKebab),
+        UpperKebabCase: ("UPPER-KEBAB-CASE", UpperKebab),
     },
     special: {
         CaseSensitive: ("CaseSensitive", match_case_sensitive, convert_case_sensitive),

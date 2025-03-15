@@ -134,9 +134,9 @@ fn autogen_cases() {
         ("PascalCase", "HelloWorld"),
         ("camelCase", "helloWorld"),
         ("snake_case", "hello_world"),
-        ("SCREAMING_SNAKE_CASE", "HELLO_WORLD"),
+        ("UPPER_SNAKE_CASE", "HELLO_WORLD"),
         ("kebab-case", "hello-world"),
-        ("SCREAMING-KEBAB-CASE", "HELLO-WORLD"),
+        ("UPPER-KEBAB-CASE", "HELLO-WORLD"),
         ("rANdOmCasE", "hElLowOrLd"),
     ]
     .iter()
@@ -180,9 +180,9 @@ fn autogen_cases() {
     run_check!("PascalCase": "PascalCase");
     run_check!("camelCase": "camelCase");
     run_check!("snake_case": "snake_case");
-    run_check!("SCREAMING_SNAKE_CASE": "SCREAMING_SNAKE_CASE");
+    run_check!("UPPER_SNAKE_CASE": "UPPER_SNAKE_CASE");
     run_check!("kebab-case": "kebab-case");
-    run_check!("SCREAMING-KEBAB-CASE": "SCREAMING-KEBAB-CASE");
+    run_check!("UPPER-KEBAB-CASE": "UPPER-KEBAB-CASE");
 
     assert!(errors.is_empty(), "{}", errors);
 }

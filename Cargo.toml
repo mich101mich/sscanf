@@ -13,9 +13,9 @@ categories = ["parsing"]
 exclude = ["/.vscode", "/.gitignore", "/.github", "/*.bat", "/*.sh", "/todo.md", "/submodules", "/.gitmodules"]
 
 [dependencies]
-sscanf_macro = { path = "sscanf_macro", version = "=0.4.3" }
+sscanf_macro = { path = "sscanf_macro", version = "=0.5.0" }
 regex = "1.6.0"
-regex-syntax = "0.8.5"
+regex-syntax = "0.8.0"
 
 [dev-dependencies]
 trybuild = "1.0.78"

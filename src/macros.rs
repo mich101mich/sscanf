@@ -255,9 +255,9 @@ pub use sscanf_macro::sscanf_unescaped as scanf_unescaped;
 ///   - `"PascalCase"`
 ///   - `"camelCase"`
 ///   - `"snake_case"`
-///   - `"SCREAMING_SNAKE_CASE"`
+///   - `"UPPER_SNAKE_CASE"`
 ///   - `"kebab-case"`
-///   - `"SCREAMING-KEBAB-CASE"`
+///   - `"UPPER-KEBAB-CASE"`
 ///
 /// #### On the variants
 ///

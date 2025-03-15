@@ -12,6 +12,25 @@ as neither works without the other and versions are always released in parallel.
 [sscanf]: https://crates.io/crates/sscanf
 
 
+## [0.5.0] TBD
+
+### Changed
+- **BREAKING:** `FromScanf` has been reworked from the ground up
+- **BREAKING:** Renamed `SCREAMING_SNAKE_CASE` and `SCREAMING-KEBAB-CASE` to `UPPER_SNAKE_CASE` and `UPPER-KEBAB-CASE` respectively
+  to be consistent with the convert-case crate
+- **BREAKING:** Bumped MSRV to 1.70.0
+
+### Added
+- `FromScanfSimple` to replicate the functionality that was previously provided by the `RegexRepresentation + FromStr`
+  combination
+
+### Removed
+- **BREAKING:** `HexNumber`, `FullF32` and `FullF64`, which were previously deprecated, are now fully removed
+- **BREAKING:** `RegexRepresentation` has now been integrated into `FromScanf`
+
+[0.5.0]: https://github.com/mich101mich/sscanf/releases/tag/0.5.0
+
+
 ## [0.4.3] - 2025-03-15
 
 ### Changed
