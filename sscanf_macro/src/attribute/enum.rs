@@ -2,7 +2,7 @@ use super::*;
 
 use convert_case::{Case, Casing};
 
-macro_rules! declare_autogen {
+macro_rules! declare_from_name {
     (
         normal: {
             $($ident: ident : ( $text: literal, $case: ident ),)+
@@ -12,15 +12,15 @@ macro_rules! declare_autogen {
         },
     ) => {
         #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-        pub enum AutoGenKind {
+        pub enum FromNameCasing {
             $($special_ident,)+
             $($ident,)+
         }
-        impl AutoGenKind {
-            const AUTOGEN_KINDS: &'static [&'static str] = &[$($text,)+ $($special_text,)+];
+        impl FromNameCasing {
+            const FROM_NAME_CASES: &'static [&'static str] = &[$($text,)+ $($special_text,)+];
 
             pub fn valid_hint() -> String {
-                list_items(Self::AUTOGEN_KINDS, |kind| format!("\"{kind}\""))
+                list_items(Self::FROM_NAME_CASES, |kind| format!("\"{kind}\""))
             }
 
             pub fn from_str(s: &str) -> Result<Self> {
@@ -28,11 +28,11 @@ macro_rules! declare_autogen {
                     $($text => Ok(Self::$ident),)+
                     $(s if $matching(s) => Ok(Self::$special_ident),)+
                     _ => {
-                        if let Some(closest) = find_closest(s, Self::AUTOGEN_KINDS) {
-                            let msg = format!("invalid value for autogen: \"{s}\". Did you mean \"{closest}\"?");
+                        if let Some(closest) = find_closest(s, Self::FROM_NAME_CASES) {
+                            let msg = format!("invalid value for from_name: \"{s}\". Did you mean \"{closest}\"?");
                             Error::err_spanned(s, msg) // checked in tests/fail/derive_enum_attributes.rs
                         } else {
-                            let msg = format!("invalid value for autogen: \"{s}\". valid values are: {}", Self::valid_hint());
+                            let msg = format!("invalid value for from_name: \"{s}\". valid values are: {}", Self::valid_hint());
                             Error::err_spanned(s, msg) // checked in tests/fail/derive_enum_attributes.rs
                         }
                     }
@@ -76,7 +76,7 @@ fn convert_case_insensitive(ident: &str, src: &TokenStream) -> StructAttributeKi
     }
 }
 
-declare_autogen!(
+declare_from_name!(
     normal: {
         LowerCase: ("lower case", Lower),
         UpperCase: ("UPPER CASE", Upper),
@@ -95,13 +95,16 @@ declare_autogen!(
     },
 );
 
-impl AutoGenKind {
+impl FromNameCasing {
     fn from_attr(attr: &Attribute<attr::Enum>) -> Result<Self> {
         if attr.value.is_none() {
             return Ok(Self::CaseSensitive);
         }
 
-        let casing_hint = format!("where `<casing>` is one of {}", AutoGenKind::valid_hint());
+        let casing_hint = format!(
+            "where `<casing>` is one of {}",
+            FromNameCasing::valid_hint()
+        );
 
         let value = attr.value_as::<syn::LitStr>("\"<casing>\"", Some(&casing_hint))?; // checked in tests/fail/derive_enum_attributes.rs
         Self::from_str(&value.value())
@@ -111,15 +114,15 @@ impl AutoGenKind {
 pub type EnumAttribute = SingleAttributeContainer<attr::Enum, EnumAttributeKind>;
 
 pub enum EnumAttributeKind {
-    AutoGen(AutoGenKind),
+    FromName(FromNameCasing),
 }
 
 impl FromAttribute<attr::Enum> for EnumAttributeKind {
     fn from_attribute(attr: Attribute<attr::Enum>, _: ()) -> Result<Self> {
         let ret = match attr.kind {
-            attr::Enum::AutoGen | attr::Enum::AutoGenerate => {
-                let kind = AutoGenKind::from_attr(&attr)?;
-                Self::AutoGen(kind)
+            attr::Enum::FromName => {
+                let kind = FromNameCasing::from_attr(&attr)?;
+                Self::FromName(kind)
             }
         };
         Ok(ret)

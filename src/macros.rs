@@ -242,7 +242,7 @@ pub use sscanf_macro::sscanf_unescaped as scanf_unescaped;
 /// ### Attributes
 ///
 /// #### On the enum
-/// - `autogen = "<case>"` or `autogenerate = "<case>"`: Automatically create the format strings for
+/// - `from_name` or `from_name = <case>`: Automatically create the format strings for
 ///   all variants based on the variant names. This only works for variants without fields. The
 ///   format can be overridden by specifying a `format = ` attribute on the variant. The `case`
 ///   parameter can be one of:
@@ -262,9 +262,9 @@ pub use sscanf_macro::sscanf_unescaped as scanf_unescaped;
 /// #### On the variants
 ///
 /// Same as for structs. If no format string or `transparent` attribute is specified, the variant
-/// won't be constructed by `sscanf`. Unless `autogen` is specified, in which case the format string
+/// won't be constructed by `sscanf`. Unless `from_name` is specified, in which case the format string
 /// is generated automatically. To avoid this, add the `skip` attribute to the variant. `skip` has
-/// no effect without `autogen`.
+/// no effect without `from_name`.
 pub use sscanf_macro::FromScanf;
 
 #[doc(hidden)]

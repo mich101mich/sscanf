@@ -389,8 +389,8 @@ pub fn parse_enum(
     data: syn::DataEnum,
 ) -> Result<TokenStream> {
     let attr = EnumAttribute::from_attrs(attrs)?;
-    let autogen = attr.as_ref().and_then(|attr| match attr.kind {
-        EnumAttributeKind::AutoGen(kind) => Some((kind, attr.src.clone())),
+    let from_name = attr.as_ref().and_then(|attr| match attr.kind {
+        EnumAttributeKind::FromName(kind) => Some((kind, attr.src.clone())),
         #[allow(unreachable_patterns)]
         _ => None,
     });
@@ -416,13 +416,13 @@ pub fn parse_enum(
                     StructAttribute::new(variant_attr.src, kind)
                 }
             }
-        } else if let Some((autogen, src)) = autogen.as_ref() {
+        } else if let Some((from_name, src)) = from_name.as_ref() {
             if !variant.fields.is_empty() {
-                let msg = "FromScanf: autogen only works if the variants have no fields.
+                let msg = "FromScanf: from_name only works if the variants have no fields.
 Use `#[sscanf(format = \"...\")]` to specify a format for a variant with fields or `#[sscanf(skip)]` to skip a variant";
                 return Error::err_spanned(variant.fields, msg); // checked in tests/fail/derive_enum_attributes.rs
             }
-            autogen.create_struct_attr(&variant.ident.to_string(), src.clone())
+            from_name.create_struct_attr(&variant.ident.to_string(), src.clone())
         } else {
             continue;
         };
@@ -463,7 +463,7 @@ Use `#[sscanf(format = \"...\")]` to specify a format for a variant with fields 
     regex_parts.push_literal(")");
 
     if variant_constructors.is_empty() {
-        let msg = if autogen.is_some() {
+        let msg = if from_name.is_some() {
             "at least one variant has to be constructable from sscanf and not skipped."
         } else {
             "at least one variant has to be constructable from sscanf.

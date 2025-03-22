@@ -87,9 +87,9 @@ fn transparent() {
 }
 
 #[test]
-fn autogen() {
+fn from_name() {
     #[derive(FromScanf, Debug, PartialEq)]
-    #[sscanf(autogen)]
+    #[sscanf(from_name)]
     enum Words {
         Hello,
         World,
@@ -106,7 +106,7 @@ fn autogen() {
 
     #[derive(FromScanf, Debug, PartialEq)]
     #[allow(dead_code)]
-    #[sscanf(autogen)]
+    #[sscanf(from_name)]
     enum WordsWithFields {
         Hello,
         #[sscanf(skip)]
@@ -125,7 +125,7 @@ fn autogen() {
 }
 
 #[test]
-fn autogen_cases() {
+fn from_name_cases() {
     let cases: std::collections::HashMap<_, _> = [
         ("lowercase", "helloworld"),
         ("UPPERCASE", "HELLOWORLD"),
@@ -148,7 +148,7 @@ fn autogen_cases() {
     macro_rules! run_check {
         ($case: literal : $($accepted: literal),+) => {{
             #[derive(FromScanf, Debug, PartialEq)]
-            #[sscanf(autogen = $case)]
+            #[sscanf(from_name = $case)]
             enum Word {
                 HelloWorld
             }
@@ -160,11 +160,11 @@ fn autogen_cases() {
                 let result = sscanf!(input, "{Word}");
                 if accepted.contains(name) {
                     if result.is_err() {
-                        errors.push_str(&format!(r#"input "{input}" should match autogen="{}""#, $case));
+                        errors.push_str(&format!(r#"input "{input}" should match from_name="{}""#, $case));
                     }
                 } else {
                     if result.is_ok() {
-                        errors.push_str(&format!(r#"input "{input}" incorrectly matched autogen="{}""#, $case));
+                        errors.push_str(&format!(r#"input "{input}" incorrectly matched from_name="{}""#, $case));
                     }
                 }
             }

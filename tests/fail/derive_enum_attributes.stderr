@@ -1,5 +1,5 @@
 error: attribute `format` can only be used on structs or variants.
-       enums can have the following attributes: `autogen` or `autogenerate`
+       enums can have the following attributes: `from_name` or `from_nameerate`
  --> tests/fail/derive_enum_attributes.rs:2:10
   |
 2 | #[sscanf(format = "")]
@@ -18,7 +18,7 @@ error: FromScanf: enums must have at least one variant
 9 | enum TestNoVariants { }
   |      ^^^^^^^^^^^^^^
 
-error: FromScanf: autogen only works if the variants have no fields.
+error: FromScanf: from_name only works if the variants have no fields.
        Use `#[sscanf(format = "...")]` to specify a format for a variant with fields or `#[sscanf(skip)]` to skip a variant
   --> tests/fail/derive_enum_attributes.rs:13:33
    |
@@ -34,10 +34,10 @@ error: at least one variant has to be constructable from sscanf and not skipped.
 error: expected string literal
   --> tests/fail/derive_enum_attributes.rs:20:20
    |
-20 | #[sscanf(autogen = {})]
+20 | #[sscanf(from_name = {})]
    |                    ^^
 
-error: invalid value for autogen: "bob". valid values are: "lower case", "UPPER CASE", "lowercase", "UPPERCASE", "PascalCase", "camelCase", "snake_case", "UPPER_SNAKE_CASE", "kebab-case", "UPPER-KEBAB-CASE", "CaseSensitive", or "CaseInsensitive"
+error: invalid value for from_name: "bob". valid values are: "lower case", "UPPER CASE", "lowercase", "UPPERCASE", "PascalCase", "camelCase", "snake_case", "UPPER_SNAKE_CASE", "kebab-case", "UPPER-KEBAB-CASE", "CaseSensitive", or "CaseInsensitive"
   --> tests/fail/derive_enum_attributes.rs:23:10
    |
 23 | #[derive(sscanf::FromScanf)]
@@ -45,7 +45,7 @@ error: invalid value for autogen: "bob". valid values are: "lower case", "UPPER 
    |
    = note: this error originates in the derive macro `sscanf::FromScanf` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error: invalid value for autogen: "casesensitive". Did you mean "CaseInsensitive"?
+error: invalid value for from_name: "casesensitive". Did you mean "CaseInsensitive"?
   --> tests/fail/derive_enum_attributes.rs:27:10
    |
 27 | #[derive(sscanf::FromScanf)]

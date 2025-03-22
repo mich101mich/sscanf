@@ -16,6 +16,7 @@ as neither works without the other and versions are always released in parallel.
 
 ### Changed
 - **BREAKING:** `FromScanf` has been reworked from the ground up
+- **BREAKING:** Replaced enum attributes "autogen" and "autogenerate" with "from_name"
 - **BREAKING:** Renamed `SCREAMING_SNAKE_CASE` and `SCREAMING-KEBAB-CASE` to `UPPER_SNAKE_CASE` and `UPPER-KEBAB-CASE` respectively
   to be consistent with the convert-case crate
 - **BREAKING:** Bumped MSRV to 1.70.0

@@ -9,23 +9,23 @@ enum TestNoFormat { A, B }
 enum TestNoVariants { }
 
 #[derive(sscanf::FromScanf)]
-#[sscanf(autogen)]
+#[sscanf(from_name)]
 enum TestAutogenHasFields { A, B(usize) }
 
 #[derive(sscanf::FromScanf)]
-#[sscanf(autogen)]
+#[sscanf(from_name)]
 enum TestAutogenAllSkip { #[sscanf(skip)] A, #[sscanf(skip)] B }
 
 #[derive(sscanf::FromScanf)]
-#[sscanf(autogen = {})]
+#[sscanf(from_name = {})]
 enum TestAutogenInvalid { A, B }
 
 #[derive(sscanf::FromScanf)]
-#[sscanf(autogen = "bob")]
+#[sscanf(from_name = "bob")]
 enum TestAutogenInvalidWord { A, B }
 
 #[derive(sscanf::FromScanf)]
-#[sscanf(autogen = "casesensitive")]
+#[sscanf(from_name = "casesensitive")]
 enum TestAutogenInvalidCase { A, B }
 
 

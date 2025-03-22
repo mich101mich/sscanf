@@ -116,8 +116,7 @@ declare_attr!(
         // just variants
         Skip "skip",
         // enums
-        AutoGen "autogen",
-        AutoGenerate "autogenerate",
+        FromName "from_name",
         // fields
         Default "default",
         Map "map",
@@ -128,7 +127,7 @@ declare_attr!(
     Context {
         Struct "structs" [ Format, FormatUnescaped, Transparent ],
         Variant "variants" [ Format, FormatUnescaped, Transparent, Skip ],
-        Enum "enums" [ AutoGen, AutoGenerate ],
+        Enum "enums" [ FromName ],
         Field "fields" [ Default, Map, FilterMap, From, TryFrom ],
     }
 );
