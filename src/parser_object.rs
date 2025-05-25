@@ -49,7 +49,7 @@ impl<'input, T: FromScanf<'input>> Sscanf<'input, T> {
         let regex = self.raw_regex.regex();
         let iter_regex = self
             .iter_regex
-            .get_or_insert_with(|| Regex::new(regex).unwrap());
+            .get_or_insert_with(|| Regex::new(&regex).unwrap());
 
         SscanfParseIter {
             parser: &self.parser,
@@ -60,7 +60,7 @@ impl<'input, T: FromScanf<'input>> Sscanf<'input, T> {
     /// Creates a new `Sscanf` object. Mostly for internal use by the TODO: macro. Left public so that the macro can
     /// access it.
     #[doc(hidden)]
-    pub fn new(format: FormatOptions) -> Self {
+    pub fn new(format: &FormatOptions) -> Self {
         let (raw_regex, parser) = T::create_parser(format);
         Self {
             full_regex: None,

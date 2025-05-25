@@ -2,7 +2,7 @@
 name = "sscanf"
 version = "0.5.0"
 authors = ["mich101mich <mich101mich@gmail.com>"]
-edition = "2018"
+edition = "2021"
 rust-version = "1.70.0"
 description = "A sscanf (inverse of format!()) Macro based on Regex"
 repository = "https://github.com/mich101mich/sscanf"

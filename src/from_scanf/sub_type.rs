@@ -11,10 +11,8 @@ pub struct SubType<'input, T: FromScanf<'input>> {
 impl<'input, T: FromScanf<'input>> SubType<'input, T> {
     /// Creates a new `SubType` from the type's [`FromScanf::create_parser`] method. Also returns the [`RegexSegment`]
     /// for the outer type to use.
-    pub fn new(mut format: FormatOptions) -> (RegexSegment, Self) {
-        let custom_regex = format.regex.take();
-        let (mut regex, parser) = T::create_parser(format);
-        regex._maybe_replace_with::<Self>(custom_regex);
+    pub fn new(format: &FormatOptions) -> (RegexSegment, Self) {
+        let (regex, parser) = T::create_parser(format);
         let num_capture_groups = regex.num_capture_groups;
         (
             regex,

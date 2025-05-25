@@ -20,7 +20,7 @@ pub trait FromScanf<'input>: Sized {
     ///
     /// Note: Composite types (e.g. structs, tuples) tend to pass unused format options to their subtypes. So your type
     /// might receive a format option that it doesn't know how to handle. In this case, you can just ignore it.
-    fn create_parser(format: FormatOptions) -> (RegexSegment, Self::Parser);
+    fn create_parser(format: &FormatOptions) -> (RegexSegment, Self::Parser);
 }
 
 /// A trait for the actual parser implementation.
@@ -51,9 +51,8 @@ pub trait FromScanfSimple: Sized + FromStr {
 impl<T: FromScanfSimple + FromStr> FromScanf<'_> for T {
     type Parser = ();
 
-    fn create_parser(format: FormatOptions) -> (RegexSegment, Self::Parser) {
-        let regex = format.regex.unwrap_or_else(|| RegexSegment::new(T::REGEX));
-        (regex, ())
+    fn create_parser(_: &FormatOptions) -> (RegexSegment, Self::Parser) {
+        (RegexSegment::new(T::REGEX), ())
     }
 }
 
