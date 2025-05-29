@@ -1,6 +1,6 @@
-use crate::FromScanfParser;
+//! Module containing the [`Sscanf`] struct.
 
-use super::*;
+use super::from_scanf::*;
 use regex::Regex;
 
 /// An intermediate type to hold the state of one `sscanf!` format and type specification to allow applying it to

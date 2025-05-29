@@ -1,3 +1,5 @@
+//! In-memory representations of the format options
+
 use std::borrow::Cow;
 
 /// The possible values for the format option in a [`FromScanf`][super::FromScanf] implementation.

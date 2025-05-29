@@ -1,15 +1,17 @@
+//! Module for parsing custom types with sscanf
+
 use std::str::FromStr;
 
-mod format_options;
+pub mod format_options;
+mod regex_segment;
+mod sub_type;
 mod impls {
     use super::*;
     mod numeric;
     mod other;
 }
-mod regex_segment;
-mod sub_type;
 
-pub use format_options::*;
+pub(crate) use format_options::*;
 pub use regex_segment::*;
 pub use sub_type::*;
 
