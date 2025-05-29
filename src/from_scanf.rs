@@ -1,7 +1,11 @@
 use std::str::FromStr;
 
 mod format_options;
-mod impls;
+mod impls {
+    use super::*;
+    mod numeric;
+    mod other;
+}
 mod regex_segment;
 mod sub_type;
 

@@ -16,6 +16,108 @@ pub struct FormatOptions {
     pub custom: Option<Cow<'static, str>>,
 }
 
+impl FormatOptions {
+    /// Creates a builder for the [`FormatOptions`] struct.
+    ///
+    /// Default settings:
+    /// - Radix: 10 (decimal)
+    /// - Prefix: no prefix allowed
+    /// - Custom format: None
+    pub fn builder() -> Builder {
+        Builder {
+            radix: 10,
+            prefix: NumberPrefixPolicy::Forbidden,
+            custom: None,
+        }
+    }
+}
+
+/// A builder for the [`FormatOptions`] struct, since it is marked as `#[non_exhaustive]` and thus cannot be
+/// constructed directly.
+#[derive(Clone)]
+pub struct Builder {
+    radix: u32,
+    prefix: NumberPrefixPolicy,
+    custom: Option<Cow<'static, str>>,
+}
+
+impl Builder {
+    /// Sets the radix for the number format to binary.
+    ///
+    /// Note that this does not change the prefix policy.
+    pub fn binary(mut self) -> Self {
+        self.radix = 2;
+        self
+    }
+    /// Sets the radix for the number format to octal.
+    ///
+    /// Note that this does not change the prefix policy.
+    pub fn octal(mut self) -> Self {
+        self.radix = 8;
+        self
+    }
+    /// Sets the radix for the number format to decimal (the default).
+    ///
+    /// Note that this does not change the prefix policy.
+    pub fn decimal(mut self) -> Self {
+        self.radix = 10;
+        self
+    }
+    /// Sets the radix for the number format to hexadecimal.
+    ///
+    /// Note that this does not change the prefix policy.
+    pub fn hex(mut self) -> Self {
+        self.radix = 16;
+        self
+    }
+    /// Sets the radix for the number format to a custom base.
+    ///
+    /// The base must be in the range `2..=36`.
+    /// Note that this does not change the prefix policy.
+    pub fn custom_radix(mut self, radix: u32) -> Self {
+        if !(2..=36).contains(&radix) {
+            panic!("Radix must be in the range 2..=36, got {}", radix);
+        }
+        self.radix = radix;
+        self
+    }
+
+    /// Sets the prefix policy to an optional prefix.
+    pub fn with_optional_prefix(mut self) -> Self {
+        self.prefix = NumberPrefixPolicy::Optional;
+        self
+    }
+    /// Sets the prefix policy to a required prefix.
+    pub fn with_prefix(mut self) -> Self {
+        self.prefix = NumberPrefixPolicy::Required;
+        self
+    }
+
+    /// Sets the custom format string.
+    pub fn with_custom_string(mut self, custom: impl Into<Cow<'static, str>>) -> Self {
+        self.custom = Some(custom.into());
+        self
+    }
+
+    /// Builds the [`FormatOptions`] struct.
+    pub fn build(self) -> FormatOptions {
+        use NumberFormatOption::*;
+        use NumberPrefixPolicy::*;
+        FormatOptions {
+            number: match (self.radix, self.prefix) {
+                (2, policy) => Binary(policy),
+                (8, policy) => Octal(policy),
+                (10, Forbidden) => Decimal,
+                (10, _) => panic!("Decimal format does not allow a prefix"),
+                (16, policy) => Hexadecimal(policy),
+                (radix, Forbidden) => Other(radix),
+                (radix, _) => panic!("Custom radix {} does not allow a prefix", radix),
+            },
+            custom: self.custom,
+        }
+    }
+}
+
 /// The possible number formats for a number formatter.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum NumberFormatOption {
