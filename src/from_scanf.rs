@@ -26,6 +26,7 @@ pub trait FromScanf<'input>: Sized {
     ///
     /// Note: Composite types (e.g. structs, tuples) tend to pass unused format options to their subtypes. So your type
     /// might receive a format option that it doesn't know how to handle. In this case, you can just ignore it.
+    #[track_caller]
     fn create_parser(format: &FormatOptions) -> (RegexSegment, Self::Parser);
 }
 

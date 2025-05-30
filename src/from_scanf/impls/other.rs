@@ -205,10 +205,88 @@ mod tests {
     impl<'input, A: FromScanf<'input>, B: FromScanf<'input>> FromScanfParser<'input, (A, B)>
         for TupleParser<'input, A, B>
     {
+        #[track_caller]
         fn parse(&self, _: &'input str, mut sub_matches: &[Option<&'input str>]) -> Option<(A, B)> {
             let a = self.a.parse(&mut sub_matches)?;
             let b = self.b.parse(&mut sub_matches)?;
+            assert!(
+                sub_matches.is_empty(),
+                "sscanf: parsing `({}, {})` was supposed to consume all matches, but {} remained. Does one of the types have an incorrect FromScanf implementation?",
+            std::any::type_name::<A>(),
+            std::any::type_name::<B>(),
+                sub_matches.len()
+            );
             Some((a, b))
         }
+    }
+
+    #[test]
+    fn test_tuple_parser() {
+        let input = "(1, 2)";
+        let (regex, parser) = <(u8, u8)>::create_parser(&Default::default());
+        assert_eq!(
+            regex.regex(),
+            r"(\((\+?([0-9]{1,3})),\s*(\+?([0-9]{1,3}))\))"
+        );
+        let re = regex::Regex::new(&regex.regex()).unwrap();
+        let captures = re
+            .captures(input)
+            .unwrap()
+            .iter()
+            .map(|m| m.map(|m| m.as_str()))
+            .collect::<Vec<_>>();
+        let (_, captures) = captures.split_first().unwrap(); // the additional match added by regex
+        let (full_match, sub_matches) = captures.split_first().unwrap();
+        let result = parser.parse(full_match.unwrap(), sub_matches).unwrap();
+        assert_eq!(result, (1, 2));
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "sscanf::SubType<u8> expected 2 matches, got 1. Are there any custom types with incorrect FromScanf implementations?"
+    )]
+    fn test_sub_type_checks_length_short() {
+        let input = "(1, 2)";
+        let (regex, parser) = <(u8, u8)>::create_parser(&Default::default());
+        assert_eq!(
+            regex.regex(),
+            r"(\((\+?([0-9]{1,3})),\s*(\+?([0-9]{1,3}))\))"
+        );
+        let re = regex::Regex::new(&regex.regex()).unwrap();
+        let captures = re
+            .captures(input)
+            .unwrap()
+            .iter()
+            .map(|m| m.map(|m| m.as_str()))
+            .collect::<Vec<_>>();
+        let (_, captures) = captures.split_first().unwrap(); // the additional match added by regex
+        let (full_match, sub_matches) = captures.split_first().unwrap();
+        parser.parse(full_match.unwrap(), &sub_matches[..sub_matches.len() - 1]);
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "sscanf: parsing `(u8, u8)` was supposed to consume all matches, but 1 remained. Does one of the types have an incorrect FromScanf implementation?"
+    )]
+    fn test_sub_type_checks_length_long() {
+        let input = "(1, 2)";
+        let (regex, parser) = <(u8, u8)>::create_parser(&Default::default());
+        assert_eq!(
+            regex.regex(),
+            r"(\((\+?([0-9]{1,3})),\s*(\+?([0-9]{1,3}))\))"
+        );
+        let re = regex::Regex::new(&regex.regex()).unwrap();
+        let captures = re
+            .captures(input)
+            .unwrap()
+            .iter()
+            .map(|m| m.map(|m| m.as_str()))
+            .collect::<Vec<_>>();
+        let (_, captures) = captures.split_first().unwrap(); // the additional match added by regex
+        let (full_match, sub_matches) = captures.split_first().unwrap();
+        parser.parse(
+            full_match.unwrap(),
+            vec![Some("0"); sub_matches.len() + 1].as_slice(),
+        );
     }
 }

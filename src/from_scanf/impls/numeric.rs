@@ -49,12 +49,17 @@ impl<T> NumberParser<T> {
 
         let sign = if T::SIGNED { "[-+]?" } else { "\\+?" };
 
+        let mut needs_case_insensitive = false;
+
         let prefix = format
             .prefix()
-            .map(|prefix| match format.prefix_policy() {
-                NumberPrefixPolicy::Forbidden => unreachable!(),
-                NumberPrefixPolicy::Required => prefix.to_string(),
-                NumberPrefixPolicy::Optional => format!("(?:{prefix})?"),
+            .map(|prefix| {
+                needs_case_insensitive = true; // the prefix contains letters
+                match format.prefix_policy() {
+                    NumberPrefixPolicy::Forbidden => unreachable!(),
+                    NumberPrefixPolicy::Required => prefix.to_string(),
+                    NumberPrefixPolicy::Optional => format!("(?:{prefix})?"),
+                }
             })
             .unwrap_or_default();
 
@@ -62,6 +67,7 @@ impl<T> NumberParser<T> {
         let possible_chars = if radix <= 10 {
             format!("0-{}", radix - 1)
         } else {
+            needs_case_insensitive = true; // letters are now involved
             let last_letter = (b'a' + radix as u8 - 1 - 10) as char;
             format!("0-9a-{last_letter}")
         };
@@ -76,14 +82,19 @@ impl<T> NumberParser<T> {
         };
 
         // The final regex is:
-        // (?i: sign prefix ( [ possible_chars ] { 1, num_digits } ) )
-        // - "(?i:" Makes the capture group case-insensitive
+        // sign prefix ( [ possible_chars ] { 1, num_digits } )
         // - "sign" matches an optional sign, either '+' or '-'
         // - "prefix" matches the optional prefix, if any
         // - "(...)" creates a capture group for the number itself
         //   - "[possible_chars]" matches one of the possible characters for the given radix
         //   - "{1,num_digits}" means repeat the previous character class one to `num_digits` times
-        let regex = format!("(?i:{sign}{prefix}([{possible_chars}]{{1,{num_digits}}}))");
+        let mut regex = format!("{sign}{prefix}([{possible_chars}]{{1,{num_digits}}})");
+
+        if needs_case_insensitive {
+            // "(?i:...)" a non-capturing group that makes the inside case-insensitive.
+            regex = format!("(?i:{regex})");
+        }
+
         let regex = RegexSegment::from_known(regex, 1);
 
         let parser = NumberParser {
