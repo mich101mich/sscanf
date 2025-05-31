@@ -187,25 +187,25 @@ pub use sscanf_macro::sscanf_unescaped as scanf_unescaped;
 ///   field directly. This is useful for newtype structs, where the struct is just a wrapper around
 ///   another type. The field has to implement [`FromScanf`](crate::FromScanf).
 ///
-/// Note that only one of the above attributes can be used on a struct. The `format = ` part can
-/// be omitted, so `#[sscanf("<format>")]` is also valid. In this case, the distinction between
-/// `format` and `format_unescaped` is made by using a regular string literal for `format` and a
-/// raw string literal (starting with `r#"` or `r#"`) for `format_unescaped`.
+/// Note that only one of the above attributes can be used on a struct.
+///
+/// The `format = ` part can be omitted, so `#[sscanf("<format>")]` is also valid. In this case, the distinction
+/// between `format` and `format_unescaped` is made by using a regular string literal for `format` and a
+/// raw string literal (starting with `r"` or `r#"`) for `format_unescaped`.
 ///
 /// #### On the fields
-/// - `default` or `default = <expression>`: Marks the field to be set from a default value rather than the input string. A
-///   simple `#[sscanf(default)]` will set the field to [`Default::default()`](std::default::Default).
+/// - `default` or `default = <expression>`: Marks the field to be set from a default value rather than the input
+///   string. A simple `#[sscanf(default)]` will set the field to [`Default::default()`](std::default::Default).
 ///   If the field type doesn't implement [`Default`](std::default::Default), the attribute can
 ///   take an expression that will be evaluated to get the default value. The expression can be
 ///   any code, including function calls or `{ <code> }` blocks, as long as they can be assigned
 ///   to the field type.
-/// - `map = |<param>: <type>| <conversion>`: Allows matching against a different type than the field type. The `map` attribute takes
-///   a closure that takes the matched type as input and returns the field type. The type of the
+/// - `map = |<param>: <type>| <conversion>`: Allows matching against a different type than the field type. The `map`
+///   attribute takes a closure that takes the matched type as input and returns the field type. The type of the
 ///   parameter of the closure has to be explicitly specified, since it is needed to generate the
-///   matching code.
-/// - `filter_map = |<param>: <type>| <conversion>`: Same as `map`, but the closure returns an [`Option`](std::option::Option) instead
-///   of the field type. If the closure returns [`None`](std::option::Option::None), the parsing
-///   fails.
+///   input matcher.
+/// - `filter_map = |<param>: <type>| <conversion>`: Same as `map`, but the closure returns an [`Option`] instead of
+///   the field type. If the closure returns [`None`](Option::None), the parsing fails.
 /// - `from = <type>`: Allows matching against a different type than the field type. The `from` attribute
 ///   takes a Type as input, which implements [`FromScanf`](crate::FromScanf) and can be converted
 ///   to the field type using [`From`](std::convert::From).
@@ -243,11 +243,11 @@ pub use sscanf_macro::sscanf_unescaped as scanf_unescaped;
 ///
 /// #### On the enum
 /// - `from_name` or `from_name = <case>`: Automatically create the format strings for
-///   all variants based on the variant names. This only works for variants without fields. The
-///   format can be overridden by specifying a `format = ` attribute on the variant. The `case`
-///   parameter can be one of:
+///   all variants based on the variant names.  
+///   This only works for variants without fields. Those with fields are automatically skipped.  
+///   The `case` parameter can be one of:
 ///   - `"CaseSensitive"`: The variant name is used as-is. Default if no `case` parameter is specified.
-///   - `"CaseInsensitive"`: Same as `"CaseSensitive"`, but case is ignored.
+///   - `"CaseInsensitive"`: The variant name is used as-is, but ignoring case.
 ///   - `"lower case"`: Lower case with spaces between words.
 ///   - `"UPPER CASE"`: Upper case with spaces between words.
 ///   - `"lowercase"`: Lower case, but without spaces.
@@ -261,10 +261,22 @@ pub use sscanf_macro::sscanf_unescaped as scanf_unescaped;
 ///
 /// #### On the variants
 ///
-/// Same as for structs. If no format string or `transparent` attribute is specified, the variant
-/// won't be constructed by `sscanf`. Unless `from_name` is specified, in which case the format string
-/// is generated automatically. To avoid this, add the `skip` attribute to the variant. `skip` has
-/// no effect without `from_name`.
+/// Same as [the attributes for structs](#on-the-struct).
+///
+/// Format strings on the variant take priority over the enum's `from_name` attribute.
+///
+/// If no format string or `transparent` attribute is specified, and the enum is not marked as `from_name`, then the
+/// variant won't be constructed by `sscanf`. Note that at least one variant has to be constructible by `sscanf`.
+///
+/// Enum-specific attributes:
+/// - `skip`: Don't create a format string for this variant when the enum is marked with `from_name`. Has no effect if
+///   `from_name` is not specified.  
+///   Can't be used with any other attributes on the variant.
+///
+/// #### On the fields within variants
+///
+/// Same as [the attributes for fields in structs](#on-the-fields).
+#[doc(alias = "derive")]
 pub use sscanf_macro::FromScanf;
 
 #[doc(hidden)]
