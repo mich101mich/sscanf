@@ -195,7 +195,7 @@ pub trait FromScanf<'input>: Sized {
 ///
 /// Note that there is [a default implementation](#impl-FromScanfParser<'input,+T>-for-()) for a parser that uses
 /// [`FromStr`] by using `()` as the parser type.
-pub trait FromScanfParser<'input, T>: Sized {
+pub trait FromScanfParser<'input, T> {
     /// Parse the regex matches into the type.
     ///
     /// The `full_match` is the entire match for this type. This is what most types will use for parsing.

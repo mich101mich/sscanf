@@ -48,6 +48,11 @@ impl RegexSegment {
     pub fn regex(&self) -> String {
         self.to_string()
     }
+
+    /// Internal method to get the raw regex string without the extra capture group.
+    pub(crate) fn into_raw_regex(self) -> Cow<'static, str> {
+        self.regex
+    }
 }
 
 impl std::fmt::Display for RegexSegment {

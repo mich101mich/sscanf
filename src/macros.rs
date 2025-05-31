@@ -62,9 +62,6 @@
 /// More Examples can be seen in the crate root documentation.
 pub use sscanf_macro::sscanf;
 
-#[doc(hidden)]
-pub use sscanf_macro::sscanf as scanf;
-
 /// Same as [`sscanf`], but returns the regex without running it. Useful for debugging or efficiency.
 ///
 /// ## Signature
@@ -99,10 +96,7 @@ pub use sscanf_macro::sscanf as scanf;
 /// assert!(capture_negative_2.is_some());
 /// assert_eq!(capture_negative_2.unwrap().as_str(), "-2");
 /// ```
-pub use sscanf_macro::sscanf_get_regex;
-
-#[doc(hidden)]
-pub use sscanf_macro::sscanf_get_regex as scanf_get_regex;
+pub use sscanf_macro::sscanf_parser;
 
 /// Same as [`sscanf`], but allows use of Regex in the format String.
 ///
@@ -133,9 +127,6 @@ pub use sscanf_macro::sscanf_get_regex as scanf_get_regex;
 ///
 /// Also note that `^` and `$` are automatically added to the start and end.
 pub use sscanf_macro::sscanf_unescaped;
-
-#[doc(hidden)]
-pub use sscanf_macro::sscanf_unescaped as scanf_unescaped;
 
 /// A derive macro for [`FromScanf`](crate::FromScanf).
 ///
