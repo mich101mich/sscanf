@@ -109,27 +109,13 @@ impl Parse for Scanf {
 #[proc_macro]
 pub fn sscanf(input: TokenStream1) -> TokenStream1 {
     let input = syn::parse_macro_input!(input as Scanf);
-    sscanf_internal(input, true)
+    sscanf_internal(input).into_proc_macro_token_stream()
 }
 
 #[proc_macro]
-pub fn sscanf_unescaped(input: TokenStream1) -> TokenStream1 {
-    let input = syn::parse_macro_input!(input as Scanf);
-    sscanf_internal(input, false)
-}
-
-#[proc_macro]
-pub fn sscanf_get_regex(input: TokenStream1) -> TokenStream1 {
+pub fn sscanf_parser(input: TokenStream1) -> TokenStream1 {
     let input = syn::parse_macro_input!(input as ScanfInner);
-    let (regex, _) = match generate_regex(&input, true) {
-        Ok(v) => v,
-        Err(e) => return e.into(),
-    };
-    let ret = quote! {{
-        #regex
-        &REGEX
-    }};
-    ret.into()
+    generate_parser(&input).into_proc_macro_token_stream()
 }
 
 #[proc_macro_derive(FromScanf, attributes(sscanf))]
@@ -153,50 +139,15 @@ pub fn derive_from_sscanf(input: TokenStream1) -> TokenStream1 {
     }
 }
 
-fn sscanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
-    let (regex, matcher) = match generate_regex(&input.inner, escape_input) {
-        Ok(v) => v,
-        Err(e) => return e.into(),
-    };
-    let src_str = {
-        let src_str = input.src_str;
-        let span = FullSpan::from_spanned(&src_str);
-        let param = span.apply(quote! { & }, quote! { (#src_str) });
-
-        // wrapping the input in a manual call to str::get ensures that the user
-        // gets an appropriate error message if they try to use a non-string input
-        quote! { ::std::primitive::str::get(#param, ..).unwrap() }
-    };
-    let ret = quote! {{
-        #regex
-        #[allow(clippy::needless_borrow)]
-        let input: &str = #src_str;
-        #[allow(clippy::needless_question_mark)]
-        REGEX.captures(input)
-            .ok_or_else(|| ::sscanf::errors::Error::MatchFailed)
-            .and_then(|cap| {
-                let mut src = cap.iter();
-                let src = &mut src;
-                src.next().unwrap(); // skip the whole match
-
-                let mut matcher = || -> ::std::result::Result<_, ::std::boxed::Box<dyn ::std::error::Error>> {
-                    ::std::result::Result::Ok( ( #(#matcher),* ) )
-                };
-                let res = matcher().map_err(|e| ::sscanf::errors::Error::ParsingFailed(e));
-
-                if res.is_ok() && src.len() != 0 {
-                    panic!("sscanf: {} captures generated, but {} were taken",
-                        REGEX.captures_len(), REGEX.captures_len() - src.len()
-                    );
-                }
-                res
-            })
-    }};
-    ret.into()
+fn sscanf_internal(input: Scanf) -> Result<TokenStream> {
+    let parser = generate_parser(&input.inner)?;
+    let input = input.src_str;
+    // TODO: wrap in OnceLock or similar
+    Ok(quote! { #parser.parse(&#input) })
 }
 
-fn generate_regex(input: &ScanfInner, escape_input: bool) -> Result<(TokenStream, Vec<Matcher>)> {
-    let mut format = FormatString::new(input.fmt.to_slice(), escape_input)?;
+fn generate_parser(input: &ScanfInner) -> Result<TokenStream> {
+    let mut format = FormatString::new(input.fmt.to_slice(), input.fmt.is_raw())?;
     format.parts[0].insert(0, '^');
     format.parts.last_mut().unwrap().push('$');
 
@@ -238,11 +189,15 @@ fn generate_regex(input: &ScanfInner, escape_input: bool) -> Result<(TokenStream
     let mut ph_index = 0;
     let mut visited = vec![false; input.type_tokens.len()];
     let mut types = vec![];
+    let mut parser_vars = vec![];
     let mut error = Error::builder();
 
-    for ph in &format.placeholders {
+    for (i, ph) in format.placeholders.iter().enumerate() {
         match find_ph_type(ph, &mut visited, &mut ph_index, &input.type_tokens) {
-            Ok(ty) => types.push(ty),
+            Ok(ty) => {
+                types.push(ty);
+                parser_vars.push(syn::Ident::new(&format!("p{i}"), Span::call_site()));
+            }
             Err(e) => error.push(e),
         }
     }
@@ -257,25 +212,50 @@ fn generate_regex(input: &ScanfInner, escape_input: bool) -> Result<(TokenStream
 
     let regex_parts = RegexParts::new(&format, &types)?;
 
-    let regex = regex_parts.regex();
-    let num_captures = regex_parts.num_captures();
-    let regex = quote! { ::sscanf::lazy_static::lazy_static! {
-        static ref REGEX: ::sscanf::regex::Regex = {
-            let regex_str = #regex;
-            let regex = ::sscanf::regex::Regex::new(regex_str)
-                .expect("sscanf: Cannot generate Regex");
+    let parsers: Vec<TokenStream> = vec![];
+    let ret = quote! {{
+        type ScanfOutputTuple = ( #( #types ),* );
+        struct ScanfOutputWrapper<'input>(
+            #( #types, )*
+            ::std::marker::PhantomData<&'input ()> // in case none of the types use the lifetime
+        );
+        struct ScanfOutputParser<'input>(
+            #( ::sscanf::from_scanf::SubType<'input, #types>, )*
+            ::std::marker::PhantomData<&'input ()>
+        );
 
-            const NUM_CAPTURES: ::std::primitive::usize = #num_captures;
-
-            if regex.captures_len() != NUM_CAPTURES {
-                panic!(
-                    "sscanf: Regex has {} capture groups, but {} were expected.{}",
-                    regex.captures_len(), NUM_CAPTURES, ::sscanf::errors::WRONG_CAPTURES_HINT
-                );
+        impl<'input> ::sscanf::FromScanf<'input> for ScanfOutputWrapper<'input> {
+            type Parser = ScanfOutputParser<'input>;
+            fn create_parser(_: &::sscanf::from_scanf::format_options::FormatOptions) -> (::sscanf::from_scanf::RegexSegment, Self::Parser) {
+                todo!()
             }
-            regex
-        };
+        }
+
+        impl<'input> ::std::convert::From<ScanfOutputWrapper<'input>> for ScanfOutputTuple {
+            fn from(wrapper: ScanfOutputWrapper<'input>) -> Self {
+                let ScanfOutputWrapper( #( #parser_vars, )* _) = wrapper;
+                ( #( #parser_vars ),* )
+            }
+        }
+
+        impl<'input> ::sscanf::from_scanf::FromScanfParser<'input, ScanfOutputWrapper<'input>> for ScanfOutputParser<'input> {
+            fn parse(
+                &self,
+                _: &'input ::std::primitive::str,
+                mut sub_matches: &[::std::option::Option<&'input ::std::primitive::str>]
+            ) -> ::std::option::Option<ScanfOutputWrapper<'input>> {
+                let ScanfOutputParser( #( #parser_vars, )* _) = self;
+
+                #( let #parser_vars = #parser_vars.parse(&mut sub_matches)?; )*
+
+                assert!(sub_matches.is_empty(), "sscanf: expected no remaining sub-matches, got {}. Are there any custom types with incorrect FromScanf implementations?", sub_matches.len());
+
+                Some(ScanfOutputWrapper( #( #parser_vars, )* ::std::marker::PhantomData))
+            }
+        }
+
+        ::sscanf::parser_object::Sscanf::<ScanfOutputTuple>::new::<ScanfOutputWrapper>()
     }};
 
-    Ok((regex, regex_parts.matchers))
+    Ok(ret)
 }

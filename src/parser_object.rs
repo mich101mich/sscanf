@@ -6,22 +6,19 @@ use super::from_scanf::*;
 use regex::{Captures, Regex};
 
 /// An intermediate type to hold the state of one `sscanf!` format and type specification to allow applying it to
-/// multiple inputs or generating an iterator from one input.
+/// multiple inputs, either fully or as an iterator.
 pub struct Sscanf<'input, Tuple: 'input> {
-    full_regex: Option<Regex>,
+    full_regex: Regex,
     iter_regex: Option<Regex>,
     raw_regex: Cow<'static, str>,
     // type erasure for the intermediate type. See the documentation for `Sscanf::new` for more details.
-    parser: Box<dyn FnMut(Captures<'input>) -> Option<Tuple> + 'input>,
+    parser: Box<dyn Fn(Captures<'input>) -> Option<Tuple> + 'input>,
 }
 
 impl<'input, Tuple: 'input> Sscanf<'input, Tuple> {
     /// Parses an input string. Note that the entire input string from start to end has to match the sscanf format.
-    pub fn parse(&mut self, input: &'input str) -> Option<Tuple> {
-        let full_regex = self
-            .full_regex
-            .get_or_insert_with(|| Regex::new(&format!("^{}$", self.raw_regex)).unwrap());
-        (self.parser)(full_regex.captures(input)?)
+    pub fn parse(&self, input: &'input str) -> Option<Tuple> {
+        (self.parser)(self.full_regex.captures(input)?)
     }
 
     /// Creates an iterator over all non-overlapping matches in the input string. Note that this implies that the
@@ -45,12 +42,11 @@ impl<'input, Tuple: 'input> Sscanf<'input, Tuple> {
         &'parser mut self,
         input: &'input str,
     ) -> SscanfParseIter<'parser, 'input, Tuple> {
-        let iter_regex = self
-            .iter_regex
-            .get_or_insert_with(|| Regex::new(&self.raw_regex).unwrap());
-
+        let iter_regex = self.iter_regex.get_or_insert_with(|| {
+            Regex::new(&self.raw_regex).expect("sscanf: Failed to create regex")
+        });
         SscanfParseIter {
-            parser: &mut *self.parser,
+            parser: &self.parser,
             iter: iter_regex.captures_iter(input),
         }
     }
@@ -90,17 +86,19 @@ impl<'input, Tuple: 'input> Sscanf<'input, Tuple> {
             Some(parser.parse(full_match.unwrap(), sub_matches)?.into())
         };
 
+        let raw_regex = regex.into_raw_regex();
         Self {
-            full_regex: None,
+            full_regex: Regex::new(&format!("^{}$", raw_regex))
+                .expect("sscanf: Failed to create regex"),
             iter_regex: None,
-            raw_regex: regex.into_raw_regex(),
+            raw_regex,
             parser: Box::new(parser),
         }
     }
 
     /// Returns the raw regex used for this `Sscanf` instance.
     ///
-    /// Note that wen calling [`Sscanf::parse`], the regex is prefixed with `^` and suffixed with `$`, so it matches
+    /// Note that when calling [`Sscanf::parse`], the regex is prefixed with `^` and suffixed with `$`, so it matches
     /// the entire input string.
     pub fn raw_regex(&self) -> String {
         self.raw_regex.to_string()
@@ -109,7 +107,7 @@ impl<'input, Tuple: 'input> Sscanf<'input, Tuple> {
 
 /// The iterator returned by [`Sscanf::parse_iter`].
 pub struct SscanfParseIter<'parser, 'input: 'parser, Tuple> {
-    parser: &'parser mut (dyn FnMut(Captures<'input>) -> Option<Tuple> + 'input),
+    parser: &'parser (dyn Fn(Captures<'input>) -> Option<Tuple> + 'input),
     iter: ::regex::CaptureMatches<'parser, 'input>,
 }
 
@@ -117,6 +115,6 @@ impl<'input, Tuple: FromScanf<'input>> Iterator for SscanfParseIter<'_, 'input, 
     type Item = Tuple;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter.by_ref().find_map(&mut *self.parser)
+        self.iter.by_ref().find_map(self.parser)
     }
 }

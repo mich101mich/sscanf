@@ -98,36 +98,6 @@ pub use sscanf_macro::sscanf;
 /// ```
 pub use sscanf_macro::sscanf_parser;
 
-/// Same as [`sscanf`], but allows use of Regex in the format String.
-///
-/// Signature and Parameters are the same as [`sscanf`].
-///
-/// ## Examples
-/// ```
-/// use sscanf::sscanf_unescaped;
-/// let input = "5.0SOME_RANDOM_TEXT3";
-/// let output = sscanf_unescaped!(input, "{f32}.*?{usize}"); // .*? matches anything
-/// assert_eq!(output.unwrap(), (5.0, 3));
-/// ```
-///
-/// The basic [`sscanf`] would escape the `.`, `*` and `?`and match against the literal Characters,
-/// as one would expect from a Text matcher:
-/// ```
-/// use sscanf::sscanf;
-/// let input = "5.0SOME_RANDOM_TEXT3";
-/// let output = sscanf!(input, "{f32}.*{usize}");
-/// assert!(output.is_err()); // does not match
-///
-/// let input2 = "5.0.*3";
-/// let output2 = sscanf!(input2, "{f32}.*{usize}"); // regular sscanf is unaffected by special characters
-/// assert_eq!(output2.unwrap(), (5.0, 3));
-/// ```
-///
-/// Note that the `{{` and `}}` escaping for literal `{` and `}` is still required.
-///
-/// Also note that `^` and `$` are automatically added to the start and end.
-pub use sscanf_macro::sscanf_unescaped;
-
 /// A derive macro for [`FromScanf`](crate::FromScanf).
 ///
 /// ## For structs
