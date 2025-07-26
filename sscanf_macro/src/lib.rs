@@ -2,11 +2,11 @@
 
 use proc_macro::TokenStream as TokenStream1;
 pub(crate) use proc_macro2::{Span, TokenStream};
-pub(crate) use quote::{quote, ToTokens};
+pub(crate) use quote::{ToTokens, quote};
 pub(crate) use syn::{
+    Token,
     parse::{Parse, ParseStream},
     spanned::Spanned,
-    Token,
 };
 
 mod attribute;
@@ -31,26 +31,46 @@ pub(crate) use utils::*;
 
 mod derive;
 
-/// Format string and types for `sscanf_get_regex`. Shared by `sscanf` and `sscanf_unescaped`
-struct ScanfInner {
+/// Input string, format string and types for `sscanf` and `sscanf_unescaped`
+struct Scanf {
+    /// input to run the `sscanf` on
+    parse_input: syn::Expr,
     /// the format string
     fmt: StrLit,
     /// Types after the format string
     type_tokens: Vec<Type<'static>>,
 }
-/// Input string, format string and types for `sscanf` and `sscanf_unescaped`
-struct Scanf {
-    /// input to run the `sscanf` on
-    src_str: syn::Expr,
-    /// format string and types
-    inner: ScanfInner,
-}
 
-impl Parse for ScanfInner {
+impl Parse for Scanf {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         if input.is_empty() {
-            let msg = "missing parameter: format string";
-            return Err(syn::Error::new(Span::call_site(), msg)); // checked in tests/fail/missing_params.rs
+            // All of these special cases have to be handled separately, because syn's default
+            // behavior when something is missing is to point at the entire macro invocation with
+            // an error message that says "expected <missing thing>". But if a user sees the entire
+            // thing underlined with the message "expected a comma", they will assume that they
+            // should replace that macro call with a comma or something similar. They would not
+            // guess that the actual meaning is:
+            // "this macro requires more parameters than I have given it, and the next
+            // parameter should be separated with a comma from the current ones which is why the
+            // macro expected a comma, and it would point to the end of the input where the comma
+            // was expected, but since there is nothing there it has no span to point to so it
+            // just points at the entire thing."
+
+            bail_syn!(Span::call_site().stable_end() => "at least 2 Parameters required: Input and format string");
+            // checked in tests/fail/missing_params.rs
+        }
+        let parse_input: syn::Expr = input.parse()?;
+        if input.is_empty() {
+            bail_syn!(parse_input.end_span() => "at least 2 Parameters required: Missing format string");
+            // checked in tests/fail/missing_params.rs
+        }
+        let comma = input.parse::<Token![,]>()?;
+        if input.is_empty() {
+            // Addition to the comment above: here we actually have a comma to point to to say:
+            // "Hey, you put a comma here, put something after it". syn doesn't do this
+            // because it cannot rewind the input stream to check this.
+            bail_syn!(comma.end_span() => "at least 2 Parameters required: Missing format string");
+            // checked in tests/fail/missing_params.rs
         }
 
         let fmt = input.parse::<StrLit>()?;
@@ -66,43 +86,11 @@ impl Parse for ScanfInner {
                 .collect()
         };
 
-        Ok(ScanfInner { fmt, type_tokens })
-    }
-}
-impl Parse for Scanf {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        if input.is_empty() {
-            // All of these special cases have to be handled separately, because syn's default
-            // behavior when something is missing is to point at the entire macro invocation with
-            // an error message that says "expected <missing thing>". But if a user sees the entire
-            // thing underlined with the message "expected a comma", they will assume that they
-            // should replace that macro call with a comma or something similar. They would not
-            // guess that the actual meaning is:
-            // "this macro requires more parameters than I have given it, and the next
-            // parameter should be separated with a comma from the current ones which is why the
-            // macro expected a comma, and it would point to the end of the input where the comma
-            // was expected, but since there is nothing there it has no span to point to so it
-            // just points at the entire thing."
-            // I love writing error messages in proc macros :D (not)
-            let msg = "at least 2 Parameters required: Input and format string";
-            return Err(syn::Error::new(Span::call_site(), msg)); // checked in tests/fail/missing_params.rs
-        }
-        let src_str = input.parse()?;
-        if input.is_empty() {
-            let msg = "at least 2 Parameters required: Missing format string";
-            return Err(syn::Error::new_spanned(src_str, msg)); // checked in tests/fail/missing_params.rs
-        }
-        let comma = input.parse::<Token![,]>()?;
-        if input.is_empty() {
-            // Addition to the comment above: here we actually have a comma to point to to say:
-            // "Hey, you put a comma here, put something after it". syn doesn't do this
-            // because it cannot rewind the input stream to check this.
-            let msg = "at least 2 Parameters required: Missing format string";
-            return Err(syn::Error::new_spanned(comma, msg)); // checked in tests/fail/missing_params.rs
-        }
-        let inner = input.parse()?;
-
-        Ok(Scanf { src_str, inner })
+        Ok(Scanf {
+            parse_input,
+            fmt,
+            type_tokens,
+        })
     }
 }
 
@@ -116,20 +104,6 @@ pub fn sscanf(input: TokenStream1) -> TokenStream1 {
 pub fn sscanf_unescaped(input: TokenStream1) -> TokenStream1 {
     let input = syn::parse_macro_input!(input as Scanf);
     sscanf_internal(input, false)
-}
-
-#[proc_macro]
-pub fn sscanf_get_regex(input: TokenStream1) -> TokenStream1 {
-    let input = syn::parse_macro_input!(input as ScanfInner);
-    let (regex, _) = match generate_regex(&input, true) {
-        Ok(v) => v,
-        Err(e) => return e.into(),
-    };
-    let ret = quote! {{
-        #regex
-        &REGEX
-    }};
-    ret.into()
 }
 
 #[proc_macro_derive(FromScanf, attributes(sscanf))]
@@ -154,12 +128,12 @@ pub fn derive_from_sscanf(input: TokenStream1) -> TokenStream1 {
 }
 
 fn sscanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
-    let (regex, matcher) = match generate_regex(&input.inner, escape_input) {
+    let (regex, matcher) = match generate_regex(&input, escape_input) {
         Ok(v) => v,
         Err(e) => return e.into(),
     };
     let src_str = {
-        let src_str = input.src_str;
+        let src_str = input.parse_input;
         let span = FullSpan::from_spanned(&src_str);
         let param = span.apply(quote! { & }, quote! { (#src_str) });
 
@@ -173,29 +147,21 @@ fn sscanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
         let input: &str = #src_str;
         #[allow(clippy::needless_question_mark)]
         REGEX.captures(input)
-            .ok_or_else(|| ::sscanf::errors::Error::MatchFailed)
             .and_then(|cap| {
-                let mut src = cap.iter();
-                let src = &mut src;
-                src.next().unwrap(); // skip the whole match
+                let mut src = &cap[..];
 
-                let mut matcher = || -> ::std::result::Result<_, ::std::boxed::Box<dyn ::std::error::Error>> {
-                    ::std::result::Result::Ok( ( #(#matcher),* ) )
-                };
-                let res = matcher().map_err(|e| ::sscanf::errors::Error::ParsingFailed(e));
+                let res = ( #(#matcher),* );
 
-                if res.is_ok() && src.len() != 0 {
-                    panic!("sscanf: {} captures generated, but {} were taken",
-                        REGEX.captures_len(), REGEX.captures_len() - src.len()
-                    );
+                if !src.is_empty() {
+                    panic!("sscanf: {} captures generated, but {} were taken", NUM_CAPTURES, NUM_CAPTURES - src.len());
                 }
-                res
+                ::std::option::Option::Some(res)
             })
     }};
     ret.into()
 }
 
-fn generate_regex(input: &ScanfInner, escape_input: bool) -> Result<(TokenStream, Vec<Matcher>)> {
+fn generate_regex(input: &Scanf, escape_input: bool) -> Result<(TokenStream, Vec<Matcher>)> {
     let mut format = FormatString::new(input.fmt.to_slice(), escape_input)?;
     format.parts[0].insert(0, '^');
     format.parts.last_mut().unwrap().push('$');
@@ -211,7 +177,7 @@ fn generate_regex(input: &ScanfInner, escape_input: bool) -> Result<(TokenStream
             if let Ok(n) = name.text().parse::<usize>() {
                 if n >= visited.len() {
                     let msg = format!("type index {} out of range of {} types", n, visited.len());
-                    return name.err(&msg); // checked in tests/fail/<channel>/invalid_type_in_placeholder.rs
+                    return name.err(msg); // checked in tests/fail/<channel>/invalid_type_in_placeholder.rs
                 }
                 n
             } else {
@@ -226,8 +192,7 @@ fn generate_regex(input: &ScanfInner, escape_input: bool) -> Result<(TokenStream
             let n = *ph_index;
             *ph_index += 1;
             if n >= visited.len() {
-                let msg = "more placeholders than types provided";
-                return ph.src.err(msg); // checked in tests/fail/<channel>/missing_type.rs
+                bail!(ph.src => "more placeholders than types provided"); // checked in tests/fail/<channel>/missing_type.rs
             }
             n
         };
@@ -259,23 +224,11 @@ fn generate_regex(input: &ScanfInner, escape_input: bool) -> Result<(TokenStream
 
     let regex = regex_parts.regex();
     let num_captures = regex_parts.num_captures();
-    let regex = quote! { ::sscanf::lazy_static::lazy_static! {
-        static ref REGEX: ::sscanf::regex::Regex = {
-            let regex_str = #regex;
-            let regex = ::sscanf::regex::Regex::new(regex_str)
-                .expect("sscanf: Cannot generate Regex");
-
-            const NUM_CAPTURES: ::std::primitive::usize = #num_captures;
-
-            if regex.captures_len() != NUM_CAPTURES {
-                panic!(
-                    "sscanf: Regex has {} capture groups, but {} were expected.{}",
-                    regex.captures_len(), NUM_CAPTURES, ::sscanf::errors::WRONG_CAPTURES_HINT
-                );
-            }
-            regex
-        };
-    }};
+    let regex = quote! {
+        static REGEX: ::sscanf::__macro_utilities::WrappedRegex = ::sscanf::__macro_utilities::WrappedRegex::new(#regex);
+        const NUM_CAPTURES: ::std::primitive::usize = #num_captures;
+        REGEX.assert_compiled(NUM_CAPTURES);
+    };
 
     Ok((regex, regex_parts.matchers))
 }

@@ -36,20 +36,13 @@ impl FromAttribute<attr::Field, &'_ syn::Type> for FieldAttributeKind {
                 let mapper = if let syn::Expr::Closure(closure) = mapper {
                     closure
                 } else {
-                    let msg = format!(
-                        "attribute `{}` requires a closure like: `{}`\n{}",
-                        attr.kind, closure_format, closure_hint
-                    );
-                    return Error::err_spanned(mapper, msg); // checked in tests/fail/derive_field_attributes.rs
+                    bail!(mapper => "attribute `{}` requires a closure like: `{closure_format}`\n{closure_hint}", attr.kind);
+                    // checked in tests/fail/derive_field_attributes.rs
                 };
 
                 let param = if mapper.inputs.len() == 1 {
                     mapper.inputs.first().unwrap()
                 } else {
-                    let msg = format!(
-                        "attribute `{}` requires a closure with exactly one argument",
-                        attr.kind
-                    );
                     let mut span_src = TokenStream::new();
                     for param in mapper.inputs.pairs().skip(1) {
                         param.to_tokens(&mut span_src);
@@ -59,17 +52,17 @@ impl FromAttribute<attr::Field, &'_ syn::Type> for FieldAttributeKind {
                         mapper.or1_token.to_tokens(&mut span_src);
                         mapper.or2_token.to_tokens(&mut span_src);
                     }
-                    return Error::err_spanned(span_src, msg); // checked in tests/fail/derive_field_attributes.rs
+                    return span_src.err(format!(
+                        "attribute `{}` requires a closure with exactly one argument",
+                        attr.kind
+                    )); // checked in tests/fail/derive_field_attributes.rs
                 };
 
                 let ty = if let syn::Pat::Type(ty) = param {
                     (*ty.ty).clone()
                 } else {
-                    let msg = format!(
-                        "`{}` closure has to specify the type of the argument",
-                        attr.kind
-                    );
-                    return Error::err_spanned(param, msg); // checked in tests/fail/derive_field_attributes.rs
+                    bail!(param => "`{}` closure has to specify the type of the argument", attr.kind);
+                    // checked in tests/fail/derive_field_attributes.rs
                 };
 
                 Self::Map {

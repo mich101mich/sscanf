@@ -25,6 +25,7 @@ static WRONG_INPUTS: &[&str] = &[
 ];
 
 #[test]
+#[allow(clippy::vec_init_then_push)]
 fn defaults() {
     #[derive(FromScanf, Debug, PartialEq)]
     #[sscanf(format = "({d},{b},{c},{a})")]

@@ -1,23 +1,16 @@
-use std::error::Error;
-use std::str::FromStr;
-
-use crate::errors::FromStrFailedError;
+mod impls;
 
 /// A trait that allows you to use a custom regex for parsing a type.
 ///
-/// There are three options to implement this trait:
-/// - `#[derive(FromScanf)]` (recommended)
-/// - implement [`std::str::FromStr`] and relying on the [blanket implementation](#impl-FromScanf<%27t>)
-/// - manual implementation (highly discouraged)
-///
-/// The second and third options also require you to implement [`RegexRepresentation`](crate::RegexRepresentation),
-/// unless you **always** use a custom regex `{:/.../}`, but that tends to make the code less readable.
+/// There are two options to implement this trait:
+/// - `#[derive(FromScanf)]` (simple, readable, fool proof (mostly))
+/// - manual implementation (flexible, but requires more code)
 ///
 /// ## Option 1: Deriving
 /// ```
 /// #[derive(sscanf::FromScanf)]
 /// #[sscanf(format = "#{r:r16}{g:r16}{b:r16}")] // matches '#' followed by 3 hexadecimal u8s
-/// struct Color {                               // note the use of :r16 over :x to avoid prefixes
+/// struct Color {                               // note the use of :r16 over :x to avoid `0x` prefixes
 ///     r: u8,
 ///     g: u8,
 ///     b: u8,
@@ -32,7 +25,7 @@ use crate::errors::FromStrFailedError;
 ///
 /// A detailed description of the syntax and options can be found [here](derive.FromScanf.html)
 ///
-/// ## Option 2: Implementing [`FromStr`]
+/// ## Option 2: Manual Implementation
 /// ```
 /// struct Color {
 ///     r: u8,
@@ -40,41 +33,21 @@ use crate::errors::FromStrFailedError;
 ///     b: u8,
 /// }
 ///
-/// impl sscanf::RegexRepresentation for Color {
-///     // matches '#' followed by 6 hexadecimal digits
-///     const REGEX: &'static str = r"#[0-9a-fA-F]{6}";
-/// }
+/// impl sscanf::FromScanf<'_> for Color {
+///     // matches '#' followed by 3 capture groups of 2 hexadecimal digits each
+///     const REGEX: &'static str = r"#([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})";
 ///
-/// #[derive(Debug)]
-/// enum ColorParseError { // arbitrary error type for demonstration purposes
-///     InvalidHexDigit(std::num::ParseIntError),
-///     InvalidLength(usize),
-///     InvalidPrefix,
-/// }
-/// // ... implementation of From<ParseIntError>, Display, and Error omitted here ...
-/// # impl From<std::num::ParseIntError> for ColorParseError {
-/// #     fn from(e: std::num::ParseIntError) -> Self {
-/// #         ColorParseError::InvalidHexDigit(e)
-/// #     }
-/// # }
-/// # impl std::fmt::Display for ColorParseError {
-/// #     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-/// #         <Self as std::fmt::Debug>::fmt(self, f)
-/// #     }
-/// # }
-/// # impl std::error::Error for ColorParseError {}
-///
-/// impl std::str::FromStr for Color {
-///     type Err = ColorParseError;
-///     fn from_str(s: &str) -> Result<Self, Self::Err> {
-///         let s = s.strip_prefix('#').ok_or(ColorParseError::InvalidPrefix)?;
-///         if s.len() != 6 {
-///             return Err(ColorParseError::InvalidLength(s.len()));
-///         }
-///         let r = u8::from_str_radix(&s[0..2], 16)?;
-///         let g = u8::from_str_radix(&s[2..4], 16)?;
-///         let b = u8::from_str_radix(&s[4..6], 16)?;
-///         Ok(Color { r, g, b })
+///     fn from_matches(_full_match: &str, sub_matches: &[Option<&str>]) -> Option<Self> {
+///         // The full match is the entire matched string including the '#', but we don't need it
+///         // here since we created capture groups in our regex.
+///         // Those groups can be accessed through sub_matches.
+///         Some(Self {
+///             r: u8::from_str_radix(sub_matches[0].unwrap(), 16).unwrap(),
+///             g: u8::from_str_radix(sub_matches[1].unwrap(), 16).unwrap(),
+///             b: u8::from_str_radix(sub_matches[2].unwrap(), 16).unwrap(),
+///         })
+///         // note the use of `unwrap()` here, since the input to this function is guaranteed to
+///         // match the regex and so we know that the contents are valid.
 ///     }
 /// }
 ///
@@ -83,100 +56,28 @@ use crate::errors::FromStrFailedError;
 /// assert_eq!(parsed.r, 0xff); assert_eq!(parsed.g, 0x12); assert_eq!(parsed.b, 0xcc);
 /// ```
 /// This option gives a lot more control over the parsing process, but requires more code and
-/// manual error handling.
-///
-/// ## Option 3: Manual implementation
-/// This should only be done if absolutely necessary, since it requires upholding several
-/// conditions that cannot be properly checked by `sscanf`.
-/// ```
-/// # #[derive(Debug, PartialEq)]
-/// struct Color {
-///     r: u8,
-///     g: u8,
-///     b: u8,
-/// }
-///
-/// impl sscanf::RegexRepresentation for Color {
-///     // matches '#' followed by 3 capture groups with 2 hexadecimal digits each
-///     //
-///     // Capture groups are normally not allowed in RegexRepresentation, because the default
-///     // `FromStr` blanket implementation does not handle them. Since this is a manual
-///     // implementation of `FromScanf`, we can handle them ourselves.
-///     const REGEX: &'static str = r"#([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})";
-///     //                            # \_____r______/  \_____g______/  \_____b______/
-/// }
-///
-/// impl sscanf::FromScanf<'_> for Color {
-///     /// The Error type in case parsing fails. In this case it is set to never fail (Infallible),
-///     /// since if the above regex matches, the parsing cannot fail.
-///     type Err = std::convert::Infallible;
-///     const NUM_CAPTURES: usize = 4; // 3 capture groups + the whole match
-///     fn from_matches(src: &mut regex::SubCaptureMatches) -> Result<Self, Self::Err> {
-///         let _ = src.next().unwrap().unwrap(); // skip the whole match
-///         // note the double-unwrap, since SubCaptureMatches::next() returns an Option<Option<Match>>
-///
-///         // checking the prefix is not necessary here, since the regex already enforces it
-///
-///         let r_str = src.next().unwrap().unwrap().as_str(); // unwrap is ok because the regex only matches if all capture groups match
-///         let r = u8::from_str_radix(r_str, 16).unwrap();
-///         let g_str = src.next().unwrap().unwrap().as_str();
-///         let g = u8::from_str_radix(g_str, 16).unwrap();
-///         let b_str = src.next().unwrap().unwrap().as_str();
-///         let b = u8::from_str_radix(b_str, 16).unwrap();
-///         // note that every result can be unwrapped here:
-///         // This is possible because this trait is only used on a match to the RegexRepresentation::REGEX,
-///         // which guarantees that everything is in the correct format. This means that the matched
-///         // text for each capture group is guaranteed to be a valid u8 in hexadecimal format.
-///
-///         Ok(Color { r, g, b })
-///     }
-/// }
-///
-/// let input = "color: #ff12cc";
-/// let parsed = sscanf::sscanf!(input, "color: {Color}").unwrap();
-/// assert_eq!(parsed.r, 0xff); assert_eq!(parsed.g, 0x12); assert_eq!(parsed.b, 0xcc);
-/// ```
-/// This option usually has a faster runtime than [`FromStr`], since it can have capture groups
-/// match during the initial parsing instead of having to parse the string again in the
-/// [`FromStr`] implementation.
-///
-/// The downside is that it requires manually upholding the [`NUM_CAPTURES`](FromScanf::NUM_CAPTURES)
-/// contract, which cannot be checked at compile time. It is also mostly not checked at runtime,
-/// since this would require overhead that is unnecessary in all intended cases. This means that
-/// an error in one implementation might cause a panic in another implementation, which is
-/// near-impossible to debug.
-///
-/// The contract is:
-/// - `NUM_CAPTURES` **IS EQUAL TO**
-/// - the number of consumed elements from the iterator passed to [`from_matches`](FromScanf::from_matches) **IS EQUAL TO**
-/// - 1 + the number of unescaped capture groups in [`RegexRepresentation`](crate::RegexRepresentation) (or `{:/.../}`).
-///   The 1 is for the whole match, which is a capture group added by `sscanf`.
-///
-/// All of these are automatically enforced by the derive macro or the [`FromStr`] implementation,
-/// which is why they should be preferred over this option.
+/// manually writing the regex/parsing.
 ///
 /// #### Lifetime Parameter
 /// The lifetime parameter of `FromScanf` is the borrow from the input string given to `sscanf`.
 /// If your type borrows parts of that string, like `&str` does, you need to specify the lifetime
-/// parameter and match it with the _second_ lifetime parameter of [`regex::SubCaptureMatches`]:
+/// parameter and match it with the `'input` parameter:
 /// ```
 /// struct Name<'a, 'b> {
 ///     first: &'a str,
 ///     last: &'b str,
 /// }
 ///
-/// impl<'a, 'b> sscanf::RegexRepresentation for Name<'a, 'b> {
-///     const REGEX: &'static str = r"(\w+) (\w+)";
-/// }
+/// impl<'input> FromScanf<'input> for Name<'input, 'input> {
+///     // both parts are given the same input => same lifetime
 ///
-/// impl<'t> sscanf::FromScanf<'t> for Name<'t, 't> { // both parts are given the same input => same lifetime
-///     type Err = std::convert::Infallible;
-///     const NUM_CAPTURES: usize = 3;
-///     fn from_matches(src: &mut regex::SubCaptureMatches<'_, 't>) -> Result<Self, Self::Err> {
-///         let _ = src.next().unwrap().unwrap(); // skip the whole match
-///         let first = src.next().unwrap().unwrap().as_str();
-///         let last = src.next().unwrap().unwrap().as_str();
-///         Ok(Self { first, last })
+///     const REGEX: &'static str = r"(\w+) (\w+)";
+///
+///     fn from_matches(_full_match: &'input str, sub_matches: &[Option<&'input str>]) -> Option<Self> {
+///         Some(Self {
+///             first: sub_matches[0].unwrap(),
+///             last: sub_matches[1].unwrap(),
+///         })
 ///     }
 /// }
 ///
@@ -191,7 +92,7 @@ use crate::errors::FromStrFailedError;
 ///
 /// ```compile_fail
 /// # #[derive(sscanf::FromScanf)]
-/// # #[sscanf(format = "{} {}")]
+/// # #[sscanf("{first} {last}")]
 /// struct Name<'a, 'b> {
 ///     first: &'a str,
 ///     last: &'b str,
@@ -200,98 +101,50 @@ use crate::errors::FromStrFailedError;
 ///
 /// let parsed;
 /// {
-///     let input = String::from("John Doe"); // owned string
+///     let input = String::from("John Doe"); // locally owned string
 ///     parsed = sscanf::sscanf!(input, "{Name}").unwrap();
 ///     // input is dropped here
 /// }
 /// println!("{} {}", parsed.first, parsed.last); // use after drop
 /// ```
-pub trait FromScanf<'t>
+///
+/// Note that lifetimes are automatically handled when deriving, though this is based on checking through the
+/// provided types and their lifetimes, so it may not always be correct.
+/// ```
+/// #[derive(sscanf::FromScanf)]
+/// #[sscanf("{first} {last}")]
+/// struct Name<'a, 'b> {
+///     first: &'a str,
+///     last: &'b str,
+/// }
+///
+/// let input = String::from("John Doe");
+/// let parsed = sscanf::sscanf!(input, "{Name}").unwrap();
+/// assert_eq!(parsed.first, "John");
+/// assert_eq!(parsed.last, "Doe");
+/// ```
+///
+#[diagnostic::on_unimplemented(
+    message = "the type `{Self}` does not implement `FromScanf`",
+    label = "`{Self}` does not implement `FromScanf`",
+    note = "derive or implement `FromScanf` for `{Self}` to use it with `sscanf!`"
+)]
+pub trait FromScanf<'input>
 where
     Self: Sized,
 {
-    /// Error type
-    type Err: Error + 'static;
-
-    /// Number of captures taken by this regex.
-    ///
-    /// **HAS** to match the number of unescaped capture groups in the [`RegexRepresentation`](crate::RegexRepresentation)
-    /// +1 for the whole match.
-    const NUM_CAPTURES: usize;
+    /// A regular Expression that exactly matches any String representation of the implementing Type
+    const REGEX: &'static str;
 
     /// The implementation of the parsing.
     ///
-    /// **HAS** to take **EXACTLY** `NUM_CAPTURES` elements from the iterator.
-    fn from_matches(src: &mut regex::SubCaptureMatches<'_, 't>) -> Result<Self, Self::Err>;
-
-    /// Convenience shortcut for directly using this trait.
-    ///
-    /// If you have a string containing just the formatted version of the implementing type without
-    /// any text around it, it would normally still be necessary to call
-    /// ```ignore
-    /// sscanf::sscanf!(input, "{<type>}")
+    /// For types implementing [`FromStr`](std::str::FromStr), this can just be
     /// ```
-    /// in order to use the [`FromScanf`] implementation.
-    ///
-    /// This method allows you to call
-    /// ```ignore
-    /// <type>::from_str(input)
+    /// fn from_matches(input: &str, _: &[&str]) -> Option<Self> {
+    ///     input.parse().ok()
+    /// }
     /// ```
-    /// instead.
-    ///
-    /// On types that were auto-implemented based on their [`FromStr`] implementation, this method
-    /// is functionally identical to [`FromStr::from_str`].
-    ///
-    /// Note that the returned [`Error`](crate::errors::Error) is the same as the one returned by
-    /// [`sscanf!`](crate::sscanf), potentially wrapping a [`FromScanf::Err`].
-    fn from_str(src: &'t str) -> Result<Self, crate::errors::Error>
-    where
-        Self: crate::RegexRepresentation,
-    {
-        let regex = format!("^{}$", Self::REGEX);
-        #[allow(unused_qualifications)] // would complain about the `crate::` prefix, but we
-        // specifically want the bundled regex rather than whatever a user has renamed to `regex`
-        let regex = crate::regex::Regex::new(&regex).unwrap_or_else(|err| {
-            panic!(
-                "sscanf: Type {} has invalid RegexRepresentation `{}`: {}",
-                std::any::type_name::<Self>(),
-                Self::REGEX,
-                err
-            )
-        });
-
-        regex
-            .captures(src)
-            .ok_or_else(|| crate::errors::Error::MatchFailed)
-            .and_then(|cap| {
-                let mut src = cap.iter();
-
-                Self::from_matches(&mut src)
-                    .map_err(|e| crate::errors::Error::ParsingFailed(Box::new(e)))
-            })
-    }
-}
-
-impl<'t, T> FromScanf<'t> for T
-where
-    T: FromStr + 'static,
-    <T as FromStr>::Err: Error + 'static,
-{
-    type Err = FromStrFailedError<T>;
-    const NUM_CAPTURES: usize = 1;
-    fn from_matches(src: &mut regex::SubCaptureMatches<'_, 't>) -> Result<Self, Self::Err> {
-        src.next()
-            .expect(crate::errors::EXPECT_NEXT_HINT)
-            .expect(crate::errors::EXPECT_CAPTURE_HINT)
-            .as_str()
-            .parse()
-            .map_err(Self::Err::new)
-    }
-    fn from_str(src: &'t str) -> Result<Self, crate::errors::Error> {
-        src.parse()
-            .map_err(Self::Err::new)
-            .map_err(|e| crate::errors::Error::ParsingFailed(Box::new(e)))
-    }
+    fn from_matches(full_match: &'input str, sub_matches: &[Option<&'input str>]) -> Option<Self>;
 }
 
 #[doc(hidden)]

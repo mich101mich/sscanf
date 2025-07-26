@@ -1,4 +1,4 @@
-use std::fmt::Write;
+use std::fmt::{Display, Write};
 
 use proc_macro2::{Literal, Span};
 use unicode_width::UnicodeWidthStr;
@@ -32,7 +32,7 @@ impl StrLit {
         self.text.starts_with('r')
     }
 
-    pub fn to_slice(&self) -> StrLitSlice {
+    pub fn to_slice<'a>(&'a self) -> StrLitSlice<'a> {
         // find the position of the opening quote. raw strings may have a prefix of any length,
         // which needs to be skipped. This information used to be provided by syn, but was removed
         // at some point. This approach is a dirty hack, which relies on the
@@ -119,12 +119,12 @@ impl<'a> StrLitSlice<'a> {
     }
 
     /// Generates a `Result::Err` with the given message for the slice.
-    pub fn err<T>(&self, message: &str) -> Result<T> {
+    pub fn err<T>(&self, message: impl Display) -> Result<T> {
         Err(self.error(message))
     }
 
     /// Generates a [`crate::Error`] with the given message for the slice.
-    pub fn error<U: std::fmt::Display>(&self, message: U) -> Error {
+    pub fn error(&self, message: impl Display) -> Error {
         // subspan allows pointing at a span that is not the whole string, but it only works in nightly
         if let Some(span) = self.src.span_provider.subspan(self.range.clone()) {
             Error::new(span, message)
@@ -171,5 +171,16 @@ impl std::ops::Deref for StrLit {
     type Target = str;
     fn deref(&self) -> &Self::Target {
         &self.text
+    }
+}
+
+impl Display for StrLit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.text)
+    }
+}
+impl Display for StrLitSlice<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.text())
     }
 }

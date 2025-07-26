@@ -60,30 +60,14 @@
 mod macros;
 pub use macros::*;
 
-mod regex_representation;
-pub use regex_representation::*;
-
 mod from_scanf;
 pub use from_scanf::*;
-
-mod types;
-pub use types::*;
-
-pub mod errors;
-#[doc(inline)]
-pub use errors::Error;
-#[doc(hidden)]
-pub use errors::{FromScanfFailedError, FromStrFailedError}; // for backwards compatibility
 
 #[doc = include_str!("../Changelog.md")]
 pub mod changelog {}
 
 #[doc(hidden)]
 pub use const_format;
-#[doc(hidden)]
-pub use lazy_static;
-#[doc(hidden)]
-pub use regex;
 
-#[allow(unused_imports)]
-use std::str::FromStr; // for links in the documentation
+#[doc(hidden)]
+mod __macro_utilities;

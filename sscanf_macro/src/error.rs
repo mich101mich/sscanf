@@ -1,9 +1,23 @@
+#![allow(dead_code)]
+
 use proc_macro2::{Span, TokenStream};
 use std::fmt::Display;
 
 pub struct Error(TokenStream);
 
 pub type Result<T> = std::result::Result<T, Error>;
+
+macro_rules! bail {
+    ( $span:expr => $format:expr $(, $arg:expr)* ) => {
+        return $span.err(format!($format, $($arg),*))
+    };
+}
+macro_rules! bail_syn {
+    ( $span:expr => $format:expr $(, $arg:expr)* ) => {
+        return $span.err_syn(format!($format, $($arg),*))
+    };
+}
+pub(crate) use {bail, bail_syn};
 
 impl Error {
     pub fn new<T: Display>(span: Span, message: T) -> Self {
@@ -86,5 +100,31 @@ impl From<Error> for TokenStream {
 impl From<Error> for proc_macro::TokenStream {
     fn from(err: Error) -> Self {
         err.0.into()
+    }
+}
+
+pub trait ToTokensErrExt {
+    fn err<T>(&self, message: impl Display) -> Result<T>;
+    fn err_syn<T>(&self, message: impl Display) -> syn::Result<T>;
+}
+impl<S: quote::ToTokens> ToTokensErrExt for S {
+    fn err<T>(&self, message: impl Display) -> Result<T> {
+        Error::err_spanned(self, message)
+    }
+    fn err_syn<T>(&self, message: impl Display) -> syn::Result<T> {
+        Err(syn::Error::new_spanned(self, message))
+    }
+}
+
+pub trait SpanErrExt {
+    fn err<T>(self, message: impl Display) -> Result<T>;
+    fn err_syn<T>(self, message: impl Display) -> syn::Result<T>;
+}
+impl SpanErrExt for Span {
+    fn err<T>(self, message: impl Display) -> Result<T> {
+        Error::err(self, message)
+    }
+    fn err_syn<T>(self, message: impl Display) -> syn::Result<T> {
+        Err(syn::Error::new(self, message))
     }
 }

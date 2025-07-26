@@ -97,3 +97,43 @@ impl TokenStreamExt for TokenStream {
             .collect()
     }
 }
+
+// WORKAROUNDS: proc_macro(1) has stabilized several methods on Span, but proc_macro2 has not.
+// Will be removed once proc_macro2 stabilizes these methods.
+
+pub trait SpanExt {
+    fn stable_start(&self) -> Span;
+    fn stable_end(&self) -> Span;
+}
+impl SpanExt for Span {
+    fn stable_start(&self) -> Span {
+        self.unwrap().start().into() // Span2 -> Span1 -> call start() -> Span2
+    }
+    fn stable_end(&self) -> Span {
+        self.unwrap().end().into() // Span2 -> Span1 -> call end() -> Span2
+    }
+}
+
+pub trait ToTokensExt {
+    fn start_span(&self) -> Span;
+    fn end_span(&self) -> Span;
+}
+
+impl<T: ToTokens> ToTokensExt for T {
+    fn start_span(&self) -> Span {
+        self.to_token_stream()
+            .into_iter()
+            .next()
+            .unwrap()
+            .span()
+            .stable_start()
+    }
+    fn end_span(&self) -> Span {
+        self.to_token_stream()
+            .into_iter()
+            .last()
+            .unwrap()
+            .span()
+            .stable_end()
+    }
+}

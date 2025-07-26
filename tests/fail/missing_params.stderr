@@ -29,11 +29,3 @@ error: expected string literal
   |
 6 |     sscanf::sscanf!("5", usize);
   |                          ^^^^^
-
-error: missing parameter: format string
- --> tests/fail/missing_params.rs:7:5
-  |
-7 |     sscanf::sscanf_get_regex!();
-  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  |
-  = note: this error originates in the macro `sscanf::sscanf_get_regex` (in Nightly builds, run with -Z macro-backtrace for more info)
