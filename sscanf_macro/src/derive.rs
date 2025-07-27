@@ -52,7 +52,7 @@ impl ValueSource {
         }
     }
 
-    fn get(&self, field_ty: &Type, matchers: &[Matcher]) -> TokenStream {
+    fn get(&self, field_ty: &Type, converters: &[Converter]) -> TokenStream {
         match self {
             ValueSource::Default { def, .. } => def
                 .as_ref()
@@ -62,10 +62,7 @@ impl ValueSource {
                         .full_span()
                         .apply(quote! { ::std::default::Default }, quote! { ::default() })
                 }),
-            ValueSource::Placeholder(i) => {
-                let matcher = &matchers[*i];
-                quote! { #matcher }
-            }
+            ValueSource::Placeholder(i) => converters[*i].to_token_stream(),
         }
     }
 
@@ -89,7 +86,7 @@ enum ValueConversionMethod {
     FilterMap(syn::ExprClosure),
 }
 impl ValueConversion {
-    fn apply(&self, value: TokenStream, field_name: &FieldIdent) -> TokenStream {
+    fn apply(&self, value: TokenStream) -> TokenStream {
         let ValueConversion { from, to, with } = self;
         use ValueConversionMethod::*;
         match with {
@@ -99,7 +96,7 @@ impl ValueConversion {
             ),
             TryFrom => FullSpan::from_spanned(from).apply(
                 quote! { <#to as ::std::convert::TryFrom<#from>> },
-                quote! { ::try_from(#value)? },
+                quote! { ::try_from(#value).ok()? },
             ),
             Map(closure) => {
                 let span = closure.body.span();
@@ -112,9 +109,7 @@ impl ValueConversion {
                 let span = closure.body.span();
                 quote::quote_spanned! {span=> {
                     let f: fn(#from) -> ::std::option::Option<#to> = #closure;
-                    f(#value).ok_or(::sscanf::__macro_utilities::FilterMapNoneError {
-                        field_name: stringify!(#field_name)
-                    })?
+                    f(#value)?
                 }}
             }
         }
@@ -182,10 +177,10 @@ fn parse_format(
 
         let ty = Type::from_ty(ty);
 
-        if value_source.is_none() {
-            if let Some(lt) = ty.lifetime() {
-                str_lifetimes.insert(lt.clone());
-            }
+        if value_source.is_none()
+            && let Some(lt) = ty.lifetime()
+        {
+            str_lifetimes.insert(lt.clone());
         }
 
         fields.push(Field {
@@ -279,11 +274,14 @@ The syntax for default values is: `#[sscanf(default)]` to use Default::default()
         let ident = field.ident;
         let ty = field.ty;
 
-        let mut value = field.value_source.unwrap().get(&ty, &regex_parts.matchers);
+        let mut value = field
+            .value_source
+            .unwrap()
+            .get(&ty, &regex_parts.converters);
         // unwrap is safe because the unused_field_iter above ensures that all fields have a value_source
 
         if let Some(conv) = field.conversion {
-            value = conv.apply(value, &ident);
+            value = conv.apply(value);
         }
 
         from_matches.push(quote! { #ident: #value });
@@ -342,8 +340,10 @@ Please add either of #[sscanf(format = "...")], #[sscanf(format_unescaped = "...
 
     let (regex_parts, from_matches, str_lifetimes) = parse_format(attr, data.fields)?;
 
+    let ty_generics = generics.split_for_impl().1; // generics of the type have to be kept as-is from the struct definition
+
     let (lifetime, lt_generics) = merge_lifetimes(str_lifetimes, generics);
-    let (impl_generics, ty_generics, where_clause) = lt_generics.split_for_impl();
+    let (impl_generics, _, where_clause) = lt_generics.split_for_impl();
 
     let regex = regex_parts.regex();
     let from_sscanf_impl = quote! {
@@ -351,13 +351,10 @@ Please add either of #[sscanf(format = "...")], #[sscanf(format_unescaped = "...
         impl #impl_generics ::sscanf::FromScanf<#lifetime> for #name #ty_generics #where_clause {
             const REGEX: &'static ::std::primitive::str = #regex;
 
-            fn from_matches(
-                _: &::std::primitive::str,
-                mut src: &[Option<&#lifetime ::std::primitive::str>]
-            ) -> ::std::option::Option<Self> {
-                let res = #name #from_matches;
-                assert!(src.is_empty());
-                ::std::option::Option::Some(res)
+            fn from_match(_: &::std::primitive::str) -> ::std::option::Option<Self> { ::std::option::Option::None }
+
+            fn from_match_tree(src: &::sscanf::MatchTree<#lifetime>) -> ::std::option::Option<Self> {
+                ::std::option::Option::Some(#name #from_matches)
             }
         }
     };
@@ -385,11 +382,11 @@ pub fn parse_enum(
     let mut regex_parts = RegexParts::empty();
     regex_parts.push_literal("(?:");
     let mut variant_constructors = vec![];
-    let mut num_captures_list = vec![NumCaptures::One];
     let mut str_lifetimes = HashSet::new();
     let mut first = true;
 
-    for variant in data.variants {
+    let mut match_index = 0usize;
+    for variant in data.variants.into_iter() {
         let variant_attr = VariantAttribute::from_attrs(variant.attrs)?;
 
         let variant_attr = if let Some(variant_attr) = variant_attr {
@@ -422,29 +419,22 @@ Use `#[sscanf(format = "...")]` to specify a format for a variant with fields or
         let (variant_parts, from_matches, variant_str_lifetimes) =
             parse_format(variant_attr, variant.fields)?;
 
-        let variant_num_captures_list = variant_parts.num_captures_list();
-        let num_captures = quote! { #(#variant_num_captures_list)+* };
-        num_captures_list.extend(variant_num_captures_list);
-
         regex_parts
             .regex_builder
             .extend(variant_parts.regex_builder);
 
         str_lifetimes.extend(variant_str_lifetimes);
 
-        let matcher = quote! {
-            let expected = #num_captures;
-
-            remaining -= expected;
-            if src.next().expect(::sscanf::__macro_utilities::EXPECT_NEXT_HINT).is_some() {
+        let converter = quote! {
+            if let Some(src) = src.get(#match_index) {
                 return ::std::option::Option::Some(#name::#ident #from_matches);
-            } else if expected > 1 { // one was already taken by `src.next()` above
-                src.nth(expected - 2).expect(::sscanf::__macro_utilities::EXPECT_NEXT_HINT);
-            }
+            } else
         };
-        variant_constructors.push(matcher);
+        variant_constructors.push(converter);
 
         regex_parts.push_literal(")");
+
+        match_index += 1; // only increment if the variant is constructable from sscanf
     }
     regex_parts.push_literal(")");
 
@@ -459,20 +449,23 @@ To do this, add #[sscanf(format = \"...\")] to a variant");
         }
     }
 
-    let regex = regex_parts.regex();
-    let (lifetime, lt_generics) = merge_lifetimes(str_lifetimes, generics);
-    let (impl_generics, ty_generics, where_clause) = lt_generics.split_for_impl();
+    let ty_generics = generics.split_for_impl().1; // generics of the type have to be kept as-is from the enum definition
 
+    let (lifetime, lt_generics) = merge_lifetimes(str_lifetimes, generics);
+    let (impl_generics, _, where_clause) = lt_generics.split_for_impl();
+
+    let regex = regex_parts.regex();
     let from_sscanf_impl = quote! {
         #[automatically_derived]
         impl #impl_generics ::sscanf::FromScanf<#lifetime> for #name #ty_generics #where_clause {
             const REGEX: &'static ::std::primitive::str = #regex;
 
-            fn from_matches(
-                _: &::std::primitive::str,
-                mut src: &[Option<&#lifetime ::std::primitive::str>]
-            ) -> ::std::option::Option<Self> {
-                ::std::option::Option::Some(#(#variant_constructors)*)
+            fn from_match(_: &::std::primitive::str) -> ::std::option::Option<Self> { ::std::option::Option::None }
+
+            fn from_match_tree(src: &::sscanf::MatchTree<#lifetime>) -> ::std::option::Option<Self> {
+                #(#variant_constructors)* {
+                    panic!("FromScanf: no variant matched");
+                }
             }
         }
     };

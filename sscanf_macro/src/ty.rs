@@ -22,9 +22,22 @@ pub enum TypeSource<'a> {
 
 #[allow(unused)]
 impl<'a> Type<'a> {
-    pub fn from_ty(ty: syn::Type) -> Self {
+    pub fn from_ty(mut ty: syn::Type) -> Self {
         let kind = TypeKind::from_ty(&ty);
         let source = TypeSource::External;
+
+        if matches!(kind, TypeKind::Str(None)) && !matches!(ty, syn::Type::Reference(_)) {
+            // str used to be hardcoded to take "str" as input and return a `&str` type.
+            // Since &str now directly implements `FromScanf`, we no longer need the workaround,
+            // but we also don't want to break existing code that uses `str` as a type.
+            ty = syn::Type::Reference(syn::TypeReference {
+                and_token: Token![&](ty.start_span()),
+                lifetime: None,
+                mutability: None,
+                elem: Box::new(ty),
+            });
+        }
+
         Type { kind, source, ty }
     }
     pub fn inner(&self) -> &syn::Type {

@@ -3,18 +3,18 @@ use quote::quote;
 
 use crate::*;
 
-#[derive(Clone)]
 #[allow(clippy::large_enum_variant)] // don't care
-pub enum NumCaptures {
-    One,
+pub enum RegexPart {
+    Literal(String),
     FromType(syn::Type, FullSpan),
+    Custom(String),
 }
 
-impl ToTokens for NumCaptures {
+impl ToTokens for RegexPart {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match self {
-            NumCaptures::One => tokens.extend(quote! { 1 }),
-            NumCaptures::FromType(ty, span) => {
+            RegexPart::Literal(literal) => tokens.extend(quote! { #literal }),
+            RegexPart::FromType(ty, span) => {
                 // proc_macros don't have any type information, so we cannot check if the type
                 // implements the trait, so we wrap it in this verbose <#ty as Trait> code,
                 // so that the compiler can check if the trait is implemented, and, most importantly,
@@ -28,34 +28,6 @@ impl ToTokens for NumCaptures {
                 // itself, so the type should ideally keep its original spans.
                 // Combined solution: apply the span to everything around the `#ty` token, but not to
                 // the `#ty` token itself.
-                // Final expression: `<#ty as ::sscanf::FromScanf>::NUM_CAPTURES`
-                //            start:  ^   ^^^^
-                //              end:          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-                //         original:   ^^^
-                tokens.extend(span.apply_start(quote! { < }));
-                ty.to_tokens(tokens);
-                tokens.extend(span.apply(
-                    quote! { as },
-                    quote! { ::sscanf::FromScanf >::NUM_CAPTURES },
-                ));
-            }
-        }
-    }
-}
-
-#[allow(clippy::large_enum_variant)] // don't care
-pub enum RegexPart {
-    Literal(String),
-    FromType(syn::Type, FullSpan),
-    Custom(String),
-}
-
-impl ToTokens for RegexPart {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        match self {
-            RegexPart::Literal(literal) => tokens.extend(quote! { #literal }),
-            RegexPart::FromType(ty, span) => {
-                // See the comment in `NumCaptures::FromType` for an explanation of the span
                 // Final expression: `<#ty as ::sscanf::FromScanf>::REGEX`
                 //            start:  ^   ^^^^
                 //              end:          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -69,92 +41,33 @@ impl ToTokens for RegexPart {
     }
 }
 
-pub enum Converter {
-    Str,
-    CowStr,
-    FromType(syn::Type, FullSpan),
-    Custom(TokenStream),
+pub struct Converter(TokenStream);
+
+impl Converter {
+    pub fn custom(code: TokenStream) -> Self {
+        Self(code)
+    }
+    pub fn from_type(index: usize, ty: &syn::Type) -> Self {
+        Self(quote! { src.at(#index).parse::<#ty>()? })
+    }
 }
 
 impl ToTokens for Converter {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        match self {
-            Converter::Str => tokens.extend(quote! {
-                src.next()
-                   .expect(::sscanf::__macro_utilities::EXPECT_NEXT_HINT)
-                   .expect(::sscanf::__macro_utilities::EXPECT_CAPTURE_HINT)
-                   .as_str()
-            }),
-            Converter::CowStr => tokens.extend(quote! {
-                ::std::borrow::Cow::Borrowed(
-                    src.next()
-                        .expect(::sscanf::__macro_utilities::EXPECT_NEXT_HINT)
-                        .expect(::sscanf::__macro_utilities::EXPECT_CAPTURE_HINT)
-                        .as_str()
-                )
-            }),
-            Converter::FromType(ty, span) => {
-                let call = span.apply(
-                    quote! { ::sscanf::FromScanf },
-                    quote! { ::from_matches(&mut *src) },
-                );
-                tokens.extend(quote! {
-                    {
-                        let value: #ty = #call?;
-                        value
-                    }
-                });
-            }
-            Converter::Custom(custom) => tokens.extend(custom.clone()),
-        }
-    }
-}
-
-pub struct Matcher {
-    pub ty: syn::Type,
-    pub num_captures: NumCaptures,
-    pub converter: Converter,
-}
-
-impl ToTokens for Matcher {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        let ty = &self.ty;
-        let num_captures = &self.num_captures;
-        let converter = &self.converter;
-        tokens.extend(quote! {
-            {
-                #[cfg(debug_assertions)]
-                let start_len = src.len();
-
-                let value = #converter;
-
-                #[cfg(debug_assertions)]
-                {
-                    let n = start_len - src.len();
-                    let expected = #num_captures;
-                    if n != expected {
-                        panic!(
-                            "sscanf: {}::NUM_CAPTURES = {} but {} were taken{}",
-                            stringify!(#ty), expected, n, ::sscanf::__macro_utilities::WRONG_CAPTURES_HINT
-                        );
-                    }
-                }
-                value
-            }
-        });
+        self.0.to_tokens(tokens);
     }
 }
 
 pub struct RegexParts {
     pub regex_builder: Vec<RegexPart>,
-    pub matchers: Vec<Matcher>,
+    pub converters: Vec<Converter>,
 }
 
 impl RegexParts {
     pub fn empty() -> Self {
         Self {
             regex_builder: vec![],
-            matchers: vec![],
+            converters: vec![],
         }
     }
 
@@ -167,11 +80,12 @@ impl RegexParts {
 
         // if there are n types, there are n+1 regex_parts, so add the first n during this loop and
         // add the last one afterwards
-        for ((part, ph), ty) in format
+        for (match_index, ((part, ph), ty)) in format
             .parts
             .iter()
             .zip(format.placeholders.iter())
             .zip(type_sources)
+            .enumerate()
         {
             ret.push_literal(part);
 
@@ -185,7 +99,7 @@ impl RegexParts {
                 match &config.kind {
                     Regex(regex) => RegexPart::Custom(regex.clone()),
                     Radix { radix, prefix } => {
-                        let (regex, conv) = regex_from_radix(*radix, *prefix, ty)?;
+                        let (regex, conv) = regex_from_radix(*radix, *prefix, ty, match_index)?;
                         converter = Some(conv);
                         regex
                     }
@@ -196,7 +110,7 @@ impl RegexParts {
             } else {
                 match ty.kind {
                     TypeKind::Str(_) | TypeKind::CowStr(_) => {
-                        let token = quote! { str }.with_span(inner.span());
+                        let token = quote! { &str }.with_span(inner.span());
                         let ty = syn::parse2(token).unwrap();
                         RegexPart::FromType(ty, span)
                     }
@@ -205,20 +119,9 @@ impl RegexParts {
             };
             ret.regex_builder.push(regex);
 
-            let (num_captures, converter) = match ty.kind {
-                TypeKind::Str(_) => (NumCaptures::One, Converter::Str),
-                TypeKind::CowStr(_) => (NumCaptures::One, Converter::CowStr),
-                TypeKind::Other => (
-                    NumCaptures::FromType(inner.clone(), span),
-                    converter.unwrap_or_else(|| Converter::FromType(inner.clone(), span)),
-                ),
-            };
+            let converter = converter.unwrap_or_else(|| Converter::from_type(match_index, inner));
 
-            ret.matchers.push(Matcher {
-                ty: inner.clone(),
-                num_captures,
-                converter,
-            });
+            ret.converters.push(converter);
         }
 
         // add the last regex_part
@@ -234,23 +137,13 @@ impl RegexParts {
         let regex_builder = &self.regex_builder;
         quote! { ::sscanf::const_format::concatcp!( #(#regex_builder),* ) }
     }
-    pub fn num_captures_list(&self) -> Vec<NumCaptures> {
-        let mut num_captures = vec![NumCaptures::One]; // for the whole match
-        for matcher in &self.matchers {
-            num_captures.push(matcher.num_captures.clone());
-        }
-        num_captures
-    }
-    pub fn num_captures(&self) -> TokenStream {
-        let num_captures = self.num_captures_list();
-        quote! { #(#num_captures)+* }
-    }
 }
 
 fn regex_from_radix(
     radix: u8,
     prefix_policy: PrefixPolicy,
     ty: &Type,
+    match_index: usize,
 ) -> Result<(RegexPart, Converter)> {
     let ty_string = ty.to_token_stream().to_string();
 
@@ -301,11 +194,7 @@ fn regex_from_radix(
     let ty = ty.inner();
     let span = ty.span();
 
-    let get_input = quote! { src.next()
-        .expect(::sscanf::__macro_utilities::EXPECT_NEXT_HINT)
-        .expect(::sscanf::__macro_utilities::EXPECT_CAPTURE_HINT)
-        .as_str()
-    };
+    let get_input = quote! { src.at(#match_index).full };
 
     fn create_converter(
         ty: &syn::Type,
@@ -318,14 +207,14 @@ fn regex_from_radix(
             PrefixPolicy::Never => {
                 return quote! {{
                     let input = #get_input;
-                    #ty::from_str_radix(input, #radix)?
+                    #ty::from_str_radix(input, #radix).ok()?
                 }};
             }
             PrefixPolicy::Optional(prefix) => (prefix, quote! { /* do nothing */ }),
             PrefixPolicy::Forced(prefix) => (
                 prefix,
                 quote! {
-                    ::std::option::Option::None.ok_or(::sscanf::__macro_utilities::MissingPrefixError::#prefix)?;
+                    return ::std::option::Option::None;
                     #[allow(unreachable_code)]
                 },
             ),
@@ -348,13 +237,13 @@ fn regex_from_radix(
                         // re-package `no_sign_prefix` into a string that includes the sign, because otherwise
                         // it might cause faulty overflow errors on numbers like -128i8
                         let input = ::std::format!("-{}", no_sign_prefix);
-                        #ty::from_str_radix(&input, #radix)?
+                        #ty::from_str_radix(&input, #radix).ok()?
                     } else {
-                        #ty::from_str_radix(no_sign_prefix, #radix)?
+                        #ty::from_str_radix(no_sign_prefix, #radix).ok()?
                     }
                 } else {
                     #no_prefix_handler
-                    #ty::from_str_radix(input, #radix)? // note the use of `input` here to include the sign
+                    #ty::from_str_radix(input, #radix).ok()? // note the use of `input` here to include the sign
                 }
             }}
         } else {
@@ -362,10 +251,10 @@ fn regex_from_radix(
                 let input = #get_input;
                 let no_sign = input.strip_prefix('+').unwrap_or(input);
                 if let ::std::option::Option::Some(no_sign_prefix) = #prefix_matcher {
-                    #ty::from_str_radix(no_sign_prefix, #radix)?
+                    #ty::from_str_radix(no_sign_prefix, #radix).ok()?
                 } else {
                     #no_prefix_handler
-                    #ty::from_str_radix(no_sign, #radix)?
+                    #ty::from_str_radix(no_sign, #radix).ok()?
                 }
             }}
         }
@@ -375,7 +264,7 @@ fn regex_from_radix(
 
     Ok((
         RegexPart::Custom(regex),
-        Converter::Custom(converter.with_span(span)),
+        Converter::custom(converter.with_span(span)),
     ))
 }
 

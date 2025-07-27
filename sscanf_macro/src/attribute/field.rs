@@ -24,7 +24,9 @@ impl FromAttribute<attr::Field, &'_ syn::Type> for FieldAttributeKind {
                 let filters = attr.kind == attr::Field::FilterMap;
 
                 let closure_format = "|<arg>: <type>| <conversion>";
-                let mut closure_hint = String::from("where `<type>` is the type that should be matched against and `<conversion>` converts from `<type>` to `");
+                let mut closure_hint = String::from(
+                    "where `<type>` is the type that should be matched against and `<conversion>` converts from `<type>` to `",
+                );
                 if filters {
                     closure_hint.push_str(&format!("Option<{}>", ty.to_token_stream()));
                 } else {
@@ -74,7 +76,11 @@ impl FromAttribute<attr::Field, &'_ syn::Type> for FieldAttributeKind {
             attr::Field::From | attr::Field::TryFrom => {
                 let hint = format!(
                     "where `<type>` is the type that should be matched against and implements `{}<{}>`",
-                    if attr.kind == attr::Field::From { "Into" } else { "TryInto" },
+                    if attr.kind == attr::Field::From {
+                        "Into"
+                    } else {
+                        "TryInto"
+                    },
                     ty.to_token_stream()
                 );
                 // can't convert directly to `syn::Type` because error messages would be confusing

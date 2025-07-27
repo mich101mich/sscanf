@@ -14,8 +14,9 @@ exclude = ["/.vscode", "/.gitignore", "/.github", "/*.bat", "/*.sh", "/todo.md",
 
 [dependencies]
 sscanf_macro = { path = "sscanf_macro", version = "=0.5.0" }
-regex = "1.11.0"
 const_format = "0.2.34"
+regex-automata = "0.4.9"
+regex-syntax = "0.8.5"
 
 [dev-dependencies]
 trybuild = "1.0.78"

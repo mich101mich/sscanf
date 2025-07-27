@@ -1,6 +1,8 @@
 #![allow(unused)]
 //! Utilities for the macros. These elements are public but doc_hidden
 
+use crate::MatchTree;
+
 #[doc(hidden)]
 pub static EXPECT_NEXT_HINT: &str = r#"sscanf: Invalid number of capture groups in regex.
 If you use ( ) in a custom Regex, please add a '?:' at the beginning to avoid forming a capture group like this:
@@ -30,7 +32,7 @@ pub struct WrappedRegex {
     /// The only alternative would be our own synchronization scheme or a mutex, but that would be overkill considering
     /// that 99.99% of use cases only invoke sscanf once, and even those that invoke it multiple times do so from the
     /// same thread. A OnceLock is only really used here so that WrappedRegex can be put in a static variable.
-    regex: std::sync::OnceLock<Result<regex::Regex, regex::Error>>,
+    regex: std::sync::OnceLock<Result<(regex_automata::meta::Regex, MatchTreeIndex), String>>,
     regex_str: &'static str,
 }
 impl WrappedRegex {
@@ -43,31 +45,97 @@ impl WrappedRegex {
     }
 
     #[track_caller]
-    pub fn assert_compiled(&self, num_captures: usize) {
+    pub fn assert_compiled(&self) {
         let regex = self
             .regex
-            .get_or_init(|| regex::Regex::new(self.regex_str))
+            .get_or_init(|| {
+                let hir = regex_syntax::parse(self.regex_str).map_err(|e| e.to_string())?;
+
+                let regex = regex_automata::meta::Regex::builder()
+                    .build_from_hir(&hir)
+                    .map_err(|e| e.to_string())?;
+
+                let mut match_tree_index = MatchTreeIndex {
+                    index: 0,
+                    children: Vec::new(),
+                };
+                create_match_tree_index(&hir, &mut match_tree_index);
+
+                Ok((regex, match_tree_index))
+            })
             .as_ref()
             .expect("sscanf: Failed to compile regex"); // This will panic at the call site of `sscanf!`
-
-        let actual_captures = regex.captures_len();
-        if actual_captures != num_captures {
-            panic!(
-                "sscanf: Regex has {actual_captures} capture groups, but {num_captures} were expected."
-            );
-        }
     }
 
-    pub fn captures<'input>(&self, input: &'input str) -> Option<Vec<Option<&'input str>>> {
-        let regex = self.regex.get().unwrap().as_ref().unwrap();
-        let captures = regex.captures(input)?;
-        let mut iter = captures.iter();
-        // Regex documentation states:
-        // "The iterator always yields at least one matching group: the first group (at index `0`) with no name."
-        // So we can safely unwrap the first element.
-        iter.next().unwrap().unwrap().as_str(); // skip the whole match
-        let sub_matches = iter.map(|m| m.map(|m| m.as_str())).collect();
-        Some(sub_matches)
+    pub fn captures<'input>(&self, input: &'input str) -> Option<MatchTree<'input>> {
+        let (regex, index) = self.regex.get().unwrap().as_ref().unwrap();
+        let mut captures = regex.create_captures();
+        regex.captures(input, &mut captures);
+        index.create_match_tree(&captures, input)
+    }
+}
+impl std::fmt::Debug for WrappedRegex {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WrappedRegex")
+            .field("regex", &self.regex_str)
+            .finish()
+    }
+}
+impl std::fmt::Display for WrappedRegex {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.regex_str.fmt(f)
+    }
+}
+
+/// The source structure of a MatchTree, consisting of only the indices in the capture group list.
+struct MatchTreeIndex {
+    index: usize,
+    children: Vec<MatchTreeIndex>,
+}
+impl MatchTreeIndex {
+    pub fn create_match_tree<'input>(
+        &self,
+        captures: &regex_automata::util::captures::Captures,
+        input: &'input str,
+    ) -> Option<MatchTree<'input>> {
+        let full = captures.get_group(self.index)?;
+        let inner = self
+            .children
+            .iter()
+            .map(|child| child.create_match_tree(captures, input))
+            .collect();
+        Some(MatchTree {
+            full: &input[full],
+            inner,
+        })
+    }
+}
+
+fn create_match_tree_index(hir: &regex_syntax::hir::Hir, out: &mut MatchTreeIndex) {
+    match hir.kind() {
+        regex_syntax::hir::HirKind::Capture(capture) => {
+            let mut child = MatchTreeIndex {
+                index: capture.index as usize,
+                children: Vec::new(),
+            };
+            create_match_tree_index(&capture.sub, &mut child);
+            out.children.push(child);
+        }
+
+        regex_syntax::hir::HirKind::Repetition(repetition) => {
+            create_match_tree_index(&repetition.sub, out);
+        }
+        regex_syntax::hir::HirKind::Concat(hirs) => {
+            for sub_hir in hirs {
+                create_match_tree_index(sub_hir, out);
+            }
+        }
+        regex_syntax::hir::HirKind::Alternation(hirs) => {
+            for sub_hir in hirs {
+                create_match_tree_index(sub_hir, out);
+            }
+        }
+        _ => {}
     }
 }
 

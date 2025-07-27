@@ -41,7 +41,7 @@ macro_rules! impl_num {
                 "```"
             }
 
-            fn from_matches(input: &str, _: &[Option<&str>]) -> Option<Self> {
+            fn from_match(input: &str) -> Option<Self> {
                 input.parse().ok()
             }
         })+
@@ -59,7 +59,7 @@ macro_rules! impl_num {
                 "```"
             }
 
-            fn from_matches(input: &str, _: &[Option<&str>]) -> Option<Self> {
+            fn from_match(input: &str) -> Option<Self> {
                 input.parse().ok()
             }
         })+
@@ -110,7 +110,7 @@ impl FromScanf<'_> for usize {
     /// ```
     const REGEX: &'static str = r"[-+]?\d+?";
 
-    fn from_matches(input: &str, _: &[Option<&str>]) -> Option<Self> {
+    fn from_match(input: &str) -> Option<Self> {
         input.parse().ok()
     }
 }
@@ -125,7 +125,7 @@ impl FromScanf<'_> for isize {
     /// ```
     const REGEX: &'static str = usize::REGEX;
 
-    fn from_matches(input: &str, _: &[Option<&str>]) -> Option<Self> {
+    fn from_match(input: &str) -> Option<Self> {
         input.parse().ok()
     }
 }
@@ -135,12 +135,12 @@ impl FromScanf<'_> for NonZeroUsize {
     /// See [`usize`](#impl-FromScanf<'_>-for-usize) for details.
     ///
     /// ```
-    /// # use sscanf::FromScanf;
+    /// # use sscanf::FromScanf; use std::num::NonZeroUsize;
     /// assert_eq!(NonZeroUsize::REGEX, r"\+?[1-9]\d*?")
     /// ```
     const REGEX: &'static str = r"\+?[1-9]\d*?";
 
-    fn from_matches(input: &str, _: &[Option<&str>]) -> Option<Self> {
+    fn from_match(input: &str) -> Option<Self> {
         input.parse().ok()
     }
 }
@@ -150,12 +150,12 @@ impl FromScanf<'_> for NonZeroIsize {
     /// See [`usize`](#impl-FromScanf<'_>-for-usize) for details.
     ///
     /// ```
-    /// # use sscanf::FromScanf;
+    /// # use sscanf::FromScanf; use std::num::NonZeroIsize;
     /// assert_eq!(NonZeroIsize::REGEX, r"[-+]?[1-9]\d*?")
     /// ```
     const REGEX: &'static str = r"[-+]?[1-9]\d*?";
 
-    fn from_matches(input: &str, _: &[Option<&str>]) -> Option<Self> {
+    fn from_match(input: &str) -> Option<Self> {
         input.parse().ok()
     }
 }
@@ -164,14 +164,14 @@ impl FromScanf<'_> for String {
     /// Matches any sequence of Characters.
     ///
     /// Note that this clones part of the input string, which is usually not necessary.
-    /// Use [`str`](#impl-FromScanf<'input>-for-%26str) unless you explicitly need ownership.
+    /// Use [`str`](#impl-FromScanf<'_>-for-%26str) unless you explicitly need ownership.
     /// ```
     /// # use sscanf::FromScanf;
     /// assert_eq!(String::REGEX, r".+?")
     /// ```
     const REGEX: &'static str = r".+?";
 
-    fn from_matches(input: &str, _: &[Option<&str>]) -> Option<Self> {
+    fn from_match(input: &str) -> Option<Self> {
         Some(input.to_string())
     }
 }
@@ -183,11 +183,11 @@ impl<'input> FromScanf<'input> for &'input str {
     /// instead.
     /// ```
     /// # use sscanf::FromScanf;
-    /// assert_eq!(str::REGEX, r".+?")
+    /// assert_eq!(<&str>::REGEX, r".+?")
     /// ```
     const REGEX: &'static str = String::REGEX;
 
-    fn from_matches(input: &'input str, _: &[Option<&str>]) -> Option<Self> {
+    fn from_match(input: &'input str) -> Option<Self> {
         Some(input)
     }
 }
@@ -198,12 +198,12 @@ impl<'input> FromScanf<'input> for Cow<'input, str> {
     /// using this type. If the input string doesn't live long enough, use [`String`](#impl-FromScanf<'_>-for-String)
     /// instead.
     /// ```
-    /// # use sscanf::FromScanf;
-    /// assert_eq!(str::REGEX, r".+?")
+    /// # use sscanf::FromScanf; use std::borrow::Cow;
+    /// assert_eq!(Cow::<str>::REGEX, r".+?")
     /// ```
     const REGEX: &'static str = String::REGEX;
 
-    fn from_matches(input: &'input str, _: &[Option<&str>]) -> Option<Self> {
+    fn from_match(input: &'input str) -> Option<Self> {
         Some(Cow::Borrowed(input))
     }
 }
@@ -215,7 +215,7 @@ impl FromScanf<'_> for char {
     /// ```
     const REGEX: &'static str = r".";
 
-    fn from_matches(input: &str, _: &[Option<&str>]) -> Option<Self> {
+    fn from_match(input: &str) -> Option<Self> {
         let mut iter = input.chars();
         let ret = iter.next()?;
         if iter.next().is_some() {
@@ -232,7 +232,7 @@ impl FromScanf<'_> for bool {
     /// ```
     const REGEX: &'static str = r"true|false";
 
-    fn from_matches(input: &str, _: &[Option<&str>]) -> Option<Self> {
+    fn from_match(input: &str) -> Option<Self> {
         input.parse().ok()
     }
 }
@@ -243,12 +243,12 @@ impl FromScanf<'_> for PathBuf {
     /// Paths in `std` don't actually have any restrictions on what they can contain, so anything
     /// is valid.
     /// ```
-    /// # use sscanf::FromScanf;
+    /// # use sscanf::FromScanf; use std::path::PathBuf;
     /// assert_eq!(PathBuf::REGEX, r".+?")
     /// ```
     const REGEX: &'static str = String::REGEX;
 
-    fn from_matches(input: &str, _: &[Option<&str>]) -> Option<Self> {
+    fn from_match(input: &str) -> Option<Self> {
         input.parse().ok()
     }
 }
@@ -259,7 +259,7 @@ fn no_capture_groups() {
     macro_rules! check {
         ($($ty: ty),+) => {
             $(
-                let regex = regex::Regex::new(<$ty>::REGEX).unwrap();
+                let regex = regex_automata::meta::Regex::new(<$ty>::REGEX).unwrap();
                 assert_eq!(regex.captures_len(), 1, "Regex for {} >>{}<< has capture groups", stringify!($ty), <$ty>::REGEX);
                 // 1 for the whole match
             )+ 

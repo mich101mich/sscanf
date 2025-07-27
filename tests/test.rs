@@ -1,11 +1,4 @@
 use sscanf::*;
-use std::str::FromStr;
-
-mod types {
-    mod full_f32;
-    mod full_f64;
-    mod hex_number;
-}
 
 mod derive {
     mod r#enum;
@@ -19,11 +12,11 @@ fn basic() {
     let output = sscanf!(input, "Test {usize} {f32} {{}} {}!", std::string::String);
     let (a, b, c) = output.unwrap();
     assert_eq!(a, 5);
-    assert!((b - 1.4).abs() < f32::EPSILON, "b is {}", b);
+    assert!((b - 1.4).abs() < f32::EPSILON, "b is {b}");
     assert_eq!(c, "bob");
 
     let n = sscanf!(input, "hi");
-    n.unwrap_err();
+    assert!(n.is_none());
 
     let input = "Position<5,0.3,2>; Dir: N24E10";
     let output = sscanf!(
@@ -41,7 +34,7 @@ fn no_types() {
     let result = sscanf!("hi", "hi");
     result.unwrap();
     let result = sscanf!("hi", "no");
-    result.unwrap_err();
+    assert!(result.is_none());
 }
 
 #[test]
@@ -55,13 +48,10 @@ fn unescaped() {
 fn generic_types() {
     #[derive(Debug, PartialEq, Eq, Default)]
     pub struct Bob<T>(pub std::marker::PhantomData<T>);
-    impl<T> RegexRepresentation for Bob<T> {
+    impl<T: Default> FromScanf<'_> for Bob<T> {
         const REGEX: &'static str = ".*";
-    }
-    impl<T: Default> FromStr for Bob<T> {
-        type Err = <f64 as FromStr>::Err;
-        fn from_str(_: &str) -> Result<Self, Self::Err> {
-            Ok(Default::default())
+        fn from_match(_: &str) -> Option<Self> {
+            Some(Default::default())
         }
     }
 
@@ -110,7 +100,7 @@ fn config_numbers() {
     // negative number on unsigned
     let input = "-0xab01";
     let parsed = sscanf!(input, "{usize:x}");
-    parsed.unwrap_err();
+    assert!(parsed.is_none());
 
     // explicit positive number with prefix
     let input = "+10 +0xab01 +0o127 +0b101010";
@@ -132,10 +122,10 @@ fn config_numbers() {
 
     // :#x etc forces the prefix
     assert_eq!(out, sscanf!(prefix, "{u8:#x} {u8:#o} {u8:#b}").unwrap());
-    sscanf!(no_prefix, "{u8:#x} {u8:#o} {u8:#b}").unwrap_err();
+    assert!(sscanf!(no_prefix, "{u8:#x} {u8:#o} {u8:#b}").is_none());
 
     // :r16 etc have no prefix
-    sscanf!(prefix, "{u8:r16} {u8:r8} {u8:r2}").unwrap_err();
+    assert!(sscanf!(prefix, "{u8:r16} {u8:r8} {u8:r2}").is_none());
     assert_eq!(out, sscanf!(no_prefix, "{u8:r16} {u8:r8} {u8:r2}").unwrap());
 }
 
@@ -159,40 +149,6 @@ fn custom_regex() {
     let input = r"({(\}*[\{";
     let parsed = sscanf!(input, r"{:/\(\{\(\\\}\*/}{:/\[\\\{/}", str, str);
     assert_eq!(parsed.unwrap(), (r"({(\}*", r"[\{"));
-
-    #[derive(Debug, PartialEq)]
-    struct NoRegex;
-    impl FromStr for NoRegex {
-        type Err = std::convert::Infallible;
-        fn from_str(_s: &str) -> Result<Self, Self::Err> {
-            Ok(NoRegex)
-        }
-    }
-    let parsed = sscanf!(input, "{NoRegex:/.*/}");
-    assert_eq!(parsed.unwrap(), NoRegex);
-}
-
-#[test]
-fn derived_from_str() {
-    #[derive(Debug, PartialEq, FromScanf)]
-    #[sscanf("{}: {}")]
-    struct Bob {
-        name: String,
-        value: usize,
-    }
-
-    let expected = Bob {
-        name: "bob".to_string(),
-        value: 5,
-    };
-
-    assert_eq!(Bob::from_str("bob: 5").unwrap(), expected);
-    assert!(Bob::from_str("bob: 6").unwrap() != expected);
-    assert!(Bob::from_str("bob : 5").unwrap() != expected);
-
-    assert!(Bob::from_str("{bob: 5}").is_err());
-    assert!(Bob::from_str("bob: a").is_err());
-    assert!(Bob::from_str("bob").is_err());
 }
 
 #[test]
@@ -203,7 +159,7 @@ fn string_lifetime() {
         let input = String::from("hi");
         s = sscanf!(input, "{String}").unwrap();
     }
-    println!("{}", s);
+    println!("{s}");
 
     // check if sscanf works with various function signatures
     fn process(a: &str) -> &str {
@@ -223,19 +179,9 @@ fn string_lifetime() {
     process_with_lifetime("hi", "hi");
 
     fn process_cow<'a>(a: &'a str) -> std::borrow::Cow<'a, str> {
-        sscanf!(a, "{Cow<str>}").unwrap()
+        sscanf!(a, "{std::borrow::Cow<str>}").unwrap()
     }
     process_cow("hi");
-}
-
-#[test]
-fn error_lifetime() {
-    fn foo() -> Result<(), Box<dyn std::error::Error>> {
-        let input = String::from("hi");
-        sscanf!(input, "{String}").map_err(|err| err.to_string())?;
-        Ok(())
-    }
-    foo().unwrap();
 }
 
 #[test]

@@ -70,4 +70,4 @@ pub mod changelog {}
 pub use const_format;
 
 #[doc(hidden)]
-mod __macro_utilities;
+pub mod __macro_utilities;
