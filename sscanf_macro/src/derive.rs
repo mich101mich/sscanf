@@ -371,7 +371,10 @@ pub fn parse_enum(
     let attr = EnumAttribute::from_attrs(attrs)?;
     let autogen = attr.as_ref().and_then(|attr| match attr.kind {
         EnumAttributeKind::AutoGen(kind) => Some((kind, attr.src.clone())),
-        #[allow(unreachable_patterns)]
+        #[allow(
+            unreachable_patterns,
+            reason = "Currently there is only one variant, but this allows for future extensions"
+        )]
         _ => None,
     });
 
