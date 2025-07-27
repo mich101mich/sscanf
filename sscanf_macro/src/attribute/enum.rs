@@ -32,7 +32,7 @@ macro_rules! declare_autogen {
                             bail!(s => r#"invalid value for autogen: "{s}". Did you mean "{closest}"?"#);
                             // checked in tests/fail/derive_enum_attributes.rs
                         } else {
-                            bail!(s => r#"invalid value for autogen: "{s}". valid values are "{}"?"#, Self::valid_hint());
+                            bail!(s => r#"invalid value for autogen: "{s}". valid values are: {}"#, Self::valid_hint());
                             // checked in tests/fail/derive_enum_attributes.rs
                         }
                     }

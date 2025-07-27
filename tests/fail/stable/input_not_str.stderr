@@ -1,0 +1,33 @@
+error[E0308]: mismatched types
+ --> tests/fail/stable/input_not_str.rs:2:21
+  |
+2 |     sscanf::sscanf!(5usize, "{}", usize);
+  |     ----------------^^^^^^--------------
+  |     |               |
+  |     |               expected `&str`, found `&usize`
+  |     arguments to this function are incorrect
+  |
+  = note: expected reference `&str`
+             found reference `&usize`
+note: method defined here
+ --> $RUST/core/src/str/mod.rs
+  |
+  |     pub fn get<I: SliceIndex<str>>(&self, i: I) -> Option<&I::Output> {
+  |            ^^^
+
+error[E0308]: mismatched types
+ --> tests/fail/stable/input_not_str.rs:3:21
+  |
+3 |     sscanf::sscanf!(b"5", "{}", usize);
+  |     ----------------^^^^--------------
+  |     |               |
+  |     |               expected `&str`, found `&&[u8; 1]`
+  |     arguments to this function are incorrect
+  |
+  = note: expected reference `&str`
+             found reference `&&'static [u8; 1]`
+note: method defined here
+ --> $RUST/core/src/str/mod.rs
+  |
+  |     pub fn get<I: SliceIndex<str>>(&self, i: I) -> Option<&I::Output> {
+  |            ^^^
