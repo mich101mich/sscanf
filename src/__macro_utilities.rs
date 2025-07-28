@@ -3,20 +3,13 @@
 
 use crate::MatchTree;
 
-#[doc(hidden)]
-pub static EXPECT_NEXT_HINT: &str = r#"sscanf: Invalid number of capture groups in regex.
-If you use ( ) in a custom Regex, please add a '?:' at the beginning to avoid forming a capture group like this:
-    "  (  )  "  =>  "  (?:  )  ""#;
-
-#[doc(hidden)]
-pub static EXPECT_CAPTURE_HINT: &str = r#"sscanf: Non-optional capture group marked as optional.
-This is either a problem with a custom regex or FromScanf implementation or an internal error."#;
-
-#[doc(hidden)]
-pub static WRONG_CAPTURES_HINT: &str = r#"
-If you use ( ) in a custom Regex, please add a '?:' at the beginning to avoid forming a capture group like this:
-    "  (  )  "  =>  "  (?:  )  "
-"#;
+#[macro_export]
+macro_rules! concat_str {
+    ( $( $parts:expr ),* ) => {
+        const_format::concatcp!( $( $parts ),* )
+    };
+}
+pub use concat_str;
 
 /// Wrapper around regex so that the dependency is not part of our public API.
 ///
@@ -137,39 +130,4 @@ fn create_match_tree_index(hir: &regex_syntax::hir::Hir, out: &mut MatchTreeInde
         }
         _ => {}
     }
-}
-
-/// Counts the number of capture groups in a regex string.
-///
-/// Valid capture group: "...(...)...".
-/// Escaped: "...\(...)..." or "...(?:...)...".
-///
-/// Note that this function assumed that the input is a valid regex string.
-pub const fn count_sub_captures(input: &'static str) -> usize {
-    let mut count = 0;
-    let mut escaped = false;
-
-    let bytes = input.as_bytes();
-    let mut i = 0;
-    while i < bytes.len() {
-        if escaped {
-            escaped = false;
-            i += 1;
-            continue;
-        }
-        match bytes[i] {
-            b'(' => {
-                if i + 1 < bytes.len() && bytes[i + 1] == b'?' {
-                    // non-capturing group
-                    continue;
-                }
-                count += 1;
-            }
-            b'\\' => escaped = true,
-            _ => {}
-        }
-        i += 1;
-    }
-
-    count
 }

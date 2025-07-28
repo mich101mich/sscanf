@@ -67,7 +67,4 @@ pub use from_scanf::*;
 pub mod changelog {}
 
 #[doc(hidden)]
-pub use const_format;
-
-#[doc(hidden)]
 pub mod __macro_utilities;
