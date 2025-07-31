@@ -353,7 +353,7 @@ Please add either of #[sscanf(format = "...")], #[sscanf(format_unescaped = "...
 
             fn from_match(_: &::std::primitive::str) -> ::std::option::Option<Self> { ::std::option::Option::None }
 
-            fn from_match_tree(src: &::sscanf::MatchTree<#lifetime>) -> ::std::option::Option<Self> {
+            fn from_match_tree(src: ::sscanf::MatchTree<'_, #lifetime>) -> ::std::option::Option<Self> {
                 ::std::option::Option::Some(#name #from_matches)
             }
         }
@@ -465,7 +465,7 @@ To do this, add #[sscanf(format = \"...\")] to a variant");
 
             fn from_match(_: &::std::primitive::str) -> ::std::option::Option<Self> { ::std::option::Option::None }
 
-            fn from_match_tree(src: &::sscanf::MatchTree<#lifetime>) -> ::std::option::Option<Self> {
+            fn from_match_tree(src: ::sscanf::MatchTree<'_, #lifetime>) -> ::std::option::Option<Self> {
                 #(#variant_constructors)* {
                     panic!("FromScanf: no variant matched");
                 }

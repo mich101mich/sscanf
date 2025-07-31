@@ -51,7 +51,7 @@ impl Converter {
         Self(code)
     }
     pub fn from_type(index: usize, ty: &syn::Type) -> Self {
-        Self(quote! { src.at(#index).parse::<#ty>()? })
+        Self(quote! { src.parse_at::<#ty>(#index)? })
     }
 }
 
@@ -197,7 +197,7 @@ fn regex_from_radix(
     let ty = ty.inner();
     let span = ty.span();
 
-    let get_input = quote! { src.at(#match_index).full };
+    let get_input = quote! { src.at(#match_index).text() };
 
     fn create_converter(
         ty: &syn::Type,

@@ -1,8 +1,9 @@
 #![allow(unused)]
 //! Utilities for the macros. These elements are public but doc_hidden
 
-use crate::MatchTree;
+use crate::match_tree::{self, MatchTree, MatchTreeIndex};
 
+/// Wrapper around `const_format::concatcp!` so that the dependency is not part of our public API.
 #[macro_export]
 macro_rules! concat_str {
     ( $( $parts:expr ),* ) => {
@@ -52,7 +53,7 @@ impl WrappedRegex {
                     index: 0,
                     children: Vec::new(),
                 };
-                create_match_tree_index(&hir, &mut match_tree_index);
+                match_tree::fill_index(&hir, &mut match_tree_index);
 
                 Ok((regex, match_tree_index))
             })
@@ -60,11 +61,22 @@ impl WrappedRegex {
             .expect("sscanf: Failed to compile regex"); // This will panic at the call site of `sscanf!`
     }
 
-    pub fn captures<'input>(&self, input: &'input str) -> Option<MatchTree<'input>> {
+    pub fn parse_captures<'input, T>(
+        &self,
+        input: &'input str,
+        f: impl FnOnce(&MatchTree<'_, 'input>) -> Option<T>,
+    ) -> Option<T> {
         let (regex, index) = self.regex.get().unwrap().as_ref().unwrap();
         let mut captures = regex.create_captures();
         regex.captures(input, &mut captures);
-        index.create_match_tree(&captures, input)
+        let match_tree = MatchTree::new(
+            index,
+            &captures,
+            input,
+            captures.get_group(0)?,
+            match_tree::Context::Named("sscanf").into(),
+        );
+        f(&match_tree)
     }
 }
 impl std::fmt::Debug for WrappedRegex {
@@ -77,57 +89,5 @@ impl std::fmt::Debug for WrappedRegex {
 impl std::fmt::Display for WrappedRegex {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.regex_str.fmt(f)
-    }
-}
-
-/// The source structure of a MatchTree, consisting of only the indices in the capture group list.
-struct MatchTreeIndex {
-    index: usize,
-    children: Vec<MatchTreeIndex>,
-}
-impl MatchTreeIndex {
-    pub fn create_match_tree<'input>(
-        &self,
-        captures: &regex_automata::util::captures::Captures,
-        input: &'input str,
-    ) -> Option<MatchTree<'input>> {
-        let full = captures.get_group(self.index)?;
-        let inner = self
-            .children
-            .iter()
-            .map(|child| child.create_match_tree(captures, input))
-            .collect();
-        Some(MatchTree {
-            full: &input[full],
-            inner,
-        })
-    }
-}
-
-fn create_match_tree_index(hir: &regex_syntax::hir::Hir, out: &mut MatchTreeIndex) {
-    match hir.kind() {
-        regex_syntax::hir::HirKind::Capture(capture) => {
-            let mut child = MatchTreeIndex {
-                index: capture.index as usize,
-                children: Vec::new(),
-            };
-            create_match_tree_index(&capture.sub, &mut child);
-            out.children.push(child);
-        }
-
-        regex_syntax::hir::HirKind::Repetition(repetition) => {
-            create_match_tree_index(&repetition.sub, out);
-        }
-        regex_syntax::hir::HirKind::Concat(hirs) => {
-            for sub_hir in hirs {
-                create_match_tree_index(sub_hir, out);
-            }
-        }
-        regex_syntax::hir::HirKind::Alternation(hirs) => {
-            for sub_hir in hirs {
-                create_match_tree_index(sub_hir, out);
-            }
-        }
-        _ => {}
     }
 }

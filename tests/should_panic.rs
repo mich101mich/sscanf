@@ -39,3 +39,44 @@ fn check_error_from_str_2() {
     }
     sscanf!("bobhibob", "bob{}bob", Test).unwrap();
 }
+
+#[test]
+#[should_panic = "sscanf: inner match at index 0 is None. Are there any unescaped `?` or `|` in a regex?
+Context: sscanf -> parse group 0 as u8"]
+fn optional_capture_group() {
+    sscanf_unescaped!("", "{u8}?").unwrap();
+}
+
+#[test]
+#[should_panic = "sscanf: inner match at index 0 is None. Are there any unescaped `?` or `|` in a regex?
+Context: sscanf -> parse group 0 as u8"]
+fn alternative_capture_group() {
+    sscanf_unescaped!("abc", "{u8}|{str}").unwrap();
+}
+
+#[test]
+#[should_panic = "sscanf: inner match at index 2 is None. Are there any unescaped `?` or `|` in a regex?
+Context: sscanf -> parse group 0 as should_panic::nesting::my_mod::MyType<alloc::vec::Vec<usize>> -> assert group 0 -> get group 1 -> parse group 2 as should_panic::nesting::my_mod::MyType<alloc::vec::Vec<usize>>"]
+fn nesting() {
+    mod my_mod {
+        pub struct MyType<'bob, LeGenerics>(pub &'bob LeGenerics);
+    }
+    static R: Vec<usize> = vec![];
+    use my_mod::MyType;
+    impl FromScanf<'_> for MyType<'static, std::vec::Vec<usize>> {
+        const REGEX: &'static str = "a(b()(c()()(d)?))";
+        fn from_match(_: &str) -> Option<Self> {
+            None
+        }
+        fn from_match_tree(matches: MatchTree<'_, '_>) -> Option<Self> {
+            matches
+                .at(0)
+                .get(1)
+                .unwrap()
+                .parse_at::<MyType<_>>(2)
+                .unwrap();
+            Some(MyType(&R))
+        }
+    }
+    sscanf_unescaped!("abc", "{MyType<_>}").unwrap();
+}
