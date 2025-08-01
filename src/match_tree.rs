@@ -205,8 +205,16 @@ impl<'t, 'input> MatchTree<'t, 'input> {
     /// Shorthand for `self.at(index).parse()`. The same restrictions apply as for [`parse()`](Self::parse).
     #[track_caller]
     pub fn parse_at<T: FromScanf<'input>>(&self, index: usize) -> Option<T> {
-        let match_tree = self.inner_at(index, Context::ParseAt(std::any::type_name::<T>(), index));
-        T::from_match_tree(match_tree)
+        let context = Context::ParseAt(std::any::type_name::<T>(), index);
+        T::from_match_tree(self.inner_at(index, context))
+    }
+
+    /// Internal method to parse a field at the given index, asserting that it exists.
+    #[doc(hidden)]
+    #[track_caller]
+    pub fn parse_field<T: FromScanf<'input>>(&self, name: &'static str, index: usize) -> Option<T> {
+        let context = Context::ParseField(name, index, std::any::type_name::<T>());
+        T::from_match_tree(self.inner_at(index, context))
     }
 
     /// Returns the inner match at the given index, asserting that it exists.
@@ -283,6 +291,7 @@ pub(crate) enum Context {
     Parse(&'static str),
     ParseAt(&'static str, usize),
     Named(&'static str),
+    ParseField(&'static str, usize, &'static str),
 }
 
 #[derive(Clone, Copy)]
@@ -314,6 +323,9 @@ impl<'t> ContextChain<'t> {
             Context::Parse(ty) => write!(out, "parse as {ty}").unwrap(),
             Context::ParseAt(ty, index) => write!(out, "parse group {index} as {ty}").unwrap(),
             Context::Named(name) => out.push_str(name),
+            Context::ParseField(name, index, ty) => {
+                write!(out, "parse field .{name} from group {index} as {ty}").unwrap()
+            }
         }
     }
 }

@@ -4,12 +4,13 @@ use crate::*;
 pub struct Type<'a> {
     pub kind: TypeKind,
     pub source: TypeSource<'a>,
+    pub field_name: Option<String>,
     ty: syn::Type,
 }
 
 #[derive(Clone)]
 pub enum TypeKind {
-    Str(Option<syn::Lifetime>),
+    Str(Option<syn::Lifetime>), // TODO: remove
     CowStr(Option<syn::Lifetime>),
     Other,
 }
@@ -41,8 +42,20 @@ impl<'a> Type<'a> {
             });
         }
 
-        Type { kind, source, ty }
+        Type {
+            kind,
+            source,
+            field_name: None,
+            ty,
+        }
     }
+
+    pub fn from_field(ty: syn::Type, field_name: String) -> Self {
+        let mut ret = Self::from_ty(ty);
+        ret.field_name = Some(field_name);
+        ret
+    }
+
     pub fn inner(&self) -> &syn::Type {
         &self.ty
     }

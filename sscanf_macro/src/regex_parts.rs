@@ -50,8 +50,12 @@ impl Converter {
     pub fn custom(code: TokenStream) -> Self {
         Self(code)
     }
-    pub fn from_type(index: usize, ty: &syn::Type) -> Self {
-        Self(quote! { src.parse_at::<#ty>(#index)? })
+    pub fn from_type(index: usize, ty: &syn::Type, field_name: &Option<String>) -> Self {
+        if let Some(name) = field_name {
+            Self(quote! { src.parse_field::<#ty>(#name, #index)? })
+        } else {
+            Self(quote! { src.parse_at::<#ty>(#index)? })
+        }
     }
 }
 
@@ -122,7 +126,8 @@ impl RegexParts {
             };
             ret.regex_builder.push(regex);
 
-            let converter = converter.unwrap_or_else(|| Converter::from_type(match_index, inner));
+            let converter = converter
+                .unwrap_or_else(|| Converter::from_type(match_index, inner, &ty.field_name));
 
             ret.converters.push(converter);
         }

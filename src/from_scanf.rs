@@ -141,6 +141,8 @@ where
     Self: Sized,
 {
     /// A regular expression that exactly matches any string representation of the implementing type
+    ///
+    /// TODO: give hints on how to create this regex
     const REGEX: &'static str;
 
     /// The implementation of the parsing.

@@ -99,6 +99,8 @@ pub use sscanf_macro::sscanf_unescaped;
 #[doc(hidden)]
 pub use sscanf_macro::sscanf_unescaped as scanf_unescaped;
 
+// TODO: re-add get_regex as sscanf_regex_str
+
 /// A derive macro for [`FromScanf`](crate::FromScanf).
 ///
 /// ## For structs
