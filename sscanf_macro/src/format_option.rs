@@ -67,6 +67,7 @@ impl<'a> FormatOption<'a> {
                             break;
                         }
                     } else if c == '\\' {
+                        // TODO: check/fix escaping logic (and add tests)
                         if !src.is_raw() {
                             let (_, next) = input
                                 .next()

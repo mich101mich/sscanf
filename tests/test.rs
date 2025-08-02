@@ -48,8 +48,10 @@ fn unescaped() {
 fn generic_types() {
     #[derive(Debug, PartialEq, Eq, Default)]
     pub struct Bob<T>(pub std::marker::PhantomData<T>);
-    impl<T: Default> FromScanf<'_> for Bob<T> {
-        const REGEX: &'static str = ".*";
+    impl<T: Default> FromScanfSimple<'_> for Bob<T> {
+        fn get_matcher() -> Matcher {
+            Matcher::from_regex(".*")
+        }
         fn from_match(_: &str) -> Option<Self> {
             Some(Default::default())
         }

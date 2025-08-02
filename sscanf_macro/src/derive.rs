@@ -135,7 +135,7 @@ fn parse_format(
 
     let mut fields = vec![];
     let mut field_map = HashMap::new();
-    let mut str_lifetimes = HashSet::new();
+    let str_lifetimes = HashSet::new();
     for (i, field) in raw_fields.into_iter().enumerate() {
         let mut ty = field.ty;
         let ident = if let Some(ident) = field.ident {
@@ -176,12 +176,6 @@ fn parse_format(
         }
 
         let ty = Type::from_field(ty, ident.to_string());
-
-        if value_source.is_none()
-            && let Some(lt) = ty.lifetime()
-        {
-            str_lifetimes.insert(lt.clone());
-        }
 
         fields.push(Field {
             ident,
@@ -346,17 +340,17 @@ Please add either of #[sscanf(format = "...")], #[sscanf(format_unescaped = "...
     let (lifetime, lt_generics) = merge_lifetimes(str_lifetimes, generics);
     let (impl_generics, _, where_clause) = lt_generics.split_for_impl();
 
-    let regex = regex_parts.regex();
+    let matcher = regex_parts.get_matcher();
     let from_sscanf_impl = quote! {
         #[automatically_derived]
         impl #impl_generics ::sscanf::FromScanf<#lifetime> for #name #ty_generics #where_clause {
-            const REGEX: &'static ::std::primitive::str = #regex;
+            fn get_matcher(_: &::sscanf::advanced::FormatOptions) -> ::sscanf::advanced::Matcher {
+                #matcher
+            }
 
-            fn from_match(_: &::std::primitive::str) -> ::std::option::Option<Self> { ::std::option::Option::None }
-
-            fn from_match_tree(src: ::sscanf::MatchTree<'_, #lifetime>) -> ::std::option::Option<Self> {
+            fn from_match_tree(src: ::sscanf::advanced::MatchTree<'_, #lifetime>, _: &::sscanf::advanced::FormatOptions) -> ::std::option::Option<Self> {
                 // TODO: add assertion for the number of matches
-                ::std::option::Option::Some(#name #from_matches)
+                ::std::option::Option::Some(Self #from_matches)
             }
         }
     };
@@ -432,7 +426,7 @@ Use `#[sscanf(format = "...")]` to specify a format for a variant with fields or
 
         let converter = quote! {
             if let Some(src) = src.get(#match_index) {
-                return ::std::option::Option::Some(#name::#ident #from_matches);
+                return ::std::option::Option::Some(Self::#ident #from_matches);
             } else
         };
         variant_constructors.push(converter);
@@ -459,15 +453,15 @@ To do this, add #[sscanf(format = \"...\")] to a variant");
     let (lifetime, lt_generics) = merge_lifetimes(str_lifetimes, generics);
     let (impl_generics, _, where_clause) = lt_generics.split_for_impl();
 
-    let regex = regex_parts.regex();
+    let matcher = regex_parts.get_matcher();
     let from_sscanf_impl = quote! {
         #[automatically_derived]
         impl #impl_generics ::sscanf::FromScanf<#lifetime> for #name #ty_generics #where_clause {
-            const REGEX: &'static ::std::primitive::str = #regex;
+            fn get_matcher(_: &::sscanf::advanced::FormatOptions) -> ::sscanf::advanced::Matcher {
+                #matcher
+            }
 
-            fn from_match(_: &::std::primitive::str) -> ::std::option::Option<Self> { ::std::option::Option::None }
-
-            fn from_match_tree(src: ::sscanf::MatchTree<'_, #lifetime>) -> ::std::option::Option<Self> {
+            fn from_match_tree(src: ::sscanf::advanced::MatchTree<'_, #lifetime>, _: &::sscanf::advanced::FormatOptions) -> ::std::option::Option<Self> {
                 // TODO: add assertion for the number of matches
                 #(#variant_constructors)* {
                     panic!("FromScanf: no variant matched");

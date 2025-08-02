@@ -1,64 +1,80 @@
 #![allow(unused)]
 //! Utilities for the macros. These elements are public but doc_hidden
 
-use crate::match_tree::{self, MatchTree, MatchTreeIndex};
+use crate::advanced::*;
 
 /// Wrapper around `const_format::concatcp!` so that the dependency is not part of our public API.
-#[macro_export]
 macro_rules! concat_str {
     ( $( $parts:expr ),* ) => {
         const_format::concatcp!( $( $parts ),* )
     };
 }
-pub use concat_str;
 
 /// Wrapper around regex so that the dependency is not part of our public API.
 ///
 /// Also takes care of the whole "only compile regex once" thing.
-pub struct WrappedRegex {
-    /// The regex itself, wrapped in a `OnceLock` to ensure it is only compiled once.
-    ///
-    /// Note the weird design with the Result in a OnceLock. This is because if the compilation of the regex fails,
-    /// we want to panic (regex is known at compile time => it is a programming error), and we want the panic location
-    /// to be at the call site of `sscanf!`. So we need some initialization that guarantees the "only compile once"
-    /// behavior, and can be put in a track_caller context (so no closure).
-    ///
-    /// The only alternative would be our own synchronization scheme or a mutex, but that would be overkill considering
-    /// that 99.99% of use cases only invoke sscanf once, and even those that invoke it multiple times do so from the
-    /// same thread. A OnceLock is only really used here so that WrappedRegex can be put in a static variable.
-    regex: std::sync::OnceLock<Result<(regex_automata::meta::Regex, MatchTreeIndex), String>>,
-    regex_str: &'static str,
+pub struct Parser {
+    regex: std::sync::OnceLock<ParserMeta>,
 }
-impl WrappedRegex {
+
+struct ParserMeta {
+    regex: Result<regex_automata::meta::Regex, String>,
+    match_tree_index: MatchTreeIndex,
+    hir: regex_syntax::hir::Hir,
+}
+
+impl Parser {
     /// Creates an empty `WrappedRegex`. Callable in `const` context.
-    pub const fn new(regex: &'static str) -> Self {
+    #[allow(
+        clippy::new_without_default,
+        reason = "This is a const constructor. There is no reason to have Default for this struct."
+    )]
+    pub const fn new() -> Self {
         Self {
             regex: std::sync::OnceLock::new(),
-            regex_str: regex,
         }
     }
 
     #[track_caller]
-    pub fn assert_compiled(&self) {
-        let regex = self
-            .regex
-            .get_or_init(|| {
-                let hir = regex_syntax::parse(self.regex_str).map_err(|e| e.to_string())?;
+    pub fn assert_compiled(&self, get_matcher: impl FnOnce() -> Matcher) {
+        let regex = self.regex.get_or_init(|| {
+            let matcher = get_matcher();
 
-                let regex = regex_automata::meta::Regex::builder()
-                    .build_from_hir(&hir)
-                    .map_err(|e| e.to_string())?;
+            let mut capture_index = 0;
+            let hir = matcher.compile(&mut capture_index);
 
-                let mut match_tree_index = MatchTreeIndex {
-                    index: 0,
-                    children: Vec::new(),
+            let mut match_tree_index = MatchTreeIndex {
+                index: 0,
+                children: Vec::new(),
+            };
+            fill_index(&hir, &mut match_tree_index);
+
+            if hir.properties().explicit_captures_len() != capture_index {
+                let error = format!(
+                    "sscanf: Matcher has mismatched number of capture groups! Expected {}, got {}",
+                    capture_index,
+                    hir.properties().explicit_captures_len()
+                );
+                return ParserMeta {
+                    regex: Err(error),
+                    match_tree_index,
+                    hir,
                 };
-                match_tree::fill_index(&hir, &mut match_tree_index);
+            }
 
-                Ok((regex, match_tree_index))
-            })
-            .as_ref()
-            .expect("sscanf: Failed to compile regex"); // This will panic at the call site of `sscanf!`
+            let regex = regex_automata::meta::Regex::builder()
+                .build_from_hir(&hir)
+                .map_err(|e| format!("sscanf: Failed to compile regex: {e}"));
+
+            ParserMeta {
+                regex,
+                match_tree_index,
+                hir,
+            }
+        });
+        if let Err(err) = regex.regex.as_ref() {
+            panic!("{err}"); // This will panic at the call site of `sscanf!`
+        }
     }
 
     pub fn parse_captures<'input, T>(
@@ -66,28 +82,38 @@ impl WrappedRegex {
         input: &'input str,
         f: impl FnOnce(&MatchTree<'_, 'input>) -> Option<T>,
     ) -> Option<T> {
-        let (regex, index) = self.regex.get().unwrap().as_ref().unwrap();
+        let meta = self.regex.get().unwrap();
+        let regex = meta.regex.as_ref().unwrap();
         let mut captures = regex.create_captures();
         regex.captures(input, &mut captures);
         let match_tree = MatchTree::new(
-            index,
+            &meta.match_tree_index,
             &captures,
             input,
             captures.get_group(0)?,
-            match_tree::Context::Named("sscanf").into(),
+            Context::Named("sscanf").into(),
         );
         f(&match_tree)
     }
 }
-impl std::fmt::Debug for WrappedRegex {
+impl std::fmt::Debug for Parser {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("WrappedRegex")
-            .field("regex", &self.regex_str)
-            .finish()
+        match self.regex.get() {
+            Some(meta) => f
+                .debug_struct("WrappedRegex")
+                .field("regex", &meta.regex)
+                .field("match_tree", &meta.match_tree_index)
+                .field("hir", &meta.hir)
+                .finish(),
+            None => write!(f, "<Not compiled yet>"),
+        }
     }
 }
-impl std::fmt::Display for WrappedRegex {
+impl std::fmt::Display for Parser {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.regex_str.fmt(f)
+        match self.regex.get() {
+            Some(meta) => meta.hir.fmt(f),
+            None => write!(f, "<Not compiled yet>"),
+        }
     }
 }

@@ -217,7 +217,7 @@ fn generic_from_scanf() {
     #[sscanf(format = "({name},{age},{data:/[a-z]+/})")]
     struct Person<T = usize>
     where
-        T: for<'a> FromScanf<'a>,
+        T: for<'a> FromScanfSimple<'a>,
     {
         name: String,
         age: u8,
