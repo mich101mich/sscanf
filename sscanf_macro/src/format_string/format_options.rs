@@ -26,6 +26,7 @@ pub enum NumberPrefixPolicy {
 }
 
 pub struct RegexOverride<'a> {
+    #[allow(unused, reason = "TODO: used once other todos are done")]
     pub src: StrLitSlice<'a>,
     pub regex: String,
 }

@@ -73,6 +73,7 @@ impl<'a> StrLitSlice<'a> {
     pub fn text(&self) -> &str {
         &self.src.text[self.start..self.end]
     }
+    #[allow(unused, reason = "TODO: used once other todos are done")]
     pub fn is_raw(&self) -> bool {
         self.src.is_raw()
     }
@@ -108,7 +109,7 @@ impl<'a> StrLitSlice<'a> {
 
         let mut ret = *self;
         ret.start += start;
-        ret.end += end;
+        ret.end = ret.start + (end - start);
         ret
     }
 
