@@ -1,0 +1,3 @@
+{
+    "rust-analyzer.cargo.targetDir": "../target/sscanf_macro/rls",
+}

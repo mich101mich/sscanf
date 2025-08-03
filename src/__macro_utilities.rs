@@ -1,14 +1,9 @@
 #![allow(unused)]
 //! Utilities for the macros. These elements are public but doc_hidden
 
-use crate::advanced::*;
+use regex_syntax::hir::{Hir, HirKind};
 
-/// Wrapper around `const_format::concatcp!` so that the dependency is not part of our public API.
-macro_rules! concat_str {
-    ( $( $parts:expr ),* ) => {
-        const_format::concatcp!( $( $parts ),* )
-    };
-}
+use crate::advanced::*;
 
 /// Wrapper around regex so that the dependency is not part of our public API.
 ///
@@ -20,7 +15,6 @@ pub struct Parser {
 struct ParserMeta {
     regex: Result<regex_automata::meta::Regex, String>,
     match_tree_index: MatchTreeIndex,
-    hir: regex_syntax::hir::Hir,
 }
 
 impl Parser {
@@ -42,6 +36,7 @@ impl Parser {
 
             let mut capture_index = 0;
             let hir = matcher.compile(&mut capture_index);
+            let hir = Hir::concat(vec![Hir::look(Look::Start), hir, Hir::look(Look::End)]);
 
             let mut match_tree_index = MatchTreeIndex {
                 index: 0,
@@ -51,14 +46,12 @@ impl Parser {
 
             if hir.properties().explicit_captures_len() != capture_index {
                 let error = format!(
-                    "sscanf: Matcher has mismatched number of capture groups! Expected {}, got {}",
-                    capture_index,
+                    "sscanf: Matcher has mismatched number of capture groups! Expected {capture_index}, got {}",
                     hir.properties().explicit_captures_len()
                 );
                 return ParserMeta {
                     regex: Err(error),
                     match_tree_index,
-                    hir,
                 };
             }
 
@@ -69,7 +62,6 @@ impl Parser {
             ParserMeta {
                 regex,
                 match_tree_index,
-                hir,
             }
         });
         if let Err(err) = regex.regex.as_ref() {
@@ -103,17 +95,8 @@ impl std::fmt::Debug for Parser {
                 .debug_struct("WrappedRegex")
                 .field("regex", &meta.regex)
                 .field("match_tree", &meta.match_tree_index)
-                .field("hir", &meta.hir)
                 .finish(),
-            None => write!(f, "<Not compiled yet>"),
-        }
-    }
-}
-impl std::fmt::Display for Parser {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.regex.get() {
-            Some(meta) => meta.hir.fmt(f),
-            None => write!(f, "<Not compiled yet>"),
+            None => write!(f, "WrappedRegex{{ ...not compiled yet... }}"),
         }
     }
 }

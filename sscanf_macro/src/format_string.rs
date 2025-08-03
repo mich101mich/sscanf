@@ -1,41 +1,42 @@
 use crate::*;
 
+mod format_options;
+mod parser;
+mod placeholder;
+pub use format_options::*;
+pub use parser::*;
+pub use placeholder::*;
+
 pub struct FormatString<'a> {
     pub placeholders: Vec<Placeholder<'a>>,
-    pub parts: Vec<String>, // contains placeholders.len() + 1 escaped parts
+    pub parts: Vec<String>, // contains placeholders.len() + 1 parts
 }
 
 impl<'a> FormatString<'a> {
-    pub fn new(src: StrLitSlice<'a>, escape_input: bool) -> Result<Self> {
+    pub fn new(src: StrLitSlice<'a>) -> Result<Self> {
         let mut placeholders = vec![];
         let mut parts = vec![];
         let mut current_part = String::new();
 
-        // keep the iterator as a variable to allow peeking and advancing in a sub-function
-        let mut iter = src.text().char_indices().peekable();
+        let mut parser = FormatStringParser::new(src);
 
-        while let Some((i, c)) = iter.next() {
+        while let Ok((pos, c)) = parser.take() {
             if c == '{' {
-                if iter.next_if(|(_, c)| *c == '{').is_some() {
+                if parser.take_if_eq('{').is_some() {
                     // escaped '{{', will be handled like a regular char by the following code
                 } else {
-                    placeholders.push(Placeholder::new(&mut iter, &src, i)?);
-                    current_part.push('(');
-                    parts.push(current_part);
-                    current_part = String::from(")");
+                    parts.push(std::mem::take(&mut current_part));
+                    parser.mark_open_bracket(pos);
+                    placeholders.push(Placeholder::parse(&mut parser)?);
                     continue;
                 }
             } else if c == '}' {
-                if iter.next_if(|(_, c)| *c == '}').is_some() {
+                if parser.take_if_eq('}').is_some() {
                     // escaped '}}', will be handled like a regular char by the following code
                 } else {
                     let msg = "unexpected standalone '}'. Literal '}' need to be escaped as '}}'";
-                    return src.slice(i..=i).err(msg); // checked in tests/fail/<channel>/missing_bracket.rs
+                    return parser.err_at(pos, msg); // checked in tests/fail/<channel>/missing_bracket.rs
                 }
-            }
-
-            if escape_input && is_regex_special_char(c) {
-                current_part.push('\\');
             }
 
             current_part.push(c);
@@ -49,8 +50,4 @@ impl<'a> FormatString<'a> {
     }
 }
 
-#[rustfmt::skip]
-const fn is_regex_special_char(c: char) -> bool {
-    matches!(c, '\\' | '.' | '+' | '*' | '?' | '(' | ')' | '|' | '[' | ']'
-                | '{' | '}' | '^' | '$' | '#' | '&' | '-' | '~')
-}
+// TODO: add tests

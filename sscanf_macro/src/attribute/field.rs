@@ -39,8 +39,7 @@ impl FromAttribute<attr::Field, &'_ syn::Type> for FieldAttributeKind {
                 let mapper = if let syn::Expr::Closure(closure) = mapper {
                     closure
                 } else {
-                    bail!(mapper => "attribute `{}` requires a closure like: `{closure_format}`\n{closure_hint}", attr.kind);
-                    // checked in tests/fail/derive_field_attributes.rs
+                    bail!(mapper => "attribute `{}` requires a closure like: `{closure_format}`\n{closure_hint}", attr.kind); // checked in tests/fail/derive_field_attributes.rs
                 };
 
                 let param = if mapper.inputs.len() == 1 {
@@ -55,17 +54,13 @@ impl FromAttribute<attr::Field, &'_ syn::Type> for FieldAttributeKind {
                         mapper.or1_token.to_tokens(&mut span_src);
                         mapper.or2_token.to_tokens(&mut span_src);
                     }
-                    return span_src.err(format!(
-                        "attribute `{}` requires a closure with exactly one argument",
-                        attr.kind
-                    )); // checked in tests/fail/derive_field_attributes.rs
+                    bail!(span_src => "attribute `{}` requires a closure with exactly one argument", attr.kind); // checked in tests/fail/derive_field_attributes.rs
                 };
 
                 let ty = if let syn::Pat::Type(ty) = param {
                     (*ty.ty).clone()
                 } else {
-                    bail!(param => "`{}` closure has to specify the type of the argument", attr.kind);
-                    // checked in tests/fail/derive_field_attributes.rs
+                    bail!(param => "`{}` closure has to specify the type of the argument", attr.kind); // checked in tests/fail/derive_field_attributes.rs
                 };
 
                 Self::Map {

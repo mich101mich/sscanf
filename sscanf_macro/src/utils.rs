@@ -8,7 +8,7 @@ use crate::*;
 /// together. This means that any compiler errors that occur would only point at the first token
 /// of the spanned expression, which is not very helpful.
 ///
-/// The workaround, as demonstrated by `syn::Error::new_spanned`, is to have the first part of the
+/// The workaround, as demonstrated by `Error::new_spanned`, is to have the first part of the
 /// spanned expression be spanned with the first part of the source span, and the second part of the
 /// spanned expression be spanned with the second part of the source span. The compiler only looks
 /// at the start and end of the span and underlines everything in between, so this works.

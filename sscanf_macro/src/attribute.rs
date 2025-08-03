@@ -99,7 +99,7 @@ macro_rules! declare_attr {
         }
 
         use syn::punctuated::Punctuated;
-        fn attr_parser<A: Attr>() -> fn(ParseStream) -> syn::Result<Punctuated<Attribute<A>, Token![,]>> {
+        fn attr_parser<A: Attr>() -> fn(ParseStream) -> Result<Punctuated<Attribute<A>, Token![,]>> {
             match A::context() {
                 $($context_enum::$context => |input| Punctuated::parse_terminated_with(input, |input| Attribute::parse(input))),+
             }
@@ -133,13 +133,13 @@ declare_attr!(
     }
 );
 
-fn find_match<A: Attr>(s: &str, src: &TokenStream) -> syn::Result<A> {
+fn find_match<A: Attr>(s: &str, src: &TokenStream) -> Result<A> {
     if let Some(attr) = A::all().iter().find(|attr| attr.as_str() == s) {
         return Ok(*attr);
     }
 
     let context = A::context();
-    let valid = list_items(context.all_attr_names(), |s| format!("`{}`", s));
+    let valid = list_items(context.all_attr_names(), |s| format!("`{s}`"));
 
     let mut others = Context::ALL.to_vec();
     others.retain(|&other| other != context);
@@ -152,22 +152,22 @@ fn find_match<A: Attr>(s: &str, src: &TokenStream) -> syn::Result<A> {
     }
     if !found_others.is_empty() {
         let others = list_items(&found_others, |other| other.to_string());
-        bail_syn!(src => "attribute `{s}` can only be used on {others}.
+        bail!(src => "attribute `{s}` can only be used on {others}.
 {context} can have the following attributes: {valid}"); // checked in tests/fail/derive_struct_attributes.rs
     }
 
     if let Some(similar) = find_closest(s, context.all_attr_names()) {
-        bail_syn!(src => "unknown attribute `{s}`. Did you mean `{similar}`?"); // checked in tests/fail/derive_struct_attributes.rs
+        bail!(src => "unknown attribute `{s}`. Did you mean `{similar}`?"); // checked in tests/fail/derive_struct_attributes.rs
     }
 
     for other in &others {
         if let Some(similar) = find_closest(s, other.all_attr_names()) {
-            bail_syn!(src => "unknown attribute `{s}` is similar to `{similar}`, which can only be used on {other}.
+            bail!(src => "unknown attribute `{s}` is similar to `{similar}`, which can only be used on {other}.
 {context} can have the following attributes: {valid}"); // checked in tests/fail/derive_struct_attributes.rs
         }
     }
 
-    bail_syn!(src => "unknown attribute `{s}`. Valid attributes are: {valid}"); // checked in tests/fail/derive_struct_attributes.rs
+    bail!(src => "unknown attribute `{s}`. Valid attributes are: {valid}"); // checked in tests/fail/derive_struct_attributes.rs
 }
 
 pub struct Attribute<A: Attr> {
@@ -177,7 +177,7 @@ pub struct Attribute<A: Attr> {
 }
 
 impl<A: Attr> Attribute<A> {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
+    fn parse(input: ParseStream) -> Result<Self> {
         let mut src = TokenStream::new();
 
         if input.peek(syn::LitStr) {
@@ -206,8 +206,7 @@ impl<A: Attr> Attribute<A> {
                 .collect::<Vec<_>>();
             let valid = list_items(&valid, |c| c.to_string());
 
-            bail_syn!(value.start_span() => "omitting the attribute name is only valid for the `{name}` attribute on {valid}");
-            // checked in tests/fail/derive_field_attributes.rs
+            bail!(value.start_span() => "omitting the attribute name is only valid for the `{name}` attribute on {valid}"); // checked in tests/fail/derive_field_attributes.rs
         }
 
         let attr = input.parse::<syn::Ident>()?;
@@ -222,10 +221,8 @@ impl<A: Attr> Attribute<A> {
             }
             let eq_sign = input.parse::<Token![=]>()?;
 
-            if input.is_empty() {
-                bail_syn!(eq_sign.end_span() => "expected an expression after `=`");
-                // checked in tests/fail/derive_struct_attributes.rs
-            }
+            assert_or_bail!(!input.is_empty(), eq_sign.end_span() => "expected an expression after `=`"); // checked in tests/fail/derive_struct_attributes.rs
+
             let expr = input.parse::<syn::Expr>()?;
             src.extend(quote! { #eq_sign #expr });
             value = Some(expr);
@@ -238,11 +235,9 @@ impl<A: Attr> Attribute<A> {
         if let Some(value) = &self.value {
             Ok(syn::parse2(quote! { #value })?)
         } else if let Some(addition) = addition {
-            bail!(self.src => "attribute `{0}` has the format: `#[sscanf({0} = {description})]`\n{addition}", self.kind);
-            // checked by the caller
+            bail!(self.src => "attribute `{0}` has the format: `#[sscanf({0} = {description})]`\n{addition}", self.kind); // checked by the caller
         } else {
-            bail!(self.src => "attribute `{0}` has the format: `#[sscanf({0} = {description})]`", self.kind);
-            // checked by the caller
+            bail!(self.src => "attribute `{0}` has the format: `#[sscanf({0} = {description})]`", self.kind); // checked by the caller
         }
     }
 }
@@ -259,12 +254,10 @@ fn find_attrs<A: Attr>(attrs: Vec<syn::Attribute>) -> Result<HashMap<A, Attribut
             // message in the `NameValue` case would just be "expected a '('" with a span
             // underlining the '=' sign, which is not very helpful
             syn::Meta::Path(p) => {
-                bail!(p => "expected attribute arguments in parentheses: `sscanf(...)`");
-                // checked in tests/fail/derive_struct_attributes.rs
+                bail!(p => "expected attribute arguments in parentheses: `sscanf(...)`"); // checked in tests/fail/derive_struct_attributes.rs
             }
             syn::Meta::NameValue(nv) => {
-                bail!(nv => "attribute arguments must be in parentheses: `sscanf({})`", nv.value.to_token_stream());
-                // checked in tests/fail/derive_struct_attributes.rs
+                bail!(nv => "attribute arguments must be in parentheses: `sscanf({})`", nv.value.to_token_stream()); // checked in tests/fail/derive_struct_attributes.rs
             }
         };
 
@@ -280,11 +273,10 @@ fn find_attrs<A: Attr>(attrs: Vec<syn::Attribute>) -> Result<HashMap<A, Attribut
             use std::collections::hash_map::Entry;
             match ret.entry(attr.kind) {
                 Entry::Occupied(entry) => {
-                    let msg = format!("attribute `{}` is specified multiple times", attr.kind);
-                    return Error::builder()
-                        .with_spanned(attr.src, msg)
-                        .with_spanned(&entry.get().src, "previous use here")
-                        .build_err(); // checked in tests/fail/derive_struct_attributes.rs
+                    bail!(
+                        {attr.src => "attribute `{}` is specified multiple times", attr.kind},
+                        {entry.get().src => "previous use here"},
+                    ); // checked in tests/fail/derive_struct_attributes.rs
                 }
                 Entry::Vacant(entry) => {
                     entry.insert(attr);
@@ -307,15 +299,15 @@ fn expect_one<A: Attr>(attrs: HashMap<A, Attribute<A>>) -> Result<Option<Attribu
                 "cannot specify both `{}` and `{}`",
                 attrs[0].kind, attrs[1].kind
             );
-            Error::builder()
+            ErrorBuilder::new()
                 .with_spanned(&attrs[0].src, &msg)
                 .with_spanned(&attrs[1].src, &msg)
                 .build_err() // checked in tests/fail/derive_struct_attributes.rs
         }
         _ => {
             let items = list_items(&attrs, |attr| format!("`{}`", attr.kind));
-            let msg = format!("only one of {} is allowed", items);
-            let mut error = Error::builder();
+            let msg = format!("only one of {items} is allowed");
+            let mut error = ErrorBuilder::new();
             for attr in attrs {
                 error.with_spanned(attr.src, &msg);
             }
