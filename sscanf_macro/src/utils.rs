@@ -51,6 +51,19 @@ pub fn find_closest<'a>(s: &str, compare: &[&'a str]) -> Option<&'a str> {
     }
     best_match
 }
+/// Find the closest match to a string in a list of elements, removing it.
+pub fn take_closest<'a, T: Display>(s: &str, compare: &mut Vec<T>) -> Option<T> {
+    let mut best_confidence = 0.8; // minimum confidence
+    let mut best_index = None;
+    for (i, valid) in compare.iter().enumerate() {
+        let confidence = strsim::jaro_winkler(s, &valid.to_string());
+        if confidence > best_confidence {
+            best_confidence = confidence;
+            best_index = Some(i);
+        }
+    }
+    best_index.map(|index| compare.remove(index))
+}
 
 /// Format a list of items as a comma-separated list, with "or" before the last item.
 pub fn list_items<T>(items: &[T], mut display: impl FnMut(&T) -> String) -> String {
