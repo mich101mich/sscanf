@@ -168,7 +168,7 @@ fn generate_matcher(input: &Scanf, escape_input: bool) -> Result<(TokenStream, V
         } else {
             let n = *ph_index;
             *ph_index += 1;
-            assert_or_bail!(n < visited.len(), ph.src => "more placeholders than types provided"); // checked in tests/fail/<channel>/missing_type.rs
+            assert_or_bail!(n < visited.len(), ph => "more placeholders than types provided"); // checked in tests/fail/<channel>/missing_type.rs
             n
         };
         visited[n] = true;

@@ -67,3 +67,9 @@ impl<'a> Placeholder<'a> {
         Ok(Placeholder { src, ident, config })
     }
 }
+
+impl<'a> Sourced<'a> for Placeholder<'a> {
+    fn error(&self, message: impl Display) -> Error {
+        self.src.error(message)
+    }
+}

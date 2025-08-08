@@ -15,12 +15,16 @@ impl<'a> ToTokens for FormatOptions<'a> {
         }
 
         let span = self.src.span();
-        tokens.extend(quote_spanned! {span=> {
-            #[allow(unused_mut, reason = "Might be modified based on the options, might not be")]
-            let mut options = ::sscanf::advanced::FormatOptions::default();
-            #modifiers
-            options
-        }});
+        if modifiers.is_empty() {
+            tokens
+                .extend(quote_spanned! {span=> ::sscanf::advanced::FormatOptions::default() });
+        } else {
+            tokens.extend(quote_spanned! {span=> {
+                let mut options = ::sscanf::advanced::FormatOptions::default();
+                #modifiers
+                options
+            }});
+        }
     }
 }
 

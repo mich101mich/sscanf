@@ -54,8 +54,7 @@ impl Parser {
             let span = ty.full_span();
             let getter = span.apply(quote! { __ret }, quote! { .0 });
             Self(quote! {{
-                struct TokenExtensionWrapper<T>(T);
-                let __ret = TokenExtensionWrapper(src.parse_field(#name, #index, &#format_options)?);
+                let __ret = __SscanfTokenExtensionWrapper(src.parse_field(#name, #index, &#format_options)?);
                 #getter
             }})
         } else {
@@ -95,8 +94,10 @@ impl SequenceMatcher {
             .zip(type_sources)
             .enumerate()
         {
-            ret.match_parts
-                .push(MatchPart::from_text(part, escape_input));
+            if !part.is_empty() {
+                ret.match_parts
+                    .push(MatchPart::from_text(part, escape_input));
+            }
 
             let match_part = if let Some(custom) = &ph.config.regex {
                 MatchPart::from_text(&custom.regex, false)
@@ -110,10 +111,12 @@ impl SequenceMatcher {
         }
 
         // add the last regex_part
-        ret.match_parts.push(MatchPart::from_text(
-            format.parts.last().unwrap(),
-            escape_input,
-        ));
+        if let Some(last_part) = format.parts.last()
+            && !last_part.is_empty()
+        {
+            ret.match_parts
+                .push(MatchPart::from_text(last_part, escape_input));
+        }
 
         Ok(ret)
     }

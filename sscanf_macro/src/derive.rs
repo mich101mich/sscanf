@@ -345,6 +345,7 @@ Please add either of #[sscanf(format = "...")], #[sscanf(format_unescaped = "...
 
             fn from_match_tree(src: ::sscanf::advanced::MatchTree<'_, #lifetime>, _: &::sscanf::advanced::FormatOptions) -> ::std::option::Option<Self> {
                 // TODO: add assertion for the number of matches
+                struct __SscanfTokenExtensionWrapper<T>(T);
                 ::std::option::Option::Some(Self #from_matches)
             }
         }
@@ -438,6 +439,7 @@ To do this, add #[sscanf(format = \"...\")] to a variant"); // checked in tests/
 
             fn from_match_tree(src: ::sscanf::advanced::MatchTree<'_, #lifetime>, _: &::sscanf::advanced::FormatOptions) -> ::std::option::Option<Self> {
                 // TODO: add assertion for the number of matches
+                struct __SscanfTokenExtensionWrapper<T>(T);
                 #(#variant_parsers)* {
                     panic!("FromScanf: no variant matched");
                 }

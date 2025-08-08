@@ -235,10 +235,16 @@ impl<A: Attr> Attribute<A> {
         if let Some(value) = &self.value {
             Ok(syn::parse2(quote! { #value })?)
         } else if let Some(addition) = addition {
-            bail!(self.src => "attribute `{0}` has the format: `#[sscanf({0} = {description})]`\n{addition}", self.kind); // checked by the caller
+            bail!(self => "attribute `{0}` has the format: `#[sscanf({0} = {description})]`\n{addition}", self.kind); // checked by the caller
         } else {
-            bail!(self.src => "attribute `{0}` has the format: `#[sscanf({0} = {description})]`", self.kind); // checked by the caller
+            bail!(self => "attribute `{0}` has the format: `#[sscanf({0} = {description})]`", self.kind); // checked by the caller
         }
+    }
+}
+
+impl<A: Attr> Sourced<'_> for Attribute<A> {
+    fn error(&self, message: impl Display) -> Error {
+        self.src.error(message)
     }
 }
 
@@ -274,8 +280,8 @@ fn find_attrs<A: Attr>(attrs: Vec<syn::Attribute>) -> Result<HashMap<A, Attribut
             match ret.entry(attr.kind) {
                 Entry::Occupied(entry) => {
                     bail!(
-                        {attr.src => "attribute `{}` is specified multiple times", attr.kind},
-                        {entry.get().src => "previous use here"},
+                        {attr => "attribute `{}` is specified multiple times", attr.kind},
+                        {entry.get() => "previous use here"},
                     ); // checked in tests/fail/derive_struct_attributes.rs
                 }
                 Entry::Vacant(entry) => {
@@ -363,5 +369,14 @@ where
         let kind = Kind::from_attribute(attr, data)?;
 
         Ok(Some(Self::new(src, kind)))
+    }
+}
+
+impl<A: Attr, Kind, Data> Sourced<'_> for SingleAttributeContainer<A, Kind, Data>
+where
+    Kind: FromAttribute<A, Data>,
+{
+    fn error(&self, message: impl Display) -> Error {
+        self.src.error(message)
     }
 }

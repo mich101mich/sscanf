@@ -35,3 +35,19 @@ pub struct CustomFormatOption<'a> {
     pub src: StrLitSlice<'a>,
     pub custom: String,
 }
+
+impl<'a> Sourced<'a> for FormatOptions<'a> {
+    fn error(&self, message: impl Display) -> Error {
+        self.src.error(message)
+    }
+}
+impl<'a> Sourced<'a> for RegexOverride<'a> {
+    fn error(&self, message: impl Display) -> Error {
+        self.src.error(message)
+    }
+}
+impl<'a> Sourced<'a> for CustomFormatOption<'a> {
+    fn error(&self, message: impl Display) -> Error {
+        self.src.error(message)
+    }
+}
