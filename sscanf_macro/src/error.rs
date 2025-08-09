@@ -26,9 +26,9 @@ macro_rules! bail {
     // bail!({span1, span2, ...} => msg);
     ( { $($span:expr),* } => $format:expr $(, $arg:expr)* ) => {{
         let mut build = ErrorBuilder::new();
-        let msg = format_args!($format, $($arg),*);
+        let msg = format!($format, $($arg),*);
         $(
-            build.push($span.error(msg));
+            build.push($span.error(&msg));
         )+
         return build.build_err();
     }};

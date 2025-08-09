@@ -79,6 +79,7 @@ enum ValueSource<'a> {
     },
 }
 impl ValueSource<'_> {
+    /// Returns a token stream that returns the value for this field
     fn get(&self, field_ty: &Type, parsers: &[Parser]) -> TokenStream {
         match self {
             ValueSource::Default { def, .. } => {
@@ -91,6 +92,14 @@ impl ValueSource<'_> {
                 }
             }
             ValueSource::Placeholder { index, .. } => parsers[*index].to_token_stream(),
+        }
+    }
+
+    /// Returns true if the value makes use of the parsed type
+    fn uses_parsed_type(&self) -> bool {
+        match self {
+            ValueSource::Default { .. } => false, // default values are not parsed
+            ValueSource::Placeholder { .. } => true, // placeholder values are parsed from a placeholder
         }
     }
 }
@@ -117,6 +126,7 @@ enum ValueConversion {
     FilterMap(syn::ExprClosure),
 }
 impl ValueConversion {
+    /// Applies the conversion to the given value, converting it from `from` type to `to` type
     fn apply(&self, value: TokenStream, from: &Type, to: &Type) -> TokenStream {
         use ValueConversion::*;
         match self {
@@ -185,7 +195,7 @@ fn parse_format(
 
     let mut fields = vec![];
     for (i, field) in struct_fields.into_iter().enumerate() {
-        let mut parsed_type = field.ty;
+        let output_type = field.ty;
 
         let mut ph_index = None;
         let ident = if let Some(ident) = field.ident {
@@ -195,7 +205,7 @@ fn parse_format(
             }
             FieldIdent::Named(ident)
         } else {
-            FieldIdent::from_index(i, parsed_type.span())
+            FieldIdent::from_index(i, output_type.span())
         };
 
         // check if the field is referred to by index in a placeholder
@@ -211,9 +221,9 @@ fn parse_format(
         // if the field is not explicitly used in a placeholder, we would need to use the next unused placeholder index.
         // However, we first need to check if the field is marked as default
 
-        let attr = FieldAttribute::from_attrs_with(field.attrs, &parsed_type)?;
+        let attr = FieldAttribute::from_attrs_with(field.attrs, &output_type)?;
 
-        let mut output_type = parsed_type.clone(); // by default, these are assumed to be the same
+        let mut parsed_type = output_type.clone(); // by default, these are assumed to be the same
         let mut value_source = None;
         let mut conversion = ValueConversion::None;
         if let Some(attr) = attr {
@@ -308,17 +318,14 @@ Either specify it in a placeholder or provide a default value with `#[sscanf(def
     // grab the type that each placeholder should be parsed to
     let mut types_by_placeholder = vec![None; format.placeholders.len()];
     for field in &fields {
-        match field.value_source {
-            ValueSource::Placeholder { index, .. } => {
-                if types_by_placeholder[index].is_some() {
-                    // this case should never happen, because any place where we create ValueSource::Placeholder
-                    // we use a unique index and remove it from the map/iterator so that it can't be used again
-                    let ph = &format.placeholders[index];
-                    bail!(ph => "sscanf: Internal error: placeholder {index} is used multiple times");
-                }
-                types_by_placeholder[index] = Some(field.parsed_type.clone());
+        if let ValueSource::Placeholder { index, .. } = field.value_source {
+            if types_by_placeholder[index].is_some() {
+                // this case should never happen, because any place where we create ValueSource::Placeholder
+                // we use a unique index and remove it from the map/iterator so that it can't be used again
+                let ph = &format.placeholders[index];
+                bail!(ph => "sscanf: Internal error: placeholder {index} is used multiple times");
             }
-            _ => {}
+            types_by_placeholder[index] = Some(field.parsed_type.clone());
         }
     }
 
@@ -331,14 +338,20 @@ Either specify it in a placeholder or provide a default value with `#[sscanf(def
 
     let matcher = SequenceMatcher::new(&format, &types_by_placeholder, escape)?;
 
-    let from_matches: Vec<_> = fields
-        .iter()
-        .map(|field| field.to_parser(&matcher.parsers))
-        .collect();
+    let from_matches = fields.iter().map(|field| field.to_parser(&matcher.parsers));
 
     let parser = quote! { { #(#from_matches),* } };
 
-    Ok((matcher, parser, str_lifetimes))
+    let mut lifetimes = HashSet::new();
+    for field in &fields {
+        if field.value_source.uses_parsed_type() {
+            // if the field is parsed from a placeholder, we need to extract the lifetimes from the parsed type
+            // and add them to the list of lifetimes
+            extract_lifetimes(field.parsed_type.inner(), &mut lifetimes);
+        }
+    }
+
+    Ok((matcher, parser, lifetimes))
 }
 
 // TODO: depend on all the lifetimes
@@ -382,6 +395,7 @@ pub fn parse_struct(
             hint = ".
 Alternatively, you can use #[sscanf(transparent)] to derive FromScanf for a single-field struct"
         }
+
         bail!(name => r#"FromScanf: structs must have a format string as an attribute.
 Please add either of #[sscanf(format = "...")], #[sscanf(format_unescaped = "...")] or #[sscanf("...")]{hint}"#); // checked in tests/fail/derive_struct_attributes.rs
     };
@@ -476,7 +490,8 @@ Use `#[sscanf(format = "...")]` to specify a format for a variant with fields or
 
     if variant_parsers.is_empty() {
         if autogen.is_some() {
-            bail!(name => "at least one variant has to be constructable from sscanf and not skipped."); // checked in tests/fail/derive_enum_attributes.rs
+            bail!(name => "at least one variant has to be constructable from sscanf and not skipped.");
+        // checked in tests/fail/derive_enum_attributes.rs
         } else {
             bail!(name => "at least one variant has to be constructable from sscanf.
 To do this, add #[sscanf(format = \"...\")] to a variant"); // checked in tests/fail/derive_enum_attributes.rs
