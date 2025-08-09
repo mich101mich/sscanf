@@ -16,8 +16,7 @@ impl<'a> ToTokens for FormatOptions<'a> {
 
         let span = self.src.span();
         if modifiers.is_empty() {
-            tokens
-                .extend(quote_spanned! {span=> ::sscanf::advanced::FormatOptions::default() });
+            tokens.extend(quote_spanned! {span=> ::sscanf::advanced::FormatOptions::default() });
         } else {
             tokens.extend(quote_spanned! {span=> {
                 let mut options = ::sscanf::advanced::FormatOptions::default();

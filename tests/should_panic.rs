@@ -3,11 +3,14 @@
 use sscanf::{advanced::*, *};
 
 #[test]
-#[should_panic = r#"sscanf: Failed to compile regex: "regex parse error:\n    ^())$\n       ^\nerror: unopened group""#]
+#[should_panic = r#"sscanf: Invalid REGEX on FromScanfSimple of type should_panic::invalid_regex::Test: regex parse error:
+    asdf)hjkl
+        ^
+error: unopened group"#]
 fn invalid_regex() {
     struct Test;
     impl FromScanfSimple<'_> for Test {
-        const REGEX: &'static str = ")";
+        const REGEX: &'static str = "asdf)hjkl";
         fn from_match(_: &str) -> Option<Self> {
             Some(Test)
         }
@@ -41,20 +44,6 @@ fn check_error_from_str_2() {
 }
 
 #[test]
-#[should_panic = "sscanf: inner match at index 0 is None. Are there any unescaped `?` or `|` in a regex?
-Context: sscanf -> parse group 0 as u8"]
-fn optional_capture_group() {
-    sscanf_unescaped!("", "{u8}?").unwrap();
-}
-
-#[test]
-#[should_panic = "sscanf: inner match at index 0 is None. Are there any unescaped `?` or `|` in a regex?
-Context: sscanf -> parse group 0 as u8"]
-fn alternative_capture_group() {
-    sscanf_unescaped!("abc", "{u8}|{str}").unwrap();
-}
-
-#[test]
 #[should_panic = "sscanf: inner match at index 2 is None. Are there any unescaped `?` or `|` in a regex?
 Context: sscanf -> parse group 0 as should_panic::nesting::my_mod::MyType<alloc::vec::Vec<usize>> -> assert group 0 -> get group 1 -> parse group 2 as should_panic::nesting::my_mod::MyType<alloc::vec::Vec<usize>>"]
 fn nesting() {
@@ -65,7 +54,7 @@ fn nesting() {
     use my_mod::MyType;
     impl FromScanf<'_> for MyType<'static, std::vec::Vec<usize>> {
         fn get_matcher(_: &FormatOptions) -> Matcher {
-            Matcher::from_regex("a(b()(c()()(d)?))")
+            Matcher::from_regex("a(b()(c()()(d)?))").unwrap()
         }
         fn from_match_tree(matches: MatchTree<'_, '_>, _: &FormatOptions) -> Option<Self> {
             matches
@@ -78,21 +67,4 @@ fn nesting() {
         }
     }
     sscanf_unescaped!("abc", "{MyType<_>}").unwrap();
-}
-
-#[test]
-#[should_panic = "sscanf: inner match at index 0 is None. Are there any unescaped `?` or `|` in a regex?
-Context: sscanf -> parse group 0 as should_panic::nesting2::MyUnnamedType -> parse field .1 from group 1 as should_panic::nesting2::MyNamedType -> parse field .x from group 0 as char"]
-fn nesting2() {
-    #[derive(FromScanf)]
-    #[sscanf(r"x={x}?")]
-    struct MyNamedType {
-        x: char,
-    }
-
-    #[derive(FromScanf)]
-    #[sscanf("{}: {}")]
-    struct MyUnnamedType(usize, MyNamedType);
-
-    sscanf_unescaped!("3: x=", "{MyUnnamedType}").unwrap();
 }

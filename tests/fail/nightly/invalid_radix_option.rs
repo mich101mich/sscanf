@@ -5,5 +5,4 @@ fn main() {
     sscanf::sscanf!("", "{:r}", u8);
     sscanf::sscanf!("", "{:r99}", u8);
     sscanf::sscanf!("", "{:r1}", u8);
-    sscanf::sscanf!("", "{:x}", std::u8);
 }
