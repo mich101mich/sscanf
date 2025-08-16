@@ -1,5 +1,5 @@
-error: unrecognized format option.
-       Hint: Regex format options must start and end with '/':
+error: unknown format option starting with '😛'.
+       Use 'b', 'o', 'x' or 'r' for number format options, '/' for regex, or '[' for custom format options:
        At "y̆😛y̆{Ay̆y̆y̆:😛}y̆😛y̆"
                      ^^
  --> tests/fail/stable/non_unicode.rs:3:27
@@ -7,8 +7,8 @@ error: unrecognized format option.
 3 |     sscanf::sscanf!("Hi", "y̆😛y̆{Ay̆y̆y̆:😛}y̆😛y̆");
   |                           ^^^^^^^^^^^^^^^^^^^
 
-error: unrecognized format option.
-       Hint: Regex format options must start and end with '/':
+error: unknown format option starting with '😛'.
+       Use 'b', 'o', 'x' or 'r' for number format options, '/' for regex, or '[' for custom format options:
        At r##"y̆😛y̆{Ay̆y̆y̆:😛}y̆😛y̆"##
                         ^^
  --> tests/fail/stable/non_unicode.rs:4:27

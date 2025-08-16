@@ -1,41 +1,42 @@
-error: end of regex '/' has to be followed by end of placeholder '}'
+error: unknown format option starting with 'g'.
+       Use 'b', 'o', 'x' or 'r' for number format options, '/' for regex, or '[' for custom format options
  --> tests/fail/nightly/invalid_custom_regex.rs:2:30
   |
 2 |     sscanf::sscanf!("", "{://g}", str);
   |                              ^
 
-error: missing '/' to end regex
+error: missing '/' to close the regex option
  --> tests/fail/nightly/invalid_custom_regex.rs:3:28
   |
 3 |     sscanf::sscanf!("", "{:/}", str);
   |                            ^^
 
-error: missing '/' to end regex
+error: missing '/' to close the regex option
  --> tests/fail/nightly/invalid_custom_regex.rs:4:28
   |
 4 |     sscanf::sscanf!("", "{:/", str);
   |                            ^
 
-error: unexpected end of regex
- --> tests/fail/nightly/invalid_custom_regex.rs:6:30
+error: missing '/' to close the regex option
+ --> tests/fail/nightly/invalid_custom_regex.rs:6:29
   |
 6 |     sscanf::sscanf!("", r"{:/\", str);
-  |                              ^
-
-error: unexpected end of regex
- --> tests/fail/nightly/invalid_custom_regex.rs:7:29
-  |
-7 |     sscanf::sscanf!("", "{:/\\", str);
   |                             ^^
 
-error: missing '/' to end regex
+error: missing '/' to close the regex option
+ --> tests/fail/nightly/invalid_custom_regex.rs:7:28
+  |
+7 |     sscanf::sscanf!("", "{:/\\", str);
+  |                            ^^^
+
+error: missing '/' to close the regex option
  --> tests/fail/nightly/invalid_custom_regex.rs:8:29
   |
 8 |     sscanf::sscanf!("", r"{:/\/", str);
   |                             ^^^
 
-error: missing '/' to end regex
- --> tests/fail/nightly/invalid_custom_regex.rs:9:28
+error: missing '}' to close a placeholder. If the '{' was intended to be a literal, escape it with '{{'
+ --> tests/fail/nightly/invalid_custom_regex.rs:9:26
   |
 9 |     sscanf::sscanf!("", "{:/\\/", str);
-  |                            ^^^^
+  |                          ^^^^^^

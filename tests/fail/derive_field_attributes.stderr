@@ -95,8 +95,8 @@ error: cannot specify both `default` and `map`
 47 | struct TestDefaultAndMapMulti(#[sscanf(default = 5)] #[sscanf(map = |x: usize| { x as u8 })] u8);
    |                                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-error: FromScanf: field `0` is not specified in the format string and has no default value. You must specify exactly one of these.
-       The syntax for default values is: `#[sscanf(default)]` to use Default::default() or `#[sscanf(default = ...)]` to provide a custom value.
+error: More fields than placeholders in the format string.
+       Either add more placeholders or provide a default value with `#[sscanf(default)]` or `#[sscanf(default = ...)]`
   --> tests/fail/derive_field_attributes.rs:51:66
    |
 51 | struct TestNoPlaceholder(#[sscanf(map = |x: usize| { x as u8 })] u8);
@@ -210,5 +210,5 @@ error[E0277]: the trait bound `u8: From<f32>` is not satisfied
     |                                       ^^^ the trait `From<f32>` is not implemented for `u8`
     |
     = help: the following other types implement trait `From<T>`:
+              `u8` implements `From<Char>`
               `u8` implements `From<bool>`
-              `u8` implements `From<std::ascii::Char>`

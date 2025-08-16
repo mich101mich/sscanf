@@ -4,19 +4,17 @@ error: more placeholders than types provided
 2 |     sscanf::sscanf!("hi", r"asdf{}asdf");
   |                                 ^^
 
-error: unrecognized format option.
-       Hint: Regex format options must start and end with '/'
- --> tests/fail/nightly/raw_string.rs:3:35
+error: multiple number format options are not allowed
+ --> tests/fail/nightly/raw_string.rs:3:36
   |
 3 |     sscanf::sscanf!("hi", r"asdf{:bob}asdf", usize);
-  |                                   ^^^
+  |                                    ^
 
-error: unrecognized format option.
-       Hint: Regex format options must start and end with '/'
- --> tests/fail/nightly/raw_string.rs:4:40
+error: multiple number format options are not allowed
+ --> tests/fail/nightly/raw_string.rs:4:41
   |
 4 |     sscanf::sscanf!("hi", r"asdf{usize:bob}asdf");
-  |                                        ^^^
+  |                                         ^
 
 error: more placeholders than types provided
  --> tests/fail/nightly/raw_string.rs:5:35
@@ -24,16 +22,14 @@ error: more placeholders than types provided
 5 |     sscanf::sscanf!("hi", r##"asdf{}asdf"##);
   |                                   ^^
 
-error: unrecognized format option.
-       Hint: Regex format options must start and end with '/'
- --> tests/fail/nightly/raw_string.rs:6:37
+error: multiple number format options are not allowed
+ --> tests/fail/nightly/raw_string.rs:6:38
   |
 6 |     sscanf::sscanf!("hi", r##"asdf{:bob}asdf"##, usize);
-  |                                     ^^^
+  |                                      ^
 
-error: unrecognized format option.
-       Hint: Regex format options must start and end with '/'
- --> tests/fail/nightly/raw_string.rs:7:42
+error: multiple number format options are not allowed
+ --> tests/fail/nightly/raw_string.rs:7:43
   |
 7 |     sscanf::sscanf!("hi", r##"asdf{usize:bob}asdf"##);
-  |                                          ^^^
+  |                                           ^

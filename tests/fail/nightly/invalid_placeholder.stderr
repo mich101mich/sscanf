@@ -28,11 +28,13 @@ error: missing '}' to close a placeholder. If the '{' was intended to be a liter
 6 |     sscanf::sscanf!("", "{://", str);
   |                          ^^^^
 
-error: format options cannot be empty. Consider removing the ':'
- --> tests/fail/nightly/invalid_placeholder.rs:7:28
+error: escaped '}}' after an unescaped '{'.
+       If you didn't mean to create a placeholder, escape the '{' as '{{'
+       If you did, either remove the second '}' or escape it with another '}'
+ --> tests/fail/nightly/invalid_placeholder.rs:7:29
   |
 7 |     sscanf::sscanf!("", "{:}}", str);
-  |                            ^
+  |                             ^
 
 error: unexpected standalone '}'. Literal '}' need to be escaped as '}}'
  --> tests/fail/nightly/invalid_placeholder.rs:8:26

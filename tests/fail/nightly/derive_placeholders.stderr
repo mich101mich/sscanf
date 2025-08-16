@@ -1,60 +1,23 @@
-error: field index 5 out of range of 2 fields
- --> tests/fail/nightly/derive_placeholders.rs:2:21
-  |
-2 | #[sscanf(format = "{5} {x} {} {} {b} {} {} {b}")]
-  |                     ^
-
-error: field `x` does not exist
- --> tests/fail/nightly/derive_placeholders.rs:2:25
-  |
-2 | #[sscanf(format = "{5} {x} {} {} {b} {} {} {b}")]
-  |                         ^
-
-error: field `b` has multiple sources
- --> tests/fail/nightly/derive_placeholders.rs:2:34
-  |
-2 | #[sscanf(format = "{5} {x} {} {} {b} {} {} {b}")]
-  |                                  ^^^
-
-error: field `b` has multiple sources
+error: placeholder `b` is used multiple times in the format string
  --> tests/fail/nightly/derive_placeholders.rs:2:44
   |
 2 | #[sscanf(format = "{5} {x} {} {} {b} {} {} {b}")]
   |                                            ^^^
 
-error: too many placeholders
- --> tests/fail/nightly/derive_placeholders.rs:2:31
+error: placeholder `b` is used multiple times in the format string
+ --> tests/fail/nightly/derive_placeholders.rs:2:34
   |
 2 | #[sscanf(format = "{5} {x} {} {} {b} {} {} {b}")]
-  |                               ^^
+  |                                  ^^^
 
-error: too many placeholders
- --> tests/fail/nightly/derive_placeholders.rs:2:38
-  |
-2 | #[sscanf(format = "{5} {x} {} {} {b} {} {} {b}")]
-  |                                      ^^
-
-error: too many placeholders
- --> tests/fail/nightly/derive_placeholders.rs:2:41
-  |
-2 | #[sscanf(format = "{5} {x} {} {} {b} {} {} {b}")]
-  |                                         ^^
-
-error: field `b` has multiple sources
-  --> tests/fail/nightly/derive_placeholders.rs:12:14
-   |
-12 |     #[sscanf(default = 5)]
-   |              ^^^^^^^^^^^
-
-error: field `b` has multiple sources
+error: field `b` is marked as default, but is also used in a placeholder
  --> tests/fail/nightly/derive_placeholders.rs:9:20
   |
 9 | #[sscanf(format = "{b}")]
   |                    ^^^
 
-error: FromScanf: field `a` is not specified in the format string and has no default value. You must specify exactly one of these.
-       The syntax for default values is: `#[sscanf(default)]` to use Default::default() or `#[sscanf(default = ...)]` to provide a custom value.
-  --> tests/fail/nightly/derive_placeholders.rs:11:5
+error: field `b` is marked as default, but is also used in a placeholder
+  --> tests/fail/nightly/derive_placeholders.rs:12:14
    |
-11 |     a: u8,
-   |     ^
+12 |     #[sscanf(default = 5)]
+   |              ^^^^^^^^^^^

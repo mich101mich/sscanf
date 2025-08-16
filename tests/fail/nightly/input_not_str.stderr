@@ -12,7 +12,7 @@ error[E0308]: mismatched types
 note: method defined here
  --> $RUST/core/src/str/mod.rs
   |
-  |     pub const fn get<I: ~const SliceIndex<str>>(&self, i: I) -> Option<&I::Output> {
+  |     pub const fn get<I: [const] SliceIndex<str>>(&self, i: I) -> Option<&I::Output> {
   |                  ^^^
 
 error[E0308]: mismatched types
@@ -29,5 +29,5 @@ error[E0308]: mismatched types
 note: method defined here
  --> $RUST/core/src/str/mod.rs
   |
-  |     pub const fn get<I: ~const SliceIndex<str>>(&self, i: I) -> Option<&I::Output> {
+  |     pub const fn get<I: [const] SliceIndex<str>>(&self, i: I) -> Option<&I::Output> {
   |                  ^^^

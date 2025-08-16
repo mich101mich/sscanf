@@ -14,19 +14,19 @@ macro_rules! bail {
     //     {span2 => msg2}, // <-- trailing comma is required to differentiate macro arms
     //     ...
     // );
-    ( $( { $span:expr => $format:expr $(, $arg:expr)* }, )+ ) => {{
+    ( $( { $span:expr => $format:literal $(, $arg:expr)* }, )+ ) => {{
         let mut build = ErrorBuilder::new();
         $(
-            build.push(error!($span => $format $(, $arg)*));
+            add_error!(build, $span => $format $(, $arg)*);
         )+
         return build.build_err();
     }};
 
     // macro arm for multiple spans with the same message
     // bail!({span1, span2, ...} => msg);
-    ( { $($span:expr),* } => $format:expr $(, $arg:expr)* ) => {{
+    ( { $($span:expr),* } => $format:literal $(, $arg:expr)* ) => {{
         let mut build = ErrorBuilder::new();
-        let msg = format!($format, $($arg),*);
+        let msg = format!($format $(, $arg)*);
         $(
             build.push($span.error(&msg));
         )+
@@ -35,23 +35,23 @@ macro_rules! bail {
 
     // macro arm for a single span with a message
     // bail!(span => msg);
-    ( $span:expr => $format:expr $(, $arg:expr)* ) => {
-        return Err(error!($span => $format $(, $arg)*));
+    ( $span:expr => $format:literal $(, $arg:expr)* ) => {
+        return Err($span.error(format_args!($format $(, $arg)*)));
     };
 }
 macro_rules! assert_or_bail {
-    ( $condition:expr, $span:expr => $message:expr $(, $arg:expr)* ) => {
+    ( $condition:expr, $span:expr => $format:literal $(, $arg:expr)* ) => {
         if !$condition {
-            bail!($span => $message $(, $arg)*);
+            bail!($span => $format $(, $arg)*);
         }
     };
 }
-macro_rules! error {
-    ( $span:expr => $format:expr $(, $arg:expr)* ) => {
-        $span.error(format_args!($format, $($arg),*))
+macro_rules! add_error {
+    ( $error:ident, $span:expr => $format:literal $(, $arg:expr)* ) => {
+        $error.push($span.error(format_args!($format $(, $arg)*)));
     };
 }
-pub(crate) use {assert_or_bail, bail, error};
+pub(crate) use {add_error, assert_or_bail, bail};
 
 pub struct ErrorBuilder(Option<Error>);
 

@@ -1,20 +1,20 @@
-error: config modifier '#' can only be used with 'x', 'o' or 'b'
- --> tests/fail/nightly/invalid_radix_option.rs:2:28
+error: unexpected hashtag '#' after number format option
+ --> tests/fail/nightly/invalid_radix_option.rs:2:30
   |
 2 |     sscanf::sscanf!("", "{:#x#}", u8);
-  |                            ^^^
+  |                              ^
 
-error: config modifier '#' can only be used with 'x', 'o' or 'b'
+error: radix option 'r' cannot be used with a hashtag since it can't have a prefix
  --> tests/fail/nightly/invalid_radix_option.rs:3:28
   |
 3 |     sscanf::sscanf!("", "{:#r16}", u8);
-  |                            ^^^^
+  |                            ^
 
-error: config modifier '#' can only be used with 'x', 'o' or 'b'
- --> tests/fail/nightly/invalid_radix_option.rs:4:28
+error: unexpected hashtag '#' after number format option
+ --> tests/fail/nightly/invalid_radix_option.rs:4:31
   |
 4 |     sscanf::sscanf!("", "{:r16#}", u8);
-  |                            ^^^^
+  |                               ^
 
 error: radix option 'r' has to be followed by a number
  --> tests/fail/nightly/invalid_radix_option.rs:5:28
@@ -33,9 +33,3 @@ error: radix has to be a number between 2 and 36
   |
 7 |     sscanf::sscanf!("", "{:r1}", u8);
   |                            ^^
-
-error: radix options only work on primitive numbers from std with no path or alias
- --> tests/fail/nightly/invalid_radix_option.rs:8:33
-  |
-8 |     sscanf::sscanf!("", "{:x}", std::u8);
-  |                                 ^^^^^^^

@@ -1,28 +1,4 @@
-error: field index 5 out of range of 2 fields:
-       At "{5} {x} {} {} {b} {} {} {b}"
-            ^
- --> tests/fail/stable/derive_placeholders.rs:2:19
-  |
-2 | #[sscanf(format = "{5} {x} {} {} {b} {} {} {b}")]
-  |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-error: field `x` does not exist:
-       At "{5} {x} {} {} {b} {} {} {b}"
-                ^
- --> tests/fail/stable/derive_placeholders.rs:2:19
-  |
-2 | #[sscanf(format = "{5} {x} {} {} {b} {} {} {b}")]
-  |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-error: field `b` has multiple sources:
-       At "{5} {x} {} {} {b} {} {} {b}"
-                         ^^^
- --> tests/fail/stable/derive_placeholders.rs:2:19
-  |
-2 | #[sscanf(format = "{5} {x} {} {} {b} {} {} {b}")]
-  |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-error: field `b` has multiple sources:
+error: placeholder `b` is used multiple times in the format string:
        At "{5} {x} {} {} {b} {} {} {b}"
                                    ^^^
  --> tests/fail/stable/derive_placeholders.rs:2:19
@@ -30,37 +6,15 @@ error: field `b` has multiple sources:
 2 | #[sscanf(format = "{5} {x} {} {} {b} {} {} {b}")]
   |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-error: too many placeholders:
+error: placeholder `b` is used multiple times in the format string:
        At "{5} {x} {} {} {b} {} {} {b}"
-                      ^^
+                         ^^^
  --> tests/fail/stable/derive_placeholders.rs:2:19
   |
 2 | #[sscanf(format = "{5} {x} {} {} {b} {} {} {b}")]
   |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-error: too many placeholders:
-       At "{5} {x} {} {} {b} {} {} {b}"
-                             ^^
- --> tests/fail/stable/derive_placeholders.rs:2:19
-  |
-2 | #[sscanf(format = "{5} {x} {} {} {b} {} {} {b}")]
-  |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-error: too many placeholders:
-       At "{5} {x} {} {} {b} {} {} {b}"
-                                ^^
- --> tests/fail/stable/derive_placeholders.rs:2:19
-  |
-2 | #[sscanf(format = "{5} {x} {} {} {b} {} {} {b}")]
-  |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-error: field `b` has multiple sources
-  --> tests/fail/stable/derive_placeholders.rs:12:14
-   |
-12 |     #[sscanf(default = 5)]
-   |              ^^^^^^^^^^^
-
-error: field `b` has multiple sources:
+error: field `b` is marked as default, but is also used in a placeholder:
        At "{b}"
            ^^^
  --> tests/fail/stable/derive_placeholders.rs:9:19
@@ -68,9 +22,8 @@ error: field `b` has multiple sources:
 9 | #[sscanf(format = "{b}")]
   |                   ^^^^^
 
-error: FromScanf: field `a` is not specified in the format string and has no default value. You must specify exactly one of these.
-       The syntax for default values is: `#[sscanf(default)]` to use Default::default() or `#[sscanf(default = ...)]` to provide a custom value.
-  --> tests/fail/stable/derive_placeholders.rs:11:5
+error: field `b` is marked as default, but is also used in a placeholder
+  --> tests/fail/stable/derive_placeholders.rs:12:14
    |
-11 |     a: u8,
-   |     ^
+12 |     #[sscanf(default = 5)]
+   |              ^^^^^^^^^^^
