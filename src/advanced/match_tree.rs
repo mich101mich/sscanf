@@ -2,6 +2,16 @@ use crate::{FromScanf, advanced::FormatOptions};
 
 use regex_automata::{Span, util::captures::Captures};
 
+#[allow(unused_imports)]
+use crate::advanced::{MatchPart, Matcher}; // for links in docs
+
+mod alt;
+mod raw;
+mod seq;
+pub use alt::*;
+pub use raw::*;
+pub use seq::*;
+
 /// Representation of the match of a capture group in a regex, arranged in a tree structure.
 ///
 /// This type is the parameter to the [`FromScanf::from_match_tree`] method.
@@ -144,10 +154,11 @@ use regex_automata::{Span, util::captures::Captures};
 ///
 /// Because of this, there are utility methods on [`Matcher`](crate::advanced::Matcher) for combining matchers:
 /// ```
-/// # fn get_matcher() -> sscanf::advanced::Matcher {
-/// sscanf::advanced::Matcher::from_alternation(vec![
-///     sscanf::advanced::Matcher::from_regex(r"(\d+)").unwrap(),
-///     sscanf::advanced::Matcher::from_regex(r"([a-zA-Z]+)").unwrap(),
+/// # use sscanf::advanced::Matcher;
+/// # fn get_matcher() -> Matcher {
+/// Matcher::Alt(vec![
+///     Matcher::from_regex(r"\d+").unwrap(),
+///     Matcher::from_regex(r"[a-zA-Z]+").unwrap(),
 /// ])
 /// # }
 /// ```
@@ -162,7 +173,7 @@ use regex_automata::{Span, util::captures::Captures};
 /// your type to the `'input` parameter.
 #[derive(Clone, Copy)]
 pub struct MatchTree<'t, 'input> {
-    inner: &'t MatchTreeIndex,
+    template: &'t MatchTreeTemplate,
     captures: &'t Captures,
     input: &'input str,
     full: &'input str,
@@ -173,14 +184,14 @@ impl<'t, 'input> MatchTree<'t, 'input> {
     /// Internal constructor. MatchTrees can only be received as a parameter to `FromScanf::from_match_tree` and from
     /// the methods on an existing `MatchTree`.
     pub(crate) fn new(
-        inner: &'t MatchTreeIndex,
+        template: &'t MatchTreeTemplate,
         captures: &'t Captures,
         input: &'input str,
         current: Span,
         context: ContextChain<'t>,
     ) -> Self {
         Self {
-            inner,
+            template,
             captures,
             input,
             full: &input[current],
@@ -193,12 +204,6 @@ impl<'t, 'input> MatchTree<'t, 'input> {
         self.full
     }
 
-    /// Returns the number of children in this match tree, i.e. the number of inner capture groups that exist in the
-    /// regex.
-    pub fn num_children(&self) -> usize {
-        self.inner.children.len()
-    }
-
     /// Convenience method to call [`FromScanf::from_match_tree`] with this match tree.
     ///
     /// The type `T` must implement the [`FromScanf`] trait, and this object must have been created from a match to
@@ -208,112 +213,90 @@ impl<'t, 'input> MatchTree<'t, 'input> {
         T::from_match_tree(MatchTree { context, ..*self }, format)
     }
 
-    /// Directly parse one of the inner matches at the given index, if it participated in the match.
-    ///
-    /// Do not use this method for optional capture groups, as it will panic if the match is `None`. Use
-    /// [`get()`](Self::get) for that and handle the `None` case yourself.
-    ///
-    /// Shorthand for `self.at(index).parse()`. The same restrictions apply as for [`parse()`](Self::parse).
-    #[track_caller]
-    pub fn parse_at<T: FromScanf<'input>>(
-        &self,
-        index: usize,
-        format: &FormatOptions,
-    ) -> Option<T> {
-        let context = Context::ParseAt(std::any::type_name::<T>(), index);
-        T::from_match_tree(self.inner_at(index, context), format)
-    }
-
-    /// Internal method to parse a field at the given index, asserting that it exists.
-    #[doc(hidden)]
-    #[track_caller]
-    pub fn parse_field<T: FromScanf<'input>>(
-        &self,
-        name: &'static str,
-        index: usize,
-        format: &FormatOptions,
-    ) -> Option<T> {
-        let context = Context::ParseField(name, index, std::any::type_name::<T>());
-        T::from_match_tree(self.inner_at(index, context), format)
-    }
-
-    /// Returns the inner match at the given index, asserting that it exists.
-    ///
-    /// Don't use this method for optional capture groups, as it will panic if the match is `None`. Use
-    /// [`get()`](Self::get) for that.
+    /// Returns the match as a [`RawMatch`].
     ///
     /// ## Panics
-    /// Panics if the index is out of bounds or if the inner match at that index is `None`.
-    #[track_caller]
-    pub fn at(&'t self, index: usize) -> MatchTree<'t, 'input> {
-        self.inner_at(index, Context::At(index))
-    }
-
-    /// Returns the inner match at the given index, if it participated in the match.
-    ///
-    /// Use this method for optional capture groups. If the capture group is non-optional, prefer using
-    /// [`at()`](Self::at) instead for a more descriptive panic message.
-    ///
-    /// ## Panics
-    /// Panics if the index is out of bounds.
-    #[track_caller]
-    pub fn get(&'t self, index: usize) -> Option<MatchTree<'t, 'input>> {
-        self.inner_get(index, Context::Get(index))
-    }
-
-    /// Internal method to get the inner match at the given index, if it exists.
-    #[track_caller]
-    fn inner_get(&'t self, index: usize, context: Context) -> Option<MatchTree<'t, 'input>> {
-        let context = self.context.and(context);
-        let Some(child) = self.inner.children.get(index) else {
+    /// Panics if this `MatchTree` was not created from a [`Matcher::Raw`].
+    pub fn as_raw(&'t self) -> RawMatch<'t, 'input> {
+        let MatchTreeKind::Raw(range) = &self.template.kind else {
             panic!(
-                "sscanf: index {index} out of bounds in MatchTree with {} children. Is there a custom regex with an incorrect number of capture groups?\nContext: {}",
-                self.inner.children.len(),
-                context.print()
+                "sscanf: MatchTree::as_raw called on a {}.\nContext: {}",
+                self.template.kind_name(),
+                self.context
+            )
+        };
+        RawMatch {
+            indices: range.clone(),
+            captures: self.captures,
+            input: self.input,
+            full: self.full,
+            context: self.context,
+        }
+    }
+
+    /// Returns the match as a [`SeqMatch`].
+    ///
+    /// ## Panics
+    /// Panics if this `MatchTree` was not created from a [`Matcher::Seq`].
+    pub fn as_seq(&'t self) -> SeqMatch<'t, 'input> {
+        let MatchTreeKind::Seq(children) = &self.template.kind else {
+            panic!(
+                "sscanf: MatchTree::as_seq called on a {}.\nContext: {}",
+                self.template.kind_name(),
+                self.context,
+            )
+        };
+        SeqMatch {
+            children,
+            captures: self.captures,
+            input: self.input,
+            full: self.full,
+            context: self.context,
+        }
+    }
+
+    /// Returns the match as an [`AltMatch`].
+    pub fn as_alt(&'t self) -> AltMatch<'t, 'input> {
+        let MatchTreeKind::Alt(children) = &self.template.kind else {
+            panic!(
+                "sscanf: MatchTree::as_alt called on a {}.\nContext: {}",
+                self.template.kind_name(),
+                self.context,
+            )
+        };
+        let Some((matched_index, child, span)) = children
+            .iter()
+            .enumerate()
+            .find_map(|(i, child)| Some((i, child, self.captures.get_group(child.index)?)))
+        else {
+            panic!(
+                "sscanf: AltMatch has no matching alternative!\nContext: {}",
+                self.context,
             );
         };
-        self.captures
-            .get_group(child.index)
-            .map(|span| MatchTree::new(child, self.captures, self.input, span, context))
-    }
 
-    /// Internal method to get the inner match at the given index, asserting that it exists.
-    #[track_caller]
-    fn inner_at(&'t self, index: usize, context: Context) -> MatchTree<'t, 'input> {
-        match self.inner_get(index, context) {
-            Some(child) => child,
-            None => {
-                panic!(
-                    "sscanf: inner match at index {index} is None. Are there any unescaped `?` or `|` in a regex?\nContext: {}",
-                    self.context.and(context).print()
-                );
-            }
+        let child = MatchTree::new(
+            child,
+            self.captures,
+            self.input,
+            span,
+            self.context.and(Context::AltMatch(matched_index)),
+        );
+        AltMatch {
+            matched_index,
+            child,
+            full: self.full,
         }
     }
 }
 
 impl std::fmt::Debug for MatchTree<'_, '_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let children = self
-            .inner
-            .children
-            .iter()
-            .map(|index| {
-                self.captures.get_group(index.index).map(|span| {
-                    MatchTree::new(
-                        index,
-                        self.captures,
-                        self.input,
-                        span,
-                        self.context.and(Context::At(index.index)),
-                    )
-                })
-            })
-            .collect::<Vec<_>>();
-        f.debug_struct("MatchTree")
-            .field("text", &self.text())
-            .field("children", &children)
-            .finish_non_exhaustive()
+        match self.template.kind {
+            MatchTreeKind::Raw(_) => self.as_raw().fmt(f),
+            MatchTreeKind::Seq(_) => self.as_seq().fmt(f),
+            MatchTreeKind::Alt(_) => self.as_alt().fmt(f),
+        }
     }
 }
 
@@ -331,6 +314,7 @@ pub(crate) enum Context {
     ParseAt(&'static str, usize),
     Named(&'static str),
     ParseField(&'static str, usize, &'static str),
+    AltMatch(usize),
 }
 
 #[derive(Clone, Copy)]
@@ -345,28 +329,6 @@ impl<'t> ContextChain<'t> {
             parent: Some(self),
         }
     }
-    fn print(&self) -> String {
-        let mut out = String::new();
-        self.append_to(&mut out);
-        out
-    }
-    fn append_to(&self, out: &mut String) {
-        if let Some(parent) = &self.parent {
-            parent.append_to(out);
-            out.push_str(" -> ");
-        }
-        use std::fmt::Write;
-        match &self.current {
-            Context::At(index) => write!(out, "assert group {index}").unwrap(),
-            Context::Get(index) => write!(out, "get group {index}").unwrap(),
-            Context::Parse(ty) => write!(out, "parse as {ty}").unwrap(),
-            Context::ParseAt(ty, index) => write!(out, "parse group {index} as {ty}").unwrap(),
-            Context::Named(name) => out.push_str(name),
-            Context::ParseField(name, index, ty) => {
-                write!(out, "parse field .{name} from group {index} as {ty}").unwrap()
-            }
-        }
-    }
 }
 impl From<Context> for ContextChain<'_> {
     fn from(context: Context) -> Self {
@@ -376,42 +338,46 @@ impl From<Context> for ContextChain<'_> {
         }
     }
 }
+impl std::fmt::Display for ContextChain<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(parent) = &self.parent {
+            parent.fmt(f)?;
+            f.write_str(" -> ")?;
+        }
+        match &self.current {
+            Context::At(index) => write!(f, "Seq at {index}"),
+            Context::Get(index) => write!(f, "Seq get {index}"),
+            Context::Parse(ty) => write!(f, "parse as {ty}"),
+            Context::ParseAt(ty, index) => write!(f, "Seq parse group {index} as {ty}"),
+            Context::Named(name) => f.write_str(name),
+            Context::ParseField(name, index, ty) => {
+                write!(f, "Seq parse field .{name} from group {index} as {ty}")
+            }
+            Context::AltMatch(index) => write!(f, "Alt ({index} matched)"),
+        }
+    }
+}
 
 /// The source structure of a MatchTree, consisting of only the indices in the capture group list.
 #[derive(Debug)]
-pub(crate) struct MatchTreeIndex {
+pub(crate) struct MatchTreeTemplate {
     pub index: usize,
-    pub children: Vec<MatchTreeIndex>,
+    pub kind: MatchTreeKind,
 }
 
-pub(crate) fn fill_index(hir: &regex_syntax::hir::Hir, out: &mut MatchTreeIndex) {
-    if hir.properties().explicit_captures_len() == 0 {
-        return; // No captures to process
-    }
-    use regex_syntax::hir::HirKind;
-    match hir.kind() {
-        HirKind::Capture(capture) => {
-            let mut child = MatchTreeIndex {
-                index: capture.index as usize,
-                children: Vec::new(),
-            };
-            fill_index(&capture.sub, &mut child);
-            out.children.push(child);
-        }
+#[derive(Debug)]
+pub(crate) enum MatchTreeKind {
+    Raw(std::ops::Range<usize>),
+    Seq(Vec<Option<MatchTreeTemplate>>),
+    Alt(Vec<MatchTreeTemplate>),
+}
 
-        HirKind::Repetition(repetition) => {
-            fill_index(&repetition.sub, out);
+impl MatchTreeTemplate {
+    pub fn kind_name(&self) -> &'static str {
+        match &self.kind {
+            MatchTreeKind::Raw(_) => "RawMatch",
+            MatchTreeKind::Seq(_) => "SeqMatch",
+            MatchTreeKind::Alt(_) => "AltMatch",
         }
-        HirKind::Concat(hirs) => {
-            for sub_hir in hirs {
-                fill_index(sub_hir, out);
-            }
-        }
-        HirKind::Alternation(hirs) => {
-            for sub_hir in hirs {
-                fill_index(sub_hir, out);
-            }
-        }
-        _ => {}
     }
 }

@@ -1,58 +1,59 @@
+use super::{MatchTreeTemplate, MatchTreeKind};
+
 use std::borrow::Cow;
 
 use regex_syntax::hir::{Capture, Hir};
 
 /// TODO:
 #[derive(Debug, Clone)]
-pub struct Matcher {
-    inner: MatcherType,
+pub enum Matcher {
+    /// A raw regex matcher.
+    Raw(RawMatcher),
+    /// Chain several parts together in sequence.
+    Seq(Vec<MatchPart>),
+    /// Combine several matchers in a way that only one of them can match at a time.
+    Alt(Vec<Matcher>),
 }
 
+/// Implementation of a raw regex matcher.
+#[derive(Debug, Clone)]
+pub struct RawMatcher(Hir);
+
 impl Matcher {
-    /// Create a new matcher from a regex string.
+    /// Create a new raw matcher from a regex string.
     pub fn from_regex(regex: &str) -> Result<Self, String> {
-        let inner = match regex_syntax::parse(regex) {
-            Ok(hir) => MatcherType::Raw(hir),
-            Err(err) => {
-                return Err(err.to_string());
-            }
-        };
-        Ok(Self { inner })
-    }
-
-    /// Chain several matchers together in sequence.
-    pub fn from_sequence(seq: Vec<MatchPart>) -> Self {
-        Self {
-            inner: MatcherType::Sequence(seq),
-        }
-    }
-
-    /// Combine several matchers in a way that only one of them can match at a time.
-    pub fn from_alternation(alts: Vec<Matcher>) -> Self {
-        Self {
-            inner: MatcherType::Alternation(alts),
-        }
+        regex_syntax::parse(regex)
+            .map(|hir| Self::Raw(RawMatcher(hir)))
+            .map_err(|err| err.to_string())
     }
 
     /// Internal constructor for a matcher from a raw HIR. Not public to avoid having a dependency in the public API.
-    pub(crate) fn from_inner(inner: MatcherType) -> Self {
-        Self { inner }
+    pub(crate) fn from_raw(inner: Hir) -> Self {
+        Self::Raw(RawMatcher(inner))
     }
 
-    pub(crate) fn compile(self, capture_index: &mut usize) -> Result<Hir, String> {
+    pub(crate) fn compile(
+        self,
+        capture_index: &mut usize,
+    ) -> Result<(Hir, MatchTreeTemplate), String> {
         let index = *capture_index;
         *capture_index += 1;
-        let hir = match self.inner {
-            MatcherType::Raw(mut hir) => {
+        let (hir, kind) = match self {
+            Matcher::Raw(RawMatcher(mut hir)) => {
+                let start_index = *capture_index;
                 compile_raw(&mut hir, capture_index);
-                hir
+                let end_index = *capture_index;
+                (hir, MatchTreeKind::Raw(start_index..end_index))
             }
-            MatcherType::Sequence(matchers) => {
+            Matcher::Seq(matchers) => {
                 let mut hirs = vec![];
+                let mut children = vec![];
                 for matcher in matchers {
                     match matcher {
                         MatchPart::Matcher(matcher) => {
-                            hirs.push(matcher.compile(capture_index)?);
+                            let (hir, child_index) = matcher.compile(capture_index)?;
+                            hirs.push(hir);
+                            children.push(Some(child_index));
                         }
                         MatchPart::Regex(cow) => {
                             let hir = regex_syntax::parse(&cow)
@@ -63,21 +64,28 @@ impl Matcher {
                                 "sscanf: MatchPart::Regex must not contain any capture groups"
                             );
                             hirs.push(hir);
+                            children.push(None);
                         }
-                        MatchPart::Literal(cow) => {
-                            let hir = Hir::literal(cow.as_bytes());
+                        MatchPart::Literal(Cow::Owned(s)) => {
+                            let hir = Hir::literal(s.into_bytes().into_boxed_slice());
                             hirs.push(hir);
+                            children.push(None);
+                        }
+                        MatchPart::Literal(Cow::Borrowed(s)) => {
+                            let hir = Hir::literal(s.as_bytes());
+                            hirs.push(hir);
+                            children.push(None);
                         }
                     }
                 }
-                Hir::concat(hirs)
+                (Hir::concat(hirs), MatchTreeKind::Seq(children))
             }
-            MatcherType::Alternation(matchers) => {
-                let hirs = matchers
+            Matcher::Alt(matchers) => {
+                let (hirs, children) = matchers
                     .into_iter()
                     .map(|m| m.compile(capture_index))
-                    .collect::<Result<Vec<_>, _>>()?;
-                Hir::alternation(hirs)
+                    .collect::<Result<(Vec<_>, Vec<_>), _>>()?;
+                (Hir::alternation(hirs), MatchTreeKind::Alt(children))
             }
         };
         let capture = Capture {
@@ -85,7 +93,7 @@ impl Matcher {
             name: None,
             sub: Box::new(hir),
         };
-        Ok(Hir::capture(capture))
+        Ok((Hir::capture(capture), MatchTreeTemplate { index, kind }))
     }
 
     /// Convert a matcher to a regex string.
@@ -98,7 +106,7 @@ impl Matcher {
     pub fn to_regex(&self) -> String {
         let mut capture_index = 0;
         let hir = self.clone().compile(&mut capture_index).unwrap();
-        hir.to_string()
+        hir.0.to_string()
     }
 }
 
@@ -114,11 +122,11 @@ pub enum MatchPart {
 }
 
 impl MatchPart {
-    /// Convenience method to create a [`MatchPart::Regex`] from a `String`, `&str`, or `Cow<str>`.
+    /// Convenience method to create a [`MatchPart::Regex`] from a `String`, `&'static str`, or `Cow<str>`.
     pub fn regex(s: impl Into<Cow<'static, str>>) -> Self {
         MatchPart::Regex(s.into())
     }
-    /// Convenience method to create a [`MatchPart::Literal`] from a `String`, `&str`, or `Cow<str>`.
+    /// Convenience method to create a [`MatchPart::Literal`] from a `String`, `&'static str`, or `Cow<str>`.
     pub fn literal(s: impl Into<Cow<'static, str>>) -> Self {
         MatchPart::Literal(s.into())
     }
@@ -128,18 +136,6 @@ impl From<Matcher> for MatchPart {
     fn from(matcher: Matcher) -> Self {
         MatchPart::Matcher(matcher)
     }
-}
-
-/// Represents the type of matcher
-///
-/// Note that we could combine the Hirs together using the Hir::concat etc. methods, but we will need to
-/// reconstruct the entire hir from scratch anyway at the end to set the capture indices, so we might as well
-/// keep them separate for now.
-#[derive(Debug, Clone)]
-pub(crate) enum MatcherType {
-    Raw(Hir),
-    Sequence(Vec<MatchPart>),
-    Alternation(Vec<Matcher>),
 }
 
 fn compile_raw(hir: &mut Hir, capture_index: &mut usize) {

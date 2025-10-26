@@ -8,9 +8,9 @@ mod impls {
 /// A trait that allows you to use a custom regex for parsing a type.
 ///
 /// There are three options to implement this trait:
-/// - `#[derive(FromScanf)]` (simple, readable, fool proof (mostly))
-/// - manually implement [`FromScanfSimple`] (flexible, but requires a bit more code)
-/// - manually implement [`FromScanf`] (maximum flexibility, maximum complexity)
+/// - [`#[derive(FromScanf)]` (simple, readable, fool proof (mostly))](#option-1-deriving)
+/// - [manually implement `FromScanfSimple` (flexible, but requires more code)](#option-2-manually-implement-fromscanfsimple)
+/// - [manually implement `FromScanf` (maximum flexibility, maximum complexity)](#option-3-manually-implement-fromscanf)
 ///
 /// ## Option 1: Deriving
 /// ```
@@ -31,7 +31,7 @@ mod impls {
 ///
 /// A detailed description of the syntax and options can be found [here](derive.FromScanf.html)
 ///
-/// ## Option 2: Manually Implement `FromScanfSimple`
+/// ## Option 2: Manually Implement [`FromScanfSimple`]
 /// ```
 /// struct Color {
 ///     r: u8,
@@ -40,7 +40,7 @@ mod impls {
 /// }
 ///
 /// impl sscanf::FromScanfSimple<'_> for Color {
-///     // matches '#' followed by 3 hexadecimal digits
+///     // matches '#' followed by 6 hexadecimal digits
 ///     const REGEX: &'static str = r"#[0-9a-fA-F]{6}";
 ///
 ///     fn from_match(input: &str) -> Option<Self> {
@@ -61,7 +61,7 @@ mod impls {
 /// This option gives more control over the parsing process, but requires more code and manually writing the
 /// regex/parsing.
 ///
-/// ## Option 3: Manually Implement `FromScanf`
+/// ## Option 3: Manually Implement [`FromScanf`]
 /// ```
 /// struct Color {
 ///     r: u8,
@@ -86,9 +86,9 @@ mod impls {
 ///     }
 ///
 ///     fn from_match_tree(matches: MatchTree<'_, '_>, _: &FormatOptions) -> Option<Self> {
-///         // We can access the `Matcher` instances in the get_matcher method to create through
-///         // the `MatchTree` structure.
 ///         let hex_format = FormatOptions::builder().hex().build();
+///         // Since we used `Matcher::from_sequence` with 3 matchers (the hex_u8_matchers),
+///         // we know that there are exactly 3 sub-matches
 ///         Some(Self {
 ///             r: matches.parse_at(0, &hex_format)?,
 ///             // or: r: u8::from_str_radix(matches.at(0).text(), 16).unwrap(),

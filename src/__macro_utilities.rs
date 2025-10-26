@@ -14,7 +14,7 @@ pub struct Parser {
 
 struct ParserMeta {
     regex: Result<regex_automata::meta::Regex, String>,
-    match_tree_index: MatchTreeIndex,
+    match_tree_template: MatchTreeTemplate,
 }
 
 impl Parser {
@@ -38,7 +38,7 @@ impl Parser {
             // should start at 1. However, since our outermost Matcher is itself the whole match, we assign it
             // to group 0 but then remove it again after compilation.
             let mut capture_index = 0;
-            let hir = match matcher.compile(&mut capture_index) {
+            let (hir, match_tree_template) = match matcher.compile(&mut capture_index) {
                 Ok(hir) => hir,
                 Err(err) => panic!("{err}"),
             };
@@ -52,12 +52,6 @@ impl Parser {
 
             let hir = Hir::concat(vec![Hir::look(Look::Start), hir, Hir::look(Look::End)]);
 
-            let mut match_tree_index = MatchTreeIndex {
-                index: 0,
-                children: Vec::new(),
-            };
-            fill_index(&hir, &mut match_tree_index);
-
             if hir.properties().explicit_captures_len() != capture_index {
                 let error = format!(
                     "sscanf: Matcher has mismatched number of capture groups! Expected {capture_index}, got {}",
@@ -65,7 +59,7 @@ impl Parser {
                 );
                 return ParserMeta {
                     regex: Err(error),
-                    match_tree_index,
+                    match_tree_template,
                 };
             }
 
@@ -75,7 +69,7 @@ impl Parser {
 
             ParserMeta {
                 regex,
-                match_tree_index,
+                match_tree_template,
             }
         });
         if let Err(err) = regex.regex.as_ref() {
@@ -93,7 +87,7 @@ impl Parser {
         let mut captures = regex.create_captures();
         regex.captures(input, &mut captures);
         let match_tree = MatchTree::new(
-            &meta.match_tree_index,
+            &meta.match_tree_template,
             &captures,
             input,
             captures.get_group(0)?,
@@ -108,7 +102,7 @@ impl std::fmt::Debug for Parser {
             Some(meta) => f
                 .debug_struct("WrappedRegex")
                 .field("regex", &meta.regex)
-                .field("match_tree", &meta.match_tree_index)
+                .field("match_tree", &meta.match_tree_template)
                 .finish(),
             None => write!(f, "WrappedRegex{{ ...not compiled yet... }}"),
         }
