@@ -15,13 +15,13 @@ let msg = format!("Hello {}{}!", "World", 5);
 assert_eq!(msg, "Hello World5!");
 
 // sscanf: takes string, format string and types, returns tuple
-let parsed = sscanf::sscanf!(msg, "Hello {}{}!", str, usize);
+let parsed = sscanf::sscanf!(msg, "Hello {}{}!", &str, usize);
 
 // parsed is Result<(&str, usize), ...>
 assert_eq!(parsed.unwrap(), ("World", 5));
 
 // alternative syntax:
-let parsed2 = sscanf::sscanf!(msg, "Hello {str}{usize}!");
+let parsed2 = sscanf::sscanf!(msg, "Hello {&str}{usize}!");
 assert_eq!(parsed2.unwrap(), ("World", 5));
 ```
 `sscanf!()` takes a format string like `format!()`, but doesn't write the values into the
@@ -30,7 +30,7 @@ placeholders (`{}`), but extracts the values at those `{}` into the return tuple
 If matching the format string failed, `None` is returned:
 ```rust
 let msg = "Text that doesn't match the format string";
-let parsed = sscanf::sscanf!(msg, "Hello {str}{usize}!");
+let parsed = sscanf::sscanf!(msg, "Hello {&str}{usize}!");
 assert!(parsed.is_none());
 ```
 
@@ -68,9 +68,9 @@ assert_eq!(parsed.unwrap(), ('N', NonZeroUsize::new(36).unwrap(),
                              'E', NonZeroUsize::new(21).unwrap()));
 
 let input = "A Sentence with Spaces. Another Sentence.";
-// str and String do the same, but String clones from the input string
+// &str and String do the same, but String clones from the input string
 // to take ownership instead of borrowing.
-let (a, b) = sscanf!(input, "{String}. {str}.").unwrap();
+let (a, b) = sscanf!(input, "{String}. {&str}.").unwrap();
 assert_eq!(a, "A Sentence with Spaces");
 assert_eq!(b, "Another Sentence");
 
@@ -136,7 +136,7 @@ or Wrappers (~~`struct Wrapper(i32);`~~) or Aliases (~~`type Alias = i32;`~~). *
 For example:
 ```rust
 let input = "random Text";
-let parsed = sscanf::sscanf!(input, "{str:/[^m]+/}{str}");
+let parsed = sscanf::sscanf!(input, "{&str:/[^m]+/}{&str}");
 
 // regex  [^m]+  matches anything that isn't an 'm'
 // => stops at the 'm' in 'random'

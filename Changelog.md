@@ -17,26 +17,39 @@ as neither works without the other and versions are always released in parallel.
 ### Changed
 - Bumped MSRV to 1.88.0 (**BREAKING**)
   - This allows updating several outdated dependencies
-  - This adds more const-fn capabilities, allowing the removal of e.g. the `FromScanf::NUM_CAPTURES` invariant
   - This adds several improvements to error messages, like [Span methods] or
     [diagnostic::on_unimplemented][on_unimplemented]
 - Changed `sscanf!` return type back to `Option` (**BREAKING**) (sorry)
   - This change was originally made to allow debugging custom types, but the returned error was never really useful,
-    and the addition of the derive macro made it useless in not just 99,9% of use cases like before, but 99,999%.  
+    and the addition of the derive macro made it useless in not just 99% of use cases like before, but 99,99%.  
     Having a `Result` that should have been an `Option` was adding far too much complexity and multiple pitfalls.
+- Changed custom Regex string escaping
+  - instead of using `'\'` to escape the closing `'/'`-character, it now uses the same `#`-padding as raw strings
+    - Example: a format string like `"{String:/\\d+\\/\\d+/}"` (which matches `"<number>/<number>"`) now becomes
+      `"{String:#/\\d+/\\d+/#}"`
+- Completely redesigned the `FromScanf` trait (NOTE: The derive macro still works as before!)
 
 ### Removed
 - Removed auto-implementation of `FromScanf` for types implementing `FromStr` (**BREAKING**)
   - This has the benefit that `FromScanf` is now implemented for `&str` and `Cow<str>`, which was previously
     blocked by an "upstream crate might implement FromStr" error
+    - Parsing the types was previously possible through a hack in the sscanf macro
   - This also improves the error message in case `FromScanf` is not implemented
-- The `RegexRepresentation` trait. The `REGEX` constant is now simply part of `FromScanf` (**BREAKING**) TODO:
+  - The same functionality can still be achieved with the [`FromScanfSimple`][FromScanfSimple@0.5.0] trait
+- The [`RegexRepresentation`][RegexRepresentation@0.4.3] trait. The `REGEX` constant is now part of
+  [`FromScanfSimple`][FromScanfSimple@0.5.0] (**BREAKING**)
 - Removed the previously deprecated `FullF32`, `FullF64` and `HexNumber` (technically breaking, but they have been
   deprecated for 3 years or more...)
 
-[0.5.0]:            https://github.com/mich101mich/sscanf/releases
-[Span methods]:     https://doc.rust-lang.org/stable/proc_macro/struct.Span.html#method.start
-[on_unimplemented]: https://doc.rust-lang.org/stable/reference/attributes/diagnostics.html#the-diagnosticon_unimplemented-attribute
+### Added
+- Added a [`FromScanfSimple`][FromScanfSimple@0.5.0] trait to replace the previous combination of
+  `FromStr + RegexRepresentation`
+
+[0.5.0]:                     https://github.com/mich101mich/sscanf/releases/tag/0.5.0
+[Span methods]:              https://doc.rust-lang.org/stable/proc_macro/struct.Span.html#method.start
+[on_unimplemented]:          https://doc.rust-lang.org/stable/reference/attributes/diagnostics.html#the-diagnosticon_unimplemented-attribute
+[RegexRepresentation@0.4.3]: https://docs.rs/sscanf/0.4.3/sscanf/trait.RegexRepresentation.html
+[FromScanfSimple@0.5.0]:     https://docs.rs/sscanf/0.5.0/sscanf/trait.FromScanfSimple.html
 
 ## [0.4.3] - 2025-03-15
 

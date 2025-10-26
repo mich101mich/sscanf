@@ -48,11 +48,15 @@ fn check_error_from_str_2() {
 Context: sscanf -> parse group 0 as should_panic::nesting::my_mod::MyType<alloc::vec::Vec<usize>> -> assert group 0 -> get group 1 -> parse group 2 as should_panic::nesting::my_mod::MyType<alloc::vec::Vec<usize>>"]
 fn nesting() {
     mod my_mod {
-        pub struct MyType<'bob, LeGenerics>(pub &'bob LeGenerics);
+        // FIXME: There are currently (Rust stable 1.90.0, nightly 1.93.0-nightly (34f954f9b 2025-10-25)) differences
+        //        between the panic message on stable and nightly rust if there are lifetimes involved.
+        // pub struct MyType<'bob, LeGenerics>(pub &'bob LeGenerics);
+        pub struct MyType<LeGenerics>(pub LeGenerics);
     }
     static R: Vec<usize> = vec![];
     use my_mod::MyType;
-    impl FromScanf<'_> for MyType<'static, std::vec::Vec<usize>> {
+    // impl FromScanf<'_> for MyType<'static, std::vec::Vec<usize>> {
+    impl FromScanf<'_> for MyType<std::vec::Vec<usize>> {
         fn get_matcher(_: &FormatOptions) -> Matcher {
             Matcher::from_regex("a(b()(c()()(d)?))").unwrap()
         }
@@ -63,7 +67,8 @@ fn nesting() {
                 .unwrap()
                 .parse_at::<MyType<_>>(2, &Default::default())
                 .unwrap();
-            Some(MyType(&R))
+            // Some(MyType(&R))
+            Some(MyType(vec![]))
         }
     }
     sscanf_unescaped!("abc", "{MyType<_>}").unwrap();
