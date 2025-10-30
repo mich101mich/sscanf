@@ -2,8 +2,13 @@ error[E0277]: the trait bound `NoRegex: RegexRepresentation` is not satisfied
   --> tests/fail/nightly/missing_trait_regex.rs:12:33
    |
 12 |     sscanf::sscanf!("hi", "{}", module::NoRegex);
-   |                                 ^^^^^^^^^^^^^^^ the trait `RegexRepresentation` is not implemented for `NoRegex`
+   |                                 ^^^^^^^^^^^^^^^ unsatisfied trait bound
    |
+help: the trait `RegexRepresentation` is not implemented for `NoRegex`
+  --> tests/fail/nightly/missing_trait_regex.rs:2:5
+   |
+ 2 |     pub struct NoRegex(pub u8);
+   |     ^^^^^^^^^^^^^^^^^^
    = help: the following other types implement trait `RegexRepresentation`:
              FullF32
              FullF64
@@ -19,8 +24,13 @@ error[E0277]: the trait bound `NoRegex: RegexRepresentation` is not satisfied
   --> tests/fail/nightly/missing_trait_regex.rs:13:29
    |
 13 |     sscanf::sscanf!("hi", "{module::NoRegex}");
-   |                             ^^^^^^^^^^^^^^^ the trait `RegexRepresentation` is not implemented for `NoRegex`
+   |                             ^^^^^^^^^^^^^^^ unsatisfied trait bound
    |
+help: the trait `RegexRepresentation` is not implemented for `NoRegex`
+  --> tests/fail/nightly/missing_trait_regex.rs:2:5
+   |
+ 2 |     pub struct NoRegex(pub u8);
+   |     ^^^^^^^^^^^^^^^^^^
    = help: the following other types implement trait `RegexRepresentation`:
              FullF32
              FullF64
@@ -36,8 +46,13 @@ error[E0277]: the trait bound `NoRegex: RegexRepresentation` is not satisfied
   --> tests/fail/nightly/missing_trait_regex.rs:15:33
    |
 15 |     sscanf::sscanf!("hi", "{}", NoRegex);
-   |                                 ^^^^^^^ the trait `RegexRepresentation` is not implemented for `NoRegex`
+   |                                 ^^^^^^^ unsatisfied trait bound
    |
+help: the trait `RegexRepresentation` is not implemented for `NoRegex`
+  --> tests/fail/nightly/missing_trait_regex.rs:2:5
+   |
+ 2 |     pub struct NoRegex(pub u8);
+   |     ^^^^^^^^^^^^^^^^^^
    = help: the following other types implement trait `RegexRepresentation`:
              FullF32
              FullF64
@@ -53,8 +68,13 @@ error[E0277]: the trait bound `NoRegex: RegexRepresentation` is not satisfied
   --> tests/fail/nightly/missing_trait_regex.rs:16:29
    |
 16 |     sscanf::sscanf!("hi", "{NoRegex}");
-   |                             ^^^^^^^ the trait `RegexRepresentation` is not implemented for `NoRegex`
+   |                             ^^^^^^^ unsatisfied trait bound
    |
+help: the trait `RegexRepresentation` is not implemented for `NoRegex`
+  --> tests/fail/nightly/missing_trait_regex.rs:2:5
+   |
+ 2 |     pub struct NoRegex(pub u8);
+   |     ^^^^^^^^^^^^^^^^^^
    = help: the following other types implement trait `RegexRepresentation`:
              FullF32
              FullF64
@@ -70,8 +90,13 @@ error[E0277]: the trait bound `NoRegex: RegexRepresentation` is not satisfied
   --> tests/fail/nightly/missing_trait_regex.rs:24:47
    |
 24 | struct TestMapParamNoScanf(#[sscanf(map = |x: module::NoRegex| { x.0 })] u8);
-   |                                               ^^^^^^^^^^^^^^^ the trait `RegexRepresentation` is not implemented for `NoRegex`
+   |                                               ^^^^^^^^^^^^^^^ unsatisfied trait bound
    |
+help: the trait `RegexRepresentation` is not implemented for `NoRegex`
+  --> tests/fail/nightly/missing_trait_regex.rs:2:5
+   |
+ 2 |     pub struct NoRegex(pub u8);
+   |     ^^^^^^^^^^^^^^^^^^
    = help: the following other types implement trait `RegexRepresentation`:
              FullF32
              FullF64

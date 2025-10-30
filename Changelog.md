@@ -11,6 +11,14 @@ as neither works without the other and versions are always released in parallel.
 [sscanf_macro]: https://crates.io/crates/sscanf_macro
 [sscanf]: https://crates.io/crates/sscanf
 
+## [0.4.4] - 2025-10-30
+
+### Changed
+- Removed upper bounds on dependencies
+  - This was done to maintain compatibility with older Rust versions (MSRV), but was causing conflicts with
+    other crates that depend on the newer versions.
+  - Instead there is now a comment in the Cargo.toml on which dependencies to set to a fixed version, which is also
+    used for this crate's tests.
 
 ## [0.4.3] - 2025-03-15
 
