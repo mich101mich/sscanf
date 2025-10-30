@@ -32,7 +32,7 @@ impl StrLit {
         self.text.starts_with('r')
     }
 
-    pub fn to_slice(&self) -> StrLitSlice {
+    pub fn to_slice(&self) -> StrLitSlice<'_> {
         // find the position of the opening quote. raw strings may have a prefix of any length,
         // which needs to be skipped. This information used to be provided by syn, but was removed
         // at some point. This approach is a dirty hack, which relies on the

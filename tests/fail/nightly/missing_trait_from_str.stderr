@@ -2,8 +2,13 @@ error[E0277]: the trait bound `NoFromStr: FromScanf<'_>` is not satisfied
  --> tests/fail/nightly/missing_trait_from_str.rs:9:33
   |
 9 |     sscanf::sscanf!("hi", "{}", module::NoFromStr);
-  |                                 ^^^^^^^^^^^^^^^^^ the trait `FromStr` is not implemented for `NoFromStr`
+  |                                 ^^^^^^^^^^^^^^^^^ unsatisfied trait bound
   |
+help: the trait `FromStr` is not implemented for `NoFromStr`
+ --> tests/fail/nightly/missing_trait_from_str.rs:2:5
+  |
+2 |     pub struct NoFromStr;
+  |     ^^^^^^^^^^^^^^^^^^^^
   = help: the following other types implement trait `FromStr`:
             ByteString
             CString
@@ -20,8 +25,13 @@ error[E0277]: the trait bound `NoFromStr: FromScanf<'_>` is not satisfied
   --> tests/fail/nightly/missing_trait_from_str.rs:10:29
    |
 10 |     sscanf::sscanf!("hi", "{module::NoFromStr}");
-   |                             ^^^^^^^^^^^^^^^^^ the trait `FromStr` is not implemented for `NoFromStr`
+   |                             ^^^^^^^^^^^^^^^^^ unsatisfied trait bound
    |
+help: the trait `FromStr` is not implemented for `NoFromStr`
+  --> tests/fail/nightly/missing_trait_from_str.rs:2:5
+   |
+ 2 |     pub struct NoFromStr;
+   |     ^^^^^^^^^^^^^^^^^^^^
    = help: the following other types implement trait `FromStr`:
              ByteString
              CString
@@ -38,8 +48,13 @@ error[E0277]: the trait bound `NoFromStr: FromScanf<'_>` is not satisfied
   --> tests/fail/nightly/missing_trait_from_str.rs:12:33
    |
 12 |     sscanf::sscanf!("hi", "{}", NoFromStr);
-   |                                 ^^^^^^^^^ the trait `FromStr` is not implemented for `NoFromStr`
+   |                                 ^^^^^^^^^ unsatisfied trait bound
    |
+help: the trait `FromStr` is not implemented for `NoFromStr`
+  --> tests/fail/nightly/missing_trait_from_str.rs:2:5
+   |
+ 2 |     pub struct NoFromStr;
+   |     ^^^^^^^^^^^^^^^^^^^^
    = help: the following other types implement trait `FromStr`:
              ByteString
              CString
@@ -56,8 +71,13 @@ error[E0277]: the trait bound `NoFromStr: FromScanf<'_>` is not satisfied
   --> tests/fail/nightly/missing_trait_from_str.rs:13:29
    |
 13 |     sscanf::sscanf!("hi", "{NoFromStr}");
-   |                             ^^^^^^^^^ the trait `FromStr` is not implemented for `NoFromStr`
+   |                             ^^^^^^^^^ unsatisfied trait bound
    |
+help: the trait `FromStr` is not implemented for `NoFromStr`
+  --> tests/fail/nightly/missing_trait_from_str.rs:2:5
+   |
+ 2 |     pub struct NoFromStr;
+   |     ^^^^^^^^^^^^^^^^^^^^
    = help: the following other types implement trait `FromStr`:
              ByteString
              CString
