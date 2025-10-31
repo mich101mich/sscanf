@@ -20,6 +20,8 @@ as neither works without the other and versions are always released in parallel.
   - Instead there is now a comment in the Cargo.toml on which dependencies to set to a fixed version, which is also
     used for this crate's tests.
 
+[0.4.4]:  https://github.com/mich101mich/sscanf/releases/tag/0.4.4
+
 ## [0.4.3] - 2025-03-15
 
 ### Changed
