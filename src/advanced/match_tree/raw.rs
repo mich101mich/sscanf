@@ -27,7 +27,7 @@ impl<'t, 'input> RawMatch<'t, 'input> {
             index < self.indices.len(),
             "sscanf: index {index} is out of bounds of {} captures in RawMatch::get.\nContext: {}",
             self.indices.len(),
-            self.context
+            self.context.and(Context::Get(index))
         );
         self.captures
             .get_group(self.indices.start + index)

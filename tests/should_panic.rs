@@ -2,11 +2,28 @@
 
 use sscanf::{advanced::*, *};
 
+macro_rules! assert_throws {
+    ( $block:block, $message:expr $(,)? ) => {
+        let error = std::panic::catch_unwind(move || $block).unwrap_err();
+        if let Some(s) = error.downcast_ref::<&'static str>() {
+            assert_eq!(*s, $message);
+        } else if let Some(s) = error.downcast_ref::<String>() {
+            assert_eq!(s, $message);
+        } else {
+            panic!("unexpected panic payload: {:?}", error);
+        }
+    };
+    ( $expression:expr, $message:expr $(,)? ) => {
+        assert_throws!(
+            {
+                $expression;
+            },
+            $message
+        );
+    };
+}
+
 #[test]
-#[should_panic = r#"sscanf: Invalid REGEX on FromScanfSimple of type should_panic::invalid_regex::Test: regex parse error:
-    asdf)hjkl
-        ^
-error: unopened group"#]
 fn invalid_regex() {
     struct Test;
     impl FromScanfSimple<'_> for Test {
@@ -15,23 +32,32 @@ fn invalid_regex() {
             Some(Test)
         }
     }
-    sscanf!("hi", "{Test}").unwrap();
+    assert_throws!(
+        sscanf!("hi", "{Test}").unwrap(),
+        r#"sscanf: Invalid REGEX on FromScanfSimple of type should_panic::invalid_regex::Test: regex parse error:
+    asdf)hjkl
+        ^
+error: unopened group"#
+    );
 }
 
 #[test]
-#[should_panic = "called `Option::unwrap()` on a `None` value"]
 fn check_error_regex() {
-    sscanf!("hi", "bob").unwrap();
+    assert_throws!(
+        sscanf!("hi", "bob").unwrap(),
+        "called `Option::unwrap()` on a `None` value"
+    );
 }
 
 #[test]
-#[should_panic = "called `Option::unwrap()` on a `None` value"]
 fn check_error_from_str_1() {
-    sscanf!("5bobhibob", "{u32}bob{usize:/.*/}bob").unwrap();
+    assert_throws!(
+        sscanf!("5bobhibob", "{u32}bob{usize:/.*/}bob").unwrap(),
+        "called `Option::unwrap()` on a `None` value"
+    );
 }
 
 #[test]
-#[should_panic = "called `Option::unwrap()` on a `None` value"]
 fn check_error_from_str_2() {
     struct Test(usize);
     impl FromScanfSimple<'_> for Test {
@@ -40,12 +66,13 @@ fn check_error_from_str_2() {
             s.parse().ok().map(Test)
         }
     }
-    sscanf!("bobhibob", "bob{}bob", Test).unwrap();
+    assert_throws!(
+        sscanf!("bobhibob", "bob{}bob", Test).unwrap(),
+        "called `Option::unwrap()` on a `None` value"
+    );
 }
 
 #[test]
-#[should_panic = "sscanf: inner match at index 2 is None. Are there any unescaped `?` or `|` in a regex?
-Context: sscanf -> parse group 0 as should_panic::nesting::my_mod::MyType<alloc::vec::Vec<usize>> -> assert group 0 -> get group 1 -> parse group 2 as should_panic::nesting::my_mod::MyType<alloc::vec::Vec<usize>>"]
 fn nesting() {
     mod my_mod {
         // FIXME: There are currently (Rust stable 1.90.0, nightly 1.93.0-nightly (34f954f9b 2025-10-25)) differences
@@ -58,18 +85,21 @@ fn nesting() {
     // impl FromScanf<'_> for MyType<'static, std::vec::Vec<usize>> {
     impl FromScanf<'_> for MyType<std::vec::Vec<usize>> {
         fn get_matcher(_: &FormatOptions) -> Matcher {
-            Matcher::from_regex("a(b()(c()()(d)?))").unwrap()
+            Matcher::Seq(vec![
+                MatchPart::literal("a"),
+                MatchPart::Matcher(Matcher::from_regex("b").unwrap().optional()),
+                MatchPart::literal("c"),
+            ])
         }
         fn from_match_tree(matches: MatchTree<'_, '_>, _: &FormatOptions) -> Option<Self> {
-            matches
-                .at(0)
-                .get(1)
-                .unwrap()
-                .parse_at::<MyType<_>>(2, &Default::default())
-                .unwrap();
+            let _ = matches.as_seq().at(1).as_opt()?.as_raw().get(0).unwrap();
             // Some(MyType(&R))
             Some(MyType(vec![]))
         }
     }
-    sscanf_unescaped!("abc", "{MyType<_>}").unwrap();
+    assert_throws!(
+        sscanf_unescaped!("abc", "{MyType<_>}").unwrap(),
+        r#"sscanf: index 0 is out of bounds of 0 captures in RawMatch::get.
+Context: sscanf -> as_seq() -> parse 0 as should_panic::nesting::my_mod::MyType<alloc::vec::Vec<usize>> -> as_seq() -> at(1) -> as_opt() -> as_raw() -> get(0)"#
+    );
 }

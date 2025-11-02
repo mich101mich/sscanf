@@ -15,6 +15,13 @@ impl<'t, 'input> SeqMatch<'t, 'input> {
         self.full
     }
 
+    /// Returns the number of slots in this sequence.
+    ///
+    /// This number is equal to the length of the vector passed to [`Matcher::Seq`].
+    pub fn num_children(&self) -> usize {
+        self.children.len()
+    }
+
     /// Directly parse one of the sub-matches at the given index.
     ///
     /// Note that the indices refer to the positions of the matchers in the original [`Matcher::Seq`]. This method

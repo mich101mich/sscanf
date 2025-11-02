@@ -417,6 +417,7 @@ Please add either of #[sscanf(format = "...")], #[sscanf(format_unescaped = "...
             }
 
             fn from_match_tree(src: ::sscanf::advanced::MatchTree<'_, #lifetime>, _: &::sscanf::advanced::FormatOptions) -> ::std::option::Option<Self> {
+                let src = src.as_seq();
                 // TODO: add assertion for the number of matches
                 struct __SscanfTokenExtensionWrapper<T>(T);
                 ::std::option::Option::Some(Self #from_matches)
@@ -479,12 +480,12 @@ Use `#[sscanf(format = "...")]` to specify a format for a variant with fields or
 
         str_lifetimes.extend(variant_str_lifetimes);
 
-        let converter = quote! {
-            if let Some(src) = src.get(#match_index) {
+        variant_parsers.push(quote! {
+            #match_index => {
+                // TODO: add assertion for the number of matches
                 return ::std::option::Option::Some(Self::#ident #from_matches);
-            } else // either `else if` with the next variant or `else` at the end
-        };
-        variant_parsers.push(converter);
+            }
+        });
 
         match_index += 1; // only increment if the variant is constructable from sscanf
     }
@@ -508,14 +509,19 @@ To do this, add #[sscanf(format = \"...\")] to a variant"); // checked in tests/
         #[automatically_derived]
         impl #impl_generics ::sscanf::FromScanf<#lifetime> for #name #ty_generics #where_clause {
             fn get_matcher(_: &::sscanf::advanced::FormatOptions) -> ::sscanf::advanced::Matcher {
-                ::sscanf::advanced::Matcher::from_alternation(vec![ #(#variant_matchers),* ])
+                ::sscanf::advanced::Matcher::Alt(vec![ #(#variant_matchers),* ])
             }
 
-            fn from_match_tree(src: ::sscanf::advanced::MatchTree<'_, #lifetime>, _: &::sscanf::advanced::FormatOptions) -> ::std::option::Option<Self> {
-                // TODO: add assertion for the number of matches
+            fn from_match_tree(variants: ::sscanf::advanced::MatchTree<'_, #lifetime>, _: &::sscanf::advanced::FormatOptions) -> ::std::option::Option<Self> {
+                let variants = variants.as_alt();
+                let src = variants.get();
+                let src = src.as_seq();
                 struct __SscanfTokenExtensionWrapper<T>(T);
-                #(#variant_parsers)* {
-                    panic!("FromScanf: no variant matched");
+                match variants.matched_index() {
+                    #(#variant_parsers)*
+                    x => {
+                        panic!("FromScanf: Unexpected variant index {x} in enum {}", stringify!(#name));
+                    }
                 }
             }
         }

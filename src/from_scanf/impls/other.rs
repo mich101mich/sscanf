@@ -119,8 +119,8 @@ mod tests {
 
         fn from_match_tree(matches: MatchTree<'_, 'input>, format: &FormatOptions) -> Option<Self> {
             let matches = matches.as_seq();
-            let a = matches.parse_at(0, format)?;
-            let b = matches.parse_at(1, format)?;
+            let a = matches.parse_at(1, format)?;
+            let b = matches.parse_at(3, format)?;
             Some((a, b))
         }
     }
