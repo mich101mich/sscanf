@@ -61,10 +61,10 @@ impl<'a> Type<'a> {
         }
     }
 
-    pub fn err<T, U: std::fmt::Display>(&self, message: U) -> Result<T> {
+    pub fn err<T>(&self, message: impl Display) -> Result<T> {
         Err(self.error(message))
     }
-    pub fn error<U: std::fmt::Display>(&self, message: U) -> Error {
+    pub fn error(&self, message: impl Display) -> Error {
         match &self.source {
             TypeSource::External => Error::new_spanned(&self.ty, message),
             TypeSource::Format(src) => src.error(message),
