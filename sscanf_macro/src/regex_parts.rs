@@ -72,7 +72,7 @@ impl Parser {
             //    exactly the error we want to point out.
             let span = ty.full_span();
             let call = span.apply(
-                quote! {::sscanf::advanced::MatchTree::parse_field},
+                quote! {::sscanf::advanced::SeqMatch::parse_field},
                 quote! {(&src, #name, #index, &#format_options)},
             );
             Self(quote! {{
@@ -109,17 +109,18 @@ impl SequenceMatcher {
 
         // if there are n types, there are n+1 regex_parts, so add the first n during this loop and
         // add the last one afterwards
-        for (match_index, ((part, ph), ty)) in format
+        for ((part, ph), ty) in format
             .parts
             .iter()
             .zip(format.placeholders.iter())
             .zip(type_sources)
-            .enumerate()
         {
             if !part.is_empty() {
                 ret.match_parts
                     .push(MatchPart::from_text(part, escape_input));
             }
+
+            let match_index = ret.match_parts.len(); // the index of the matcher to be added now
 
             let match_part = if let Some(custom) = &ph.config.regex {
                 MatchPart::from_custom_regex(&custom.regex)
@@ -145,6 +146,6 @@ impl SequenceMatcher {
 
     pub fn get_matcher(&self) -> TokenStream {
         let match_parts = &self.match_parts;
-        quote! { ::sscanf::advanced::Matcher::from_sequence(vec![ #(#match_parts),* ]) }
+        quote! { ::sscanf::advanced::Matcher::Seq(vec![ #(#match_parts),* ]) }
     }
 }

@@ -230,7 +230,7 @@ impl<'t, 'input> MatchTree<'t, 'input> {
             captures: self.captures,
             input: self.input,
             full: self.full,
-            context: self.context,
+            context: self.context.and(Context::AsRaw),
         }
     }
 
@@ -251,11 +251,14 @@ impl<'t, 'input> MatchTree<'t, 'input> {
             captures: self.captures,
             input: self.input,
             full: self.full,
-            context: self.context,
+            context: self.context.and(Context::AsSeq),
         }
     }
 
     /// Returns the match as an [`AltMatch`].
+    ///
+    /// ## Panics
+    /// Panics if this `MatchTree` was not created from a [`Matcher::Alt`].
     pub fn as_alt(&'t self) -> AltMatch<'t, 'input> {
         let MatchTreeKind::Alt(children) = &self.template.kind else {
             panic!(
@@ -288,6 +291,28 @@ impl<'t, 'input> MatchTree<'t, 'input> {
             full: self.full,
         }
     }
+
+    /// Returns the match as an optional [`MatchTree`]
+    ///
+    /// ## Panics
+    /// Panics if this `MatchTree` was not created from a [`Matcher::Opt`].
+    pub fn as_opt(&'t self) -> Option<MatchTree<'t, 'input>> {
+        let MatchTreeKind::Opt(child) = &self.template.kind else {
+            panic!(
+                "sscanf: MatchTree::as_opt called on a {}.\nContext: {}",
+                self.template.kind_name(),
+                self.context,
+            )
+        };
+        let span = self.captures.get_group(child.index)?;
+        Some(MatchTree::new(
+            child,
+            self.captures,
+            self.input,
+            span,
+            self.context.and(Context::AsOpt),
+        ))
+    }
 }
 
 impl std::fmt::Debug for MatchTree<'_, '_> {
@@ -296,6 +321,7 @@ impl std::fmt::Debug for MatchTree<'_, '_> {
             MatchTreeKind::Raw(_) => self.as_raw().fmt(f),
             MatchTreeKind::Seq(_) => self.as_seq().fmt(f),
             MatchTreeKind::Alt(_) => self.as_alt().fmt(f),
+            MatchTreeKind::Opt(_) => self.as_opt().fmt(f),
         }
     }
 }
@@ -308,13 +334,21 @@ impl std::fmt::Display for MatchTree<'_, '_> {
 
 #[derive(Clone, Copy)]
 pub(crate) enum Context {
+    // MatchTree methods
+    Parse(&'static str),
+    AsRaw,
+    AsSeq,
+    AltMatch(usize),
+    AsOpt,
+
+    // SeqMatch methods
     At(usize),
     Get(usize),
-    Parse(&'static str),
     ParseAt(&'static str, usize),
-    Named(&'static str),
     ParseField(&'static str, usize, &'static str),
-    AltMatch(usize),
+
+    // other
+    Named(&'static str),
 }
 
 #[derive(Clone, Copy)]
@@ -345,15 +379,20 @@ impl std::fmt::Display for ContextChain<'_> {
             f.write_str(" -> ")?;
         }
         match &self.current {
-            Context::At(index) => write!(f, "Seq at {index}"),
-            Context::Get(index) => write!(f, "Seq get {index}"),
-            Context::Parse(ty) => write!(f, "parse as {ty}"),
-            Context::ParseAt(ty, index) => write!(f, "Seq parse group {index} as {ty}"),
-            Context::Named(name) => f.write_str(name),
-            Context::ParseField(name, index, ty) => {
-                write!(f, "Seq parse field .{name} from group {index} as {ty}")
-            }
+            Context::Parse(ty) => write!(f, "parse::<{ty}>()"),
+            Context::AsRaw => f.write_str("as_raw()"),
+            Context::AsSeq => f.write_str("as_seq()"),
             Context::AltMatch(index) => write!(f, "Alt ({index} matched)"),
+            Context::AsOpt => f.write_str("as_opt()"),
+
+            Context::At(index) => write!(f, "at({index})"),
+            Context::Get(index) => write!(f, "get({index})"),
+            Context::ParseAt(ty, index) => write!(f, "parse {index} as {ty}"),
+            Context::ParseField(name, index, ty) => {
+                write!(f, "parse .{name} (parse {index} as {ty})")
+            }
+
+            Context::Named(name) => f.write_str(name),
         }
     }
 }
@@ -370,6 +409,7 @@ pub(crate) enum MatchTreeKind {
     Raw(std::ops::Range<usize>),
     Seq(Vec<Option<MatchTreeTemplate>>),
     Alt(Vec<MatchTreeTemplate>),
+    Opt(Box<MatchTreeTemplate>),
 }
 
 impl MatchTreeTemplate {
@@ -378,6 +418,7 @@ impl MatchTreeTemplate {
             MatchTreeKind::Raw(_) => "RawMatch",
             MatchTreeKind::Seq(_) => "SeqMatch",
             MatchTreeKind::Alt(_) => "AltMatch",
+            MatchTreeKind::Opt(_) => "Optional Match",
         }
     }
 }

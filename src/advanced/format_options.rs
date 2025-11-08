@@ -169,7 +169,17 @@ impl NumberFormatOption {
 
     /// Returns the prefix for the number format, if any.
     ///
-    /// E.g. for [`Binary`](NumberFormatOption::Binary) it will return `Some("0b")`.
+    /// ```
+    /// # use sscanf::advanced::{NumberFormatOption, NumberPrefixPolicy};
+    /// let fmt = NumberFormatOption::Hexadecimal(NumberPrefixPolicy::Optional);
+    /// assert_eq!(fmt.prefix(), Some("0x"));
+    ///
+    /// let fmt = NumberFormatOption::Decimal;
+    /// assert_eq!(fmt.prefix(), None);
+    ///
+    /// let fmt = NumberFormatOption::Hexadecimal(NumberPrefixPolicy::Forbidden);
+    /// assert_eq!(fmt.prefix(), None); // no prefix allowed
+    /// ```
     pub fn prefix(self) -> Option<&'static str> {
         use NumberPrefixPolicy::*;
         match self {

@@ -143,14 +143,34 @@ fn primitive_from_match_tree<T: PrimitiveNumber>(
     matches: MatchTree<'_, '_>,
     format: &FormatOptions,
 ) -> Option<T> {
-    let matches = matches.as_raw();
-    let number = if matches.num_capture_groups() == 1 {
-        matches.get(0).unwrap()
-    } else {
-        // User specified a custom regex override. Assume that the entire match is the number.
-        matches.text()
-    };
-    if matches.text().starts_with('-') {
+    let mut number = matches.as_raw().text();
+
+    let negative = number.starts_with('-');
+    number = number.strip_prefix(['+', '-']).unwrap_or(number);
+
+    if let Some(prefix) = format.number.prefix() {
+        let prefix_upper = prefix.to_ascii_uppercase();
+        if format.number.prefix_policy() == NumberPrefixPolicy::Required {
+            number = number
+                .strip_prefix(prefix)
+                .or_else(|| number.strip_prefix(&prefix_upper))
+                .unwrap_or_else(|| {
+                    panic!(
+                        "sscanf: Expected required prefix '{}' but not found in input '{}'",
+                        prefix,
+                        matches.as_raw().text()
+                    )
+                });
+        } else {
+            // optional
+            number = number
+                .strip_prefix(prefix)
+                .or_else(|| number.strip_prefix(&prefix_upper))
+                .unwrap_or(number);
+        }
+    }
+
+    if negative {
         // negative numbers have a different range from positive numbers (e.g. i8::MIN is -128 while i8::MAX is 127).
         // in order to avoid an overflow when trying to parse number like -128i8, we need to parse the number as its
         // unsigned counterpart, e.g. u8::parse_radix("128", 10). This is better than having to manually check for
@@ -546,6 +566,11 @@ mod tests {
             assert_parse_fails::<$ty>(&min_hex, Hexadecimal(Required));
 
             let min_hex_prefixed = format!("-0x{raw_min_hex}");
+            assert_parse_fails::<$ty>(&min_hex_prefixed, Hexadecimal(Forbidden));
+            assert_parse::<$ty>(<$ty>::MIN, &min_hex_prefixed, Hexadecimal(Optional));
+            assert_parse::<$ty>(<$ty>::MIN, &min_hex_prefixed, Hexadecimal(Required));
+
+            let min_hex_prefixed = format!("-0X{raw_min_hex}");
             assert_parse_fails::<$ty>(&min_hex_prefixed, Hexadecimal(Forbidden));
             assert_parse::<$ty>(<$ty>::MIN, &min_hex_prefixed, Hexadecimal(Optional));
             assert_parse::<$ty>(<$ty>::MIN, &min_hex_prefixed, Hexadecimal(Required));

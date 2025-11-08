@@ -7,17 +7,17 @@ use regex_syntax::hir::{Capture, Hir};
 /// TODO:
 #[derive(Debug, Clone)]
 pub enum Matcher {
-    /// A raw regex matcher.
+    /// A raw regex matcher. Created using [`Matcher::from_regex`].
     Raw(RawMatcher),
     /// Chain several parts together in sequence.
     Seq(Vec<MatchPart>),
     /// Combine several matchers in a way that only one of them can match at a time.
     Alt(Vec<Matcher>),
-    /// Make a matcher optional. TODO: implement
+    /// An optional matcher.
     Optional(Box<Matcher>),
 }
 
-/// Implementation of a raw regex matcher.
+/// Implementation details of a raw regex matcher.
 #[derive(Debug, Clone)]
 pub struct RawMatcher(Hir);
 
@@ -27,6 +27,11 @@ impl Matcher {
         regex_syntax::parse(regex)
             .map(|hir| Self::Raw(RawMatcher(hir)))
             .map_err(|err| err.to_string())
+    }
+
+    /// Returns a new matcher that makes this matcher optional.
+    pub fn optional(self) -> Self {
+        Matcher::Optional(Box::new(self))
     }
 
     /// Internal constructor for a matcher from a raw HIR. Not public to avoid having a dependency in the public API.
@@ -88,6 +93,16 @@ impl Matcher {
                     .map(|m| m.compile(capture_index))
                     .collect::<Result<(Vec<_>, Vec<_>), _>>()?;
                 (Hir::alternation(hirs), MatchTreeKind::Alt(children))
+            }
+            Matcher::Optional(matcher) => {
+                let (hir, child_index) = matcher.compile(capture_index)?;
+                let hir = Hir::repetition(regex_syntax::hir::Repetition {
+                    min: 0,
+                    max: Some(1),
+                    greedy: true,
+                    sub: Box::new(hir),
+                });
+                (hir, MatchTreeKind::Opt(Box::new(child_index)))
             }
         };
         let capture = Capture {
