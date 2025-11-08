@@ -47,12 +47,13 @@ impl<'a> Placeholder<'a> {
             let (cfg, end_i) = FormatOption::new(input, src, start)?;
             config = Some(cfg);
             end = Some(end_i);
-        } else if let Some(ident) = ident.as_ref() {
-            if ident.text().starts_with('/') && ident.text().ends_with('/') {
-                // types/fields cannot start with a slash
-                bail!(ident => "missing `:` in front of custom regex. Write `{{:{ident}}}` instead");
-                // checked in tests/fail/<channel>/invalid_placeholder.rs
-            }
+        } else if let Some(ident) = ident.as_ref()
+            && ident.text().starts_with('/')
+            && ident.text().ends_with('/')
+        {
+            // types/fields cannot start with a slash
+            bail!(ident => "missing `:` in front of custom regex. Write `{{:{ident}}}` instead");
+            // checked in tests/fail/<channel>/invalid_placeholder.rs
         }
 
         let end = end.ok_or_else(|| src.slice(start..).error(MISSING_CLOSE_STRING))?; // checked in tests/fail/<channel>/invalid_placeholder.rs

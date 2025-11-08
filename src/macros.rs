@@ -81,7 +81,7 @@ pub use sscanf_macro::sscanf as scanf;
 /// use sscanf::sscanf;
 /// let input = "5.0SOME_RANDOM_TEXT3";
 /// let output = sscanf!(input, "{f32}.*{usize}");
-/// assert!(output.is_err()); // does not match
+/// assert!(output.is_none()); // does not match
 ///
 /// let input2 = "5.0.*3";
 /// let output2 = sscanf!(input2, "{f32}.*{usize}"); // regular sscanf is unaffected by special characters

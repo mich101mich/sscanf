@@ -56,7 +56,7 @@ impl Parse for Scanf {
             // was expected, but since there is nothing there it has no span to point to so it
             // just points at the entire thing."
 
-            bail_syn!(Span::call_site().stable_end() => "at least 2 Parameters required: Input and format string");
+            bail_syn!(Span::call_site() => "sscanf: at least 2 Parameters required: Input and format string");
             // checked in tests/fail/missing_params.rs
         }
         let parse_input: syn::Expr = input.parse()?;
@@ -128,7 +128,7 @@ pub fn derive_from_sscanf(input: TokenStream1) -> TokenStream1 {
 }
 
 fn sscanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
-    let (regex, matcher) = match generate_regex(&input, escape_input) {
+    let (regex, converters) = match generate_regex(&input, escape_input) {
         Ok(v) => v,
         Err(e) => return e.into(),
     };
@@ -146,22 +146,12 @@ fn sscanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
         #[allow(clippy::needless_borrow)]
         let input: &str = #src_str;
         #[allow(clippy::needless_question_mark)]
-        REGEX.captures(input)
-            .and_then(|cap| {
-                let mut src = &cap[..];
-
-                let res = ( #(#matcher),* );
-
-                if !src.is_empty() {
-                    panic!("sscanf: {} captures generated, but {} were taken", NUM_CAPTURES, NUM_CAPTURES - src.len());
-                }
-                ::std::option::Option::Some(res)
-            })
+        REGEX.captures(input).and_then(|src| ::std::option::Option::Some(( #(#converters),* )))
     }};
     ret.into()
 }
 
-fn generate_regex(input: &Scanf, escape_input: bool) -> Result<(TokenStream, Vec<Matcher>)> {
+fn generate_regex(input: &Scanf, escape_input: bool) -> Result<(TokenStream, Vec<Converter>)> {
     let mut format = FormatString::new(input.fmt.to_slice(), escape_input)?;
     format.parts[0].insert(0, '^');
     format.parts.last_mut().unwrap().push('$');
@@ -223,12 +213,10 @@ fn generate_regex(input: &Scanf, escape_input: bool) -> Result<(TokenStream, Vec
     let regex_parts = RegexParts::new(&format, &types)?;
 
     let regex = regex_parts.regex();
-    let num_captures = regex_parts.num_captures();
     let regex = quote! {
         static REGEX: ::sscanf::__macro_utilities::WrappedRegex = ::sscanf::__macro_utilities::WrappedRegex::new(#regex);
-        const NUM_CAPTURES: ::std::primitive::usize = #num_captures;
-        REGEX.assert_compiled(NUM_CAPTURES);
+        REGEX.assert_compiled();
     };
 
-    Ok((regex, regex_parts.matchers))
+    Ok((regex, regex_parts.converters))
 }
