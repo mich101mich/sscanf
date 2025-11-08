@@ -131,7 +131,8 @@ mod impls;
 #[diagnostic::on_unimplemented(
     message = "type `{Self}` can't be parsed by sscanf because it does not implement `FromScanf`",
     label = "can't be parsed by sscanf",
-    note = "derive or implement `FromScanf` for `{Self}` to use it with `sscanf!`"
+    note = "derive or implement `FromScanf` for `{Self}` to use it with `sscanf!`",
+    note = "see the `FromScanf` documentation for details: <https://docs.rs/sscanf/latest/sscanf/trait.FromScanf.html>"
 )]
 pub trait FromScanf<'input>
 where

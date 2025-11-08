@@ -6,6 +6,7 @@ error[E0277]: type `NoFromScanf` can't be parsed by sscanf because it does not i
   |
   = help: the trait `FromScanf<'_>` is not implemented for `NoFromScanf`
   = note: derive or implement `FromScanf` for `NoFromScanf` to use it with `sscanf!`
+  = note: see the `FromScanf` documentation for details: <https://docs.rs/sscanf/latest/sscanf/trait.FromScanf.html>
   = help: the following other types implement trait `FromScanf<'input>`:
             `&'input str` implements `FromScanf<'input>`
             `Cow<'input, str>` implements `FromScanf<'input>`
@@ -25,6 +26,7 @@ error[E0277]: type `NoFromScanf` can't be parsed by sscanf because it does not i
   |
   = help: the trait `FromScanf<'_>` is not implemented for `NoFromScanf`
   = note: derive or implement `FromScanf` for `NoFromScanf` to use it with `sscanf!`
+  = note: see the `FromScanf` documentation for details: <https://docs.rs/sscanf/latest/sscanf/trait.FromScanf.html>
   = help: the following other types implement trait `FromScanf<'input>`:
             `&'input str` implements `FromScanf<'input>`
             `Cow<'input, str>` implements `FromScanf<'input>`
@@ -44,6 +46,7 @@ error[E0277]: type `NoFromScanf` can't be parsed by sscanf because it does not i
   |
   = help: the trait `FromScanf<'_>` is not implemented for `NoFromScanf`
   = note: derive or implement `FromScanf` for `NoFromScanf` to use it with `sscanf!`
+  = note: see the `FromScanf` documentation for details: <https://docs.rs/sscanf/latest/sscanf/trait.FromScanf.html>
   = help: the following other types implement trait `FromScanf<'input>`:
             `&'input str` implements `FromScanf<'input>`
             `Cow<'input, str>` implements `FromScanf<'input>`
@@ -63,6 +66,7 @@ error[E0277]: type `NoFromScanf` can't be parsed by sscanf because it does not i
    |
    = help: the trait `FromScanf<'_>` is not implemented for `NoFromScanf`
    = note: derive or implement `FromScanf` for `NoFromScanf` to use it with `sscanf!`
+   = note: see the `FromScanf` documentation for details: <https://docs.rs/sscanf/latest/sscanf/trait.FromScanf.html>
    = help: the following other types implement trait `FromScanf<'input>`:
              `&'input str` implements `FromScanf<'input>`
              `Cow<'input, str>` implements `FromScanf<'input>`
@@ -85,6 +89,7 @@ error[E0277]: type `NoFromScanf` can't be parsed by sscanf because it does not i
   |
   = help: the trait `FromScanf<'_>` is not implemented for `NoFromScanf`
   = note: derive or implement `FromScanf` for `NoFromScanf` to use it with `sscanf!`
+  = note: see the `FromScanf` documentation for details: <https://docs.rs/sscanf/latest/sscanf/trait.FromScanf.html>
   = help: the following other types implement trait `FromScanf<'input>`:
             `&'input str` implements `FromScanf<'input>`
             `Cow<'input, str>` implements `FromScanf<'input>`
@@ -112,6 +117,7 @@ error[E0277]: type `NoFromScanf` can't be parsed by sscanf because it does not i
   |
   = help: the trait `FromScanf<'_>` is not implemented for `NoFromScanf`
   = note: derive or implement `FromScanf` for `NoFromScanf` to use it with `sscanf!`
+  = note: see the `FromScanf` documentation for details: <https://docs.rs/sscanf/latest/sscanf/trait.FromScanf.html>
   = help: the following other types implement trait `FromScanf<'input>`:
             `&'input str` implements `FromScanf<'input>`
             `Cow<'input, str>` implements `FromScanf<'input>`
@@ -139,6 +145,7 @@ error[E0277]: type `NoFromScanf` can't be parsed by sscanf because it does not i
   |
   = help: the trait `FromScanf<'_>` is not implemented for `NoFromScanf`
   = note: derive or implement `FromScanf` for `NoFromScanf` to use it with `sscanf!`
+  = note: see the `FromScanf` documentation for details: <https://docs.rs/sscanf/latest/sscanf/trait.FromScanf.html>
   = help: the following other types implement trait `FromScanf<'input>`:
             `&'input str` implements `FromScanf<'input>`
             `Cow<'input, str>` implements `FromScanf<'input>`
@@ -166,6 +173,7 @@ error[E0277]: type `NoFromScanf` can't be parsed by sscanf because it does not i
    |
    = help: the trait `FromScanf<'_>` is not implemented for `NoFromScanf`
    = note: derive or implement `FromScanf` for `NoFromScanf` to use it with `sscanf!`
+   = note: see the `FromScanf` documentation for details: <https://docs.rs/sscanf/latest/sscanf/trait.FromScanf.html>
    = help: the following other types implement trait `FromScanf<'input>`:
              `&'input str` implements `FromScanf<'input>`
              `Cow<'input, str>` implements `FromScanf<'input>`

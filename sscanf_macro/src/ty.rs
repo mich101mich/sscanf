@@ -20,7 +20,10 @@ pub enum TypeSource<'a> {
     Format(StrLitSlice<'a>),
 }
 
-#[allow(unused)]
+#[allow(
+    dead_code,
+    reason = "Some methods are here fore completeness and in case they are needed in the future"
+)]
 impl<'a> Type<'a> {
     pub fn from_ty(mut ty: syn::Type) -> Self {
         let kind = TypeKind::from_ty(&ty);

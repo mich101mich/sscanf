@@ -33,7 +33,7 @@ macro_rules! declare_attr {
         pub enum $context_enum {
             $($context),+
         }
-        #[allow(dead_code)]
+        #[allow(dead_code, reason = "This is auto-generated code, so not all of it will be used by all invocations.")]
         impl $context_enum {
             pub const ALL: &'static [Self] = &[ $(Self::$context),+ ];
             pub const ALL_NAMES: &'static [&'static str] = &[ $($context_name),+ ];
@@ -69,7 +69,7 @@ macro_rules! declare_attr {
                 pub enum $context {
                     $($context_attr),+
                 }
-                #[allow(dead_code)]
+                #[allow(dead_code, reason = "This is auto-generated code, so not all of it will be used by all invocations.")]
                 impl $context {
                     pub const ALL: &'static [Self] = &[$(Self::$context_attr),+];
                     pub const ALL_NAMES: &'static [&'static str] = &[$(Self::$context_attr.as_str()),+];

@@ -3,7 +3,10 @@ use quote::quote;
 
 use crate::*;
 
-#[allow(clippy::large_enum_variant)] // don't care
+#[allow(
+    clippy::large_enum_variant,
+    reason = "This only runs inside the compiler, so it doesn't matter"
+)]
 pub enum RegexPart {
     Literal(String),
     FromType(syn::Type, FullSpan),
@@ -236,7 +239,7 @@ fn regex_from_radix(
                     if negative {
                         // re-package `no_sign_prefix` into a string that includes the sign, because otherwise
                         // it might cause faulty overflow errors on numbers like -128i8
-                        let input = ::std::format!("-{}", no_sign_prefix);
+                        let input = ::std::format!("-{}", no_sign_prefix); // TODO: copy code from other branch
                         #ty::from_str_radix(&input, #radix).ok()?
                     } else {
                         #ty::from_str_radix(no_sign_prefix, #radix).ok()?
