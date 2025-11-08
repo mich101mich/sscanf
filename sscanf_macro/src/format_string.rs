@@ -33,8 +33,8 @@ impl<'a> FormatString<'a> {
             } else if c == '}' {
                 if parser.take_if_eq('}').is_some() {
                     // escaped '}}', will be handled like a regular char by the following code
-                } else if current_part.as_bytes().last() == Some(&b'}') {
-                    // '{}}'
+                } else if current_part.is_empty() && !placeholders.is_empty() {
+                    // most recent chars were a placeholder: '{...}}'
                     let msg = "escaped '}}' after an unescaped '{'.
 If you didn't mean to create a placeholder, escape the '{' as '{{'
 If you did, either remove the second '}' or escape it with another '}'";

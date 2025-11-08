@@ -32,6 +32,11 @@ impl<'a> FormatOptions<'a> {
             if c == '}' {
                 parser.take()?;
                 break;
+            } else if c == ' ' {
+                // whitespace is allowed between options
+                parser.take()?;
+                most_recent = OneOption::None; // most recent is no longer directly adjacent to the next option
+                continue;
             } else if c == '/' {
                 // regex option
                 if ret.regex.is_some() {
@@ -161,7 +166,9 @@ impl<'a> RegexOverride<'a> {
         let mut regex = String::new();
         let mut escape = None; // index of the last '\', if any
         loop {
-            let (i, c) = parser.take()?;
+            let Ok((i, c)) = parser.take() else {
+                return parser.err_since(start, "missing '/' to close the regex option");
+            };
             if c == '/' {
                 if escape.take().is_some() {
                     regex.push('/');
@@ -269,7 +276,7 @@ If you meant to add an escape, add another hashtag before the '['. If you meant 
                     parser.err_at(hashtag_pos, msg) // TODO: check
                 } else {
                     // {r<n>#}
-                    let msg = "hashtag '#' can't be used with a radix number format option";
+                    let msg = "unexpected hashtag '#' after number format option";
                     parser.err_at(hashtag_pos, msg) // TODO: check
                 }
             }

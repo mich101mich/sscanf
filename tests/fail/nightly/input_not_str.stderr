@@ -21,6 +21,9 @@ note: method defined here
  --> $RUST/core/src/str/mod.rs
   |
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 94eed5e (tweaks to error messages)
   |     pub const fn get<I: [const] SliceIndex<str>>(&self, i: I) -> Option<&I::Output> {
   |                  ^^^
 
@@ -50,8 +53,12 @@ note: method defined here
  --> $RUST/core/src/str/mod.rs
   |
 <<<<<<< HEAD
+<<<<<<< HEAD
   |     pub const fn get<I: [const] SliceIndex<str>>(&self, i: I) -> Option<&I::Output> {
 =======
   |     pub const fn get<I: ~const SliceIndex<str>>(&self, i: I) -> Option<&I::Output> {
 >>>>>>> a070ece (Fully fixed tests)
+=======
+  |     pub const fn get<I: [const] SliceIndex<str>>(&self, i: I) -> Option<&I::Output> {
+>>>>>>> 94eed5e (tweaks to error messages)
   |                  ^^^

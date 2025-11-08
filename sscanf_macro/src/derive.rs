@@ -213,7 +213,7 @@ fn parse_format(
             if let Some(prev_index) = ph_index {
                 let prev = &format.placeholders[prev_index];
                 let ph = &format.placeholders[index];
-                bail!({ph, prev} => "field `{}` is used in multiple placeholders", ident); // TODO: check
+                bail!({ph, prev} => "field `{ident}` is used in multiple placeholders"); // TODO: check
             }
             ph_index = Some(index);
         }
@@ -232,7 +232,7 @@ fn parse_format(
                 FieldAttributeKind::Default(def) => {
                     if let Some(ph_index) = ph_index {
                         let ph = &format.placeholders[ph_index];
-                        bail!({ph, attr.src} => "field `{}` is marked as default, but is also used in a placeholder", ident);
+                        bail!({ph, attr.src} => "field `{ident}` is marked as default, but is also used in a placeholder");
                     }
                     value_source = Some(ValueSource::Default { def, src: attr.src });
                 }
@@ -288,29 +288,29 @@ fn parse_format(
     for unused in unused_ph_indices {
         // There is an empty placeholder with no matching field
         let ph = &format.placeholders[unused];
-        error.push(error!(ph => "More placeholders than fields in the format string"));
+        add_error!(error, ph => "More placeholders than fields in the format string");
     }
     for (name, index) in &explicit_ph_identifiers {
         let ph = &format.placeholders[*index];
         if let Ok(n) = name.parse::<usize>() {
             // User specified a number that seems to be out of range
-            error.push(error!(ph => "No field with index {n} exists"));
+            add_error!(error, ph => "No field with index {n} exists");
         } else if let Some(closest) = take_closest(name, &mut unspecified_fields) {
             // User provided an unknown field name, but we can suggest a closest match
-            error.push(error!(ph => "placeholder `{name}` does not match any field. Did you mean `{closest}`?"));
+            add_error!(error, ph => "placeholder `{name}` does not match any field. Did you mean `{closest}`?");
         } else {
             // User provided an unknown field name
-            error.push(error!(ph => "placeholder `{name}` does not match any field"));
+            add_error!(error, ph => "placeholder `{name}` does not match any field");
         }
     }
     for field in unspecified_fields {
         // There is a field that is not specified in the format string
         if explicit_ph_identifiers.is_empty() {
-            error.push(error!(field => "More fields than placeholders in the format string.
-Either add more placeholders or provide a default value with `#[sscanf(default)]` or `#[sscanf(default = ...)]`"));
+            add_error!(error, field => "More fields than placeholders in the format string.
+Either add more placeholders or provide a default value with `#[sscanf(default)]` or `#[sscanf(default = ...)]`");
         } else {
-            error.push(error!(field => "Field {field} is not specified in the format string.
-Either specify it in a placeholder or provide a default value with `#[sscanf(default)]` or `#[sscanf(default = ...)]`"));
+            add_error!(error, field => "Field {field} is not specified in the format string.
+Either specify it in a placeholder or provide a default value with `#[sscanf(default)]` or `#[sscanf(default = ...)]`");
         }
     }
 

@@ -1,5 +1,5 @@
 error: unknown format option starting with 'g'.
-       Use '/' for regex, '[' for custom format options, or 'b', 'o', 'x' or 'r' for number format options:
+       Use 'b', 'o', 'x' or 'r' for number format options, '/' for regex, or '[' for custom format options:
        At "{://g}"
                ^
  --> tests/fail/stable/invalid_custom_regex.rs:2:25
@@ -7,7 +7,7 @@ error: unknown format option starting with 'g'.
 2 |     sscanf::sscanf!("", "{://g}", str);
   |                         ^^^^^^^^
 
-error: missing '/' to end regex:
+error: missing '/' to close the regex option:
        At "{:/}"
              ^^
  --> tests/fail/stable/invalid_custom_regex.rs:3:25
@@ -15,7 +15,7 @@ error: missing '/' to end regex:
 3 |     sscanf::sscanf!("", "{:/}", str);
   |                         ^^^^^^
 
-error: missing '/' to end regex:
+error: missing '/' to close the regex option:
        At "{:/"
              ^
  --> tests/fail/stable/invalid_custom_regex.rs:4:25
@@ -23,23 +23,23 @@ error: missing '/' to end regex:
 4 |     sscanf::sscanf!("", "{:/", str);
   |                         ^^^^^
 
-error: unexpected end of regex:
+error: missing '/' to close the regex option:
        At r"{:/\"
-               ^
+              ^^
  --> tests/fail/stable/invalid_custom_regex.rs:6:25
   |
 6 |     sscanf::sscanf!("", r"{:/\", str);
   |                         ^^^^^^^
 
-error: unexpected end of regex:
+error: missing '/' to close the regex option:
        At "{:/\\"
-              ^^
+             ^^^
  --> tests/fail/stable/invalid_custom_regex.rs:7:25
   |
 7 |     sscanf::sscanf!("", "{:/\\", str);
   |                         ^^^^^^^
 
-error: missing '/' to end regex:
+error: missing '/' to close the regex option:
        At r"{:/\/"
               ^^^
  --> tests/fail/stable/invalid_custom_regex.rs:8:25
@@ -47,9 +47,9 @@ error: missing '/' to end regex:
 8 |     sscanf::sscanf!("", r"{:/\/", str);
   |                         ^^^^^^^^
 
-error: missing '/' to end regex:
+error: missing '}' to close a placeholder. If the '{' was intended to be a literal, escape it with '{{':
        At "{:/\\/"
-             ^^^^
+           ^^^^^^
  --> tests/fail/stable/invalid_custom_regex.rs:9:25
   |
 9 |     sscanf::sscanf!("", "{:/\\/", str);
