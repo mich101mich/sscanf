@@ -196,17 +196,15 @@ To add more types there are two options:
 
 The simplest option is to use `derive`:
 ```rust
-#[derive(sscanf::FromScanf)]
-#[sscanf(format = "#{r:x}{g:x}{b:x}")] // matches '#' followed by 3 hexadecimal u8s
-struct Color {
-    r: u8,
-    g: u8,
-    b: u8,
+#[derive(sscanf::FromScanf)] // The derive macro
+#[derive(Debug, PartialEq)] // additional traits for assert_eq below. Not required for sscanf
+#[sscanf(format = "{numerator}/{denominator}")] // Format string for the type, using the field names.
+struct Fraction {
+    numerator: isize,
+    denominator: usize,
 }
-
-let input = "color: #ff00cc";
-let parsed = sscanf::sscanf!(input, "color: {Color}").unwrap();
-assert!(matches!(parsed, Color { r: 0xff, g: 0x00, b: 0xcc }));
+let parsed = sscanf::sscanf!("-10/3", "{Fraction}").unwrap();
+assert_eq!(parsed, Fraction { numerator: -10, denominator: 3 });
 ```
 
 Also works for enums:

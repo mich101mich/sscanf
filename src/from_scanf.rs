@@ -5,6 +5,9 @@ mod impls {
     mod other;
 }
 
+#[allow(unused_imports)]
+use std::str::FromStr; // for links in docs
+
 /// A trait that allows you to use a custom regex for parsing a type.
 ///
 /// There are three options to implement this trait:
@@ -14,93 +17,114 @@ mod impls {
 ///
 /// ## Option 1: Deriving
 /// ```
-/// #[derive(sscanf::FromScanf)]
-/// #[sscanf(format = "#{r:r16}{g:r16}{b:r16}")] // matches '#' followed by 3 hexadecimal u8s
-/// struct Color {                               // note the use of :r16 over :x to avoid `0x` prefixes
-///     r: u8,
-///     g: u8,
-///     b: u8,
+/// # #[derive(Debug, PartialEq)] // additional traits for assert_eq below. Not required for sscanf and thus hidden in the example.
+/// #[derive(sscanf::FromScanf)] // The derive macro
+/// #[sscanf(format = "{numerator}/{denominator}")] // Format string for the type, using the field names.
+/// struct Fraction {
+///     numerator: isize,
+///     denominator: usize,
 /// }
 ///
-/// let input = "color: #ff12cc";
-/// let parsed = sscanf::sscanf!(input, "color: {Color}").unwrap();
-/// assert_eq!(parsed.r, 0xff);
-/// assert_eq!(parsed.g, 0x12);
-/// assert_eq!(parsed.b, 0xcc);
+/// let parsed = sscanf::sscanf!("-10/3", "{Fraction}").unwrap();
+/// assert_eq!(parsed, Fraction { numerator: -10, denominator: 3 });
 /// ```
+///
+/// As you can see, the derive macro automatically generates the necessary code to parse the type from the format
+/// string. It is aware of the types of the fields, so it can generate the correct regex and parser
+/// implementation.
 ///
 /// A detailed description of the syntax and options can be found [here](derive.FromScanf.html)
 ///
 /// ## Option 2: Manually Implement [`FromScanfSimple`]
 /// ```
-/// struct Color {
-///     r: u8,
-///     g: u8,
-///     b: u8,
+/// # #[derive(Debug, PartialEq)] // additional traits for assert_eq below. Not required for sscanf and thus hidden in the example.
+/// struct Fraction {
+///     numerator: isize,
+///     denominator: usize,
 /// }
 ///
-/// impl sscanf::FromScanfSimple<'_> for Color {
-///     // matches '#' followed by 6 hexadecimal digits
-///     const REGEX: &'static str = r"#[0-9a-fA-F]{6}";
+/// impl sscanf::FromScanfSimple for Fraction {
+///     const REGEX: &'static str = r"[-+]?\d+/\d+"; // (sign) digits '/' digits
 ///
 ///     fn from_match(input: &str) -> Option<Self> {
+///         let (numerator, denominator) = input.split_once('/').unwrap(); // unwrap is safe here, since the regex guarantees the presence of '/'
 ///         Some(Self {
-///             r: u8::from_str_radix(&input[1..3], 16).unwrap(),
-///             g: u8::from_str_radix(&input[3..5], 16).unwrap(),
-///             b: u8::from_str_radix(&input[5..7], 16).unwrap(),
+///             numerator: numerator.parse().ok()?,
+///             denominator: denominator.parse().ok()?,
 ///         })
-///         // note the use of hardcoded lengths and `unwrap()` here, since the input to this
-///         // function is guaranteed to match the regex and so we know that the contents are valid
 ///     }
 /// }
 ///
-/// let input = "color: #ff12cc";
-/// let parsed = sscanf::sscanf!(input, "color: {Color}").unwrap();
-/// assert_eq!(parsed.r, 0xff); assert_eq!(parsed.g, 0x12); assert_eq!(parsed.b, 0xcc);
+/// let parsed = sscanf::sscanf!("-10/3", "{Fraction}").unwrap();
+/// assert_eq!(parsed, Fraction { numerator: -10, denominator: 3 });
 /// ```
 /// This option gives more control over the parsing process, but requires more code and manually writing the
 /// regex/parsing.
 ///
-/// ## Option 3: Manually Implement [`FromScanf`]
+/// Note that this option is especially useful for types that already implement [`FromStr`], since the parsing
+/// logic can be reused. For example, the above implementation could be simplified to:
+///
 /// ```
-/// struct Color {
-///     r: u8,
-///     g: u8,
-///     b: u8,
+/// # #[derive(Debug, PartialEq)] // additional traits for assert_eq below. Not required for sscanf and thus hidden in the example.
+/// struct Fraction {
+///     numerator: isize,
+///     denominator: usize,
 /// }
 ///
-/// use sscanf::advanced::{Matcher, MatchPart, FormatOptions, MatchTree};
-/// impl sscanf::FromScanf<'_> for Color {
-///     // matches '#' followed by 3 capture groups of 2 hexadecimal digits each
-///     fn get_matcher(_: &FormatOptions) -> Matcher {
-///         let hex_format = FormatOptions::builder().hex().build();
-///         let hex_u8_matcher: MatchPart = u8::get_matcher(&hex_format).into();
-///         Matcher::from_sequence(vec![
-///             MatchPart::literal("#"),
-///             hex_u8_matcher.clone(),
-///             hex_u8_matcher.clone(),
-///             hex_u8_matcher,
-///         ])
-///         // alternatively, we could write
-///         //     `Matcher::from_regex(r"#([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})").unwrap()`
-///     }
-///
-///     fn from_match_tree(matches: MatchTree<'_, '_>, _: &FormatOptions) -> Option<Self> {
-///         let hex_format = FormatOptions::builder().hex().build();
-///         // Since we used `Matcher::from_sequence` with 3 matchers (the hex_u8_matchers),
-///         // we know that there are exactly 3 sub-matches
-///         Some(Self {
-///             r: matches.parse_at(0, &hex_format)?,
-///             // or: r: u8::from_str_radix(matches.at(0).text(), 16).unwrap(),
-///             g: matches.parse_at(1, &hex_format)?,
-///             b: matches.parse_at(2, &hex_format)?,
+/// // existing FromStr implementation for Fraction
+/// impl std::str::FromStr for Fraction {
+///     type Err = &'static str; // simplified error type
+///     fn from_str(input: &str) -> Result<Self, Self::Err> {
+///         let (numerator, denominator) = input.split_once('/').ok_or("Missing '/'")?;
+///         Ok(Self {
+///             numerator: numerator.parse().map_err(|_| "Invalid numerator")?,
+///             denominator: denominator.parse().map_err(|_| "Invalid denominator")?,
 ///         })
 ///     }
 /// }
 ///
-/// let input = "color: #ff12cc";
-/// let parsed = sscanf::sscanf!(input, "color: {Color}").unwrap();
-/// assert_eq!(parsed.r, 0xff); assert_eq!(parsed.g, 0x12); assert_eq!(parsed.b, 0xcc);
+/// impl sscanf::FromScanfSimple for Fraction {
+///     const REGEX: &'static str = r"[-+]?\d+/\d+"; // (sign) digits '/' digits
+///
+///    fn from_match(input: &str) -> Option<Self> {
+///        input.parse().ok() // reuse FromStr implementation
+///    }
+/// }
+///
+/// let parsed = sscanf::sscanf!("-10/3", "{Fraction}").unwrap();
+/// assert_eq!(parsed, Fraction { numerator: -10, denominator: 3 });
+/// ```
+///
+/// ## Option 3: Manually Implement [`FromScanf`]
+/// ```
+/// # #[derive(Debug, PartialEq)] // additional traits for assert_eq below. Not required for sscanf and thus hidden in the example.
+/// struct Fraction {
+///     numerator: isize,
+///     denominator: usize,
+/// }
+///
+/// use sscanf::advanced::*; // for Matcher etc.
+/// impl sscanf::FromScanf<'_> for Fraction {
+///     fn get_matcher(format: &FormatOptions) -> Matcher {
+///         // matches <isize> '/' <usize>
+///         Matcher::Seq(vec![
+///             <isize as FromScanf>::get_matcher(format).into(),
+///             MatchPart::literal("/"),
+///             <usize as FromScanf>::get_matcher(format).into(),
+///         ])
+///     }
+///
+///     fn from_match_tree(matches: MatchTree<'_, '_>, format: &FormatOptions) -> Option<Self> {
+///         let matches = matches.as_seq(); // our matcher is a sequence, so we can convert to that
+///         Some(Self {
+///             numerator: matches.parse_field("numerator", 0, format)?,
+///             denominator: matches.parse_field("denominator", 2, format)?, // index 1 is the literal '/', so we skip it
+///         })
+///     }
+/// }
+///
+/// let parsed = sscanf::sscanf!("-10/3", "{Fraction}").unwrap();
+/// assert_eq!(parsed, Fraction { numerator: -10, denominator: 3 });
 /// ```
 /// This option gives a lot of control over the matching and parsing process. It is also generally faster than the
 /// [`FromScanfSimple`] option, since we can directly access the capture groups without having to parse the string
@@ -110,7 +134,7 @@ mod impls {
 /// getting the same performance benefits.
 ///
 /// #### Lifetime Parameter
-/// The lifetime parameter of `FromScanf` and `FromScanfSimple` is the borrow from the input string given to `sscanf`.
+/// The lifetime parameter of `FromScanf` is the borrow from the input string given to `sscanf`.
 /// If your type borrows parts of that string, like `&str` does, you need to specify the lifetime
 /// parameter and match it with the `'input` parameter:
 /// ```
@@ -119,16 +143,23 @@ mod impls {
 ///     last: &'b str,
 /// }
 ///
-/// impl<'input> sscanf::FromScanfSimple<'input> for Name<'input, 'input> {
+/// use sscanf::advanced::*; // for Matcher etc.
+/// impl<'input> sscanf::FromScanf<'input> for Name<'input, 'input> {
 ///     // both parts are given the same input => same lifetime
 ///
-///     const REGEX: &'static str = r"\w+ \w+";
+///     fn get_matcher(_: &FormatOptions) -> Matcher {
+///         Matcher::Seq(vec![
+///             Matcher::from_regex(r"\S+").unwrap().into(), // first name: non-whitespace characters
+///             MatchPart::literal(" "),
+///             Matcher::from_regex(r"\S+").unwrap().into(), // last name: non-whitespace characters
+///         ])
+///     }
 ///
-///     fn from_match(input: &'input str) -> Option<Self> {
-///         let (first, last) = input.split_once(' ')?;
+///     fn from_match_tree(matches: MatchTree<'_, 'input>, _: &FormatOptions) -> Option<Self> {
+///         let matches = matches.as_seq();
 ///         Some(Self {
-///             first,
-///             last,
+///             first: matches.at(0).text(),
+///             last: matches.at(2).text(), // index 1 is the space
 ///         })
 ///     }
 /// }
@@ -198,10 +229,11 @@ pub trait FromScanf<'input>: Sized {
     ///         Matcher::from_regex(r"your-(capturing)-(regex)-here").unwrap()
     ///     }
     ///
-    ///     fn from_match_tree(matches: MatchTree<'_, '_>, format: &FormatOptions) -> Option<Self> {
+    ///     fn from_match_tree(matches: MatchTree<'_, '_>, _: &FormatOptions) -> Option<Self> {
+    ///         let matches = matches.as_raw(); // our matcher is a raw regex, so we can convert to that
     ///         Some(Self {
-    ///             first_field: matches.parse_at(0, format)?,
-    ///             second_field: matches.parse_at(1, format)?,
+    ///             first_field: matches.get(0).unwrap().parse().ok()?,
+    ///             second_field: matches.get(1).unwrap().parse().ok()?,
     ///             // ...
     ///         })
     ///     }
@@ -228,7 +260,7 @@ where
 
     /// The implementation of the parsing.
     ///
-    /// For types implementing [`FromStr`](std::str::FromStr), this can just be `input.parse().ok()`:
+    /// For types implementing [`FromStr`], this can just be `input.parse().ok()`:
     /// ```
     /// # struct MyType;
     /// # impl std::str::FromStr for MyType { type Err = (); fn from_str(_: &str) -> Result<Self, Self::Err> { Ok(MyType) } }

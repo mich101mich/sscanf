@@ -16,21 +16,10 @@ pub use seq::*;
 ///
 /// This type is the parameter to the [`FromScanf::from_match_tree`] method.
 ///
-/// Use [`text()`](Self::text) to access the entire matched string, and [`get()`](Self::get)/[`at()`](Self::at)
-/// to access matches to inner capture groups.
+/// Use [`text()`](Self::text) to access the entire matched string, and one of the `as_*` methods to access the
+/// individual matchers.
 ///
-/// There are also convenience methods for parsing, like [`parse()`](Self::parse) for this match tree, and
-/// [`parse_at()`](Self::parse_at) for inner matches.
-///
-/// Note that a good amount of effort is spent on providing panic messages. Since the regex used to parse the input
-/// is a compile-time constant, accessing capture groups that do not exist or that should not be optional is a
-/// programming error. The `Option` returned by [`FromScanf::from_match_tree`] is really only `None` if the regex of
-/// the type can't be made specific enough to exactly filter input if and only if it can be converted to the type.
-///
-/// To still provide debugging options for manual implementations, the `MatchTree` provides some context as to where
-/// the error occurred in the parsing tree. This can only be done if the parsing structure is mostly handled by the
-/// `MatchTree` by e.g. calling [`parse_at()`](Self::parse_at) rather than [`get()`](Self::get) with a manual unwrap
-/// and parse.
+/// There are also convenience methods for parsing, like [`parse()`](Self::parse) for this match tree.
 ///
 /// ## Guide to `panic!` vs `return None`
 ///
@@ -111,7 +100,7 @@ pub use seq::*;
 /// actually capturing any text.
 ///
 /// In this crate, these capture groups are referred to as "optional" and are represented by `Option<MatchTree>` in the
-/// return type of [`get()`](Self::get).  
+/// return type of [`as_opt()`](Self::as_opt).  
 /// Note that there is **no** automatic handling of `Option` types in either the `sscanf` macro or the `FromScanf`
 /// derive!
 ///
@@ -295,7 +284,7 @@ impl<'t, 'input> MatchTree<'t, 'input> {
     /// Returns the match as an optional [`MatchTree`]
     ///
     /// ## Panics
-    /// Panics if this `MatchTree` was not created from a [`Matcher::Opt`].
+    /// Panics if this `MatchTree` was not created from a [`Matcher::Optional`].
     pub fn as_opt(&'t self) -> Option<MatchTree<'t, 'input>> {
         let MatchTreeKind::Opt(child) = &self.template.kind else {
             panic!(

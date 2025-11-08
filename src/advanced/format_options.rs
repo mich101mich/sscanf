@@ -76,6 +76,7 @@ impl Builder {
     ///
     /// The base must be in the range `2..=36`.
     /// Note that this does not change the prefix policy.
+    #[track_caller]
     pub fn custom_radix(mut self, radix: u32) -> Self {
         if !(2..=36).contains(&radix) {
             panic!("Radix must be in the range 2..=36, got {radix}");
@@ -102,6 +103,7 @@ impl Builder {
     }
 
     /// Builds the [`FormatOptions`] struct.
+    #[track_caller]
     pub fn build(self) -> FormatOptions {
         use NumberFormatOption::*;
         use NumberPrefixPolicy::*;
@@ -197,9 +199,9 @@ impl NumberFormatOption {
 ///
 /// | Policy    | `123abc` | `0x123abc` | `0X123abc` |
 /// |-----------|:--------:|:----------:|:----------:|
-/// | Forbidden | x        |            |            |
-/// | Optional  | x        | x          | x          |
-/// | Required  |          | x          | x          |
+/// | Forbidden | ✓        |            |            |
+/// | Optional  | ✓        | ✓          | ✓          |
+/// | Required  |          | ✓          | ✓          |
 ///
 /// There is currently no option to distinguish between lowercase and uppercase prefixes. Base parsing is currently
 /// fully case-insensitive, for both the prefix and any letters in the number itself.
