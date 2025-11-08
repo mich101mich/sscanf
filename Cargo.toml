@@ -4,7 +4,7 @@ version = "0.5.0"
 authors = ["mich101mich <mich101mich@gmail.com>"]
 edition = "2024"
 rust-version = "1.88.0"
-description = "A sscanf (inverse of format!()) Macro based on Regex"
+description = "A sscanf (inverse of format!()) Macro with near endless parsing capabilities"
 repository = "https://github.com/mich101mich/sscanf"
 readme = "Readme.md"
 license = "MIT OR Apache-2.0"
@@ -14,8 +14,7 @@ exclude = ["/.vscode", "/.gitignore", "/.github", "/*.bat", "/*.sh", "/todo.md",
 
 [dependencies]
 sscanf_macro = { path = "sscanf_macro", version = "=0.5.0" }
-const_format = "0.2.34"
-regex-automata = "0.4.0"
+regex-automata = "0.4.0" # Note when updating: regex-automata depends on regex-syntax, and the versions have to match
 regex-syntax = "0.8.0"
 
 [dev-dependencies]

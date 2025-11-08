@@ -21,6 +21,7 @@ note: method defined here
  --> $RUST/core/src/str/mod.rs
   |
 <<<<<<< HEAD
+<<<<<<< HEAD
   |     pub const fn get<I: ~const SliceIndex<str>>(&self, i: I) -> Option<&I::Output> {
   |                  ^^^
 
@@ -33,6 +34,10 @@ error[E0308]: mismatched types
 =======
   |     pub fn get<I: SliceIndex<str>>(&self, i: I) -> Option<&I::Output> {
   |            ^^^
+=======
+  |     pub const fn get<I: ~const SliceIndex<str>>(&self, i: I) -> Option<&I::Output> {
+  |                  ^^^
+>>>>>>> c6f9fbb (Updated changelog)
 
 error[E0308]: mismatched types
  --> tests/fail/stable/input_not_str.rs:3:21
@@ -50,9 +55,14 @@ note: method defined here
  --> $RUST/core/src/str/mod.rs
   |
 <<<<<<< HEAD
+<<<<<<< HEAD
   |     pub const fn get<I: ~const SliceIndex<str>>(&self, i: I) -> Option<&I::Output> {
   |                  ^^^
 =======
   |     pub fn get<I: SliceIndex<str>>(&self, i: I) -> Option<&I::Output> {
   |            ^^^
 >>>>>>> a070ece (Fully fixed tests)
+=======
+  |     pub const fn get<I: ~const SliceIndex<str>>(&self, i: I) -> Option<&I::Output> {
+  |                  ^^^
+>>>>>>> c6f9fbb (Updated changelog)
