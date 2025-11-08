@@ -11,17 +11,6 @@ as neither works without the other and versions are always released in parallel.
 [sscanf_macro]: https://crates.io/crates/sscanf_macro
 [sscanf]: https://crates.io/crates/sscanf
 
-## [0.4.4] - 2025-10-30
-
-### Changed
-- Removed upper bounds on dependencies
-  - This was done to maintain compatibility with older Rust versions (MSRV), but was causing conflicts with
-    other crates that depend on the newer versions.
-  - Instead there is now a comment in the Cargo.toml on which dependencies to set to a fixed version, which is also
-    used for this crate's tests.
-
-[0.4.4]:  https://github.com/mich101mich/sscanf/releases/tag/0.4.4
-
 ## [0.5.0] - unreleased
 
 ### Changed
@@ -60,6 +49,17 @@ as neither works without the other and versions are always released in parallel.
 [on_unimplemented]:          https://doc.rust-lang.org/stable/reference/attributes/diagnostics.html#the-diagnosticon_unimplemented-attribute
 [RegexRepresentation@0.4.3]: https://docs.rs/sscanf/0.4.3/sscanf/trait.RegexRepresentation.html
 [FromScanfSimple@0.5.0]:     https://docs.rs/sscanf/0.5.0/sscanf/trait.FromScanfSimple.html
+
+## [0.4.4] - 2025-10-30
+
+### Changed
+- Removed upper bounds on dependencies
+  - This was done to maintain compatibility with older Rust versions (MSRV), but was causing conflicts with
+    other crates that depend on the newer versions.
+  - Instead there is now a comment in the Cargo.toml on which dependencies to set to a fixed version, which is also
+    used for this crate's tests.
+
+[0.4.4]:  https://github.com/mich101mich/sscanf/releases/tag/0.4.4
 
 ## [0.4.3] - 2025-03-15
 

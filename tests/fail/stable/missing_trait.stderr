@@ -4,7 +4,11 @@ error[E0277]: type `NoFromScanf` can't be parsed by sscanf because it does not i
 6 |     sscanf::sscanf!("hi", "{}", module::NoFromScanf);
   |                                 ^^^^^^^^^^^^^^^^^^^ can't be parsed by sscanf
   |
-  = help: the trait `FromScanf<'_>` is not implemented for `NoFromScanf`
+help: the trait `FromScanf<'_>` is not implemented for `NoFromScanf`
+ --> tests/fail/stable/missing_trait.rs:2:5
+  |
+2 |     pub struct NoFromScanf;
+  |     ^^^^^^^^^^^^^^^^^^^^^^
   = note: derive or implement `FromScanf` for `NoFromScanf` to use it with `sscanf!`
   = note: see the `FromScanf` documentation for details: <https://docs.rs/sscanf/latest/sscanf/trait.FromScanf.html>
   = help: the following other types implement trait `FromScanf<'input>`:
@@ -24,7 +28,11 @@ error[E0277]: type `NoFromScanf` can't be parsed by sscanf because it does not i
 7 |     sscanf::sscanf!("hi", "{module::NoFromScanf}");
   |                           ^^^^^^^^^^^^^^^^^^^^^^^ can't be parsed by sscanf
   |
-  = help: the trait `FromScanf<'_>` is not implemented for `NoFromScanf`
+help: the trait `FromScanf<'_>` is not implemented for `NoFromScanf`
+ --> tests/fail/stable/missing_trait.rs:2:5
+  |
+2 |     pub struct NoFromScanf;
+  |     ^^^^^^^^^^^^^^^^^^^^^^
   = note: derive or implement `FromScanf` for `NoFromScanf` to use it with `sscanf!`
   = note: see the `FromScanf` documentation for details: <https://docs.rs/sscanf/latest/sscanf/trait.FromScanf.html>
   = help: the following other types implement trait `FromScanf<'input>`:
@@ -44,7 +52,11 @@ error[E0277]: type `NoFromScanf` can't be parsed by sscanf because it does not i
 9 |     sscanf::sscanf!("hi", "{}", NoFromScanf);
   |                                 ^^^^^^^^^^^ can't be parsed by sscanf
   |
-  = help: the trait `FromScanf<'_>` is not implemented for `NoFromScanf`
+help: the trait `FromScanf<'_>` is not implemented for `NoFromScanf`
+ --> tests/fail/stable/missing_trait.rs:2:5
+  |
+2 |     pub struct NoFromScanf;
+  |     ^^^^^^^^^^^^^^^^^^^^^^
   = note: derive or implement `FromScanf` for `NoFromScanf` to use it with `sscanf!`
   = note: see the `FromScanf` documentation for details: <https://docs.rs/sscanf/latest/sscanf/trait.FromScanf.html>
   = help: the following other types implement trait `FromScanf<'input>`:
@@ -64,7 +76,11 @@ error[E0277]: type `NoFromScanf` can't be parsed by sscanf because it does not i
 10 |     sscanf::sscanf!("hi", "{NoFromScanf}");
    |                           ^^^^^^^^^^^^^^^ can't be parsed by sscanf
    |
-   = help: the trait `FromScanf<'_>` is not implemented for `NoFromScanf`
+help: the trait `FromScanf<'_>` is not implemented for `NoFromScanf`
+  --> tests/fail/stable/missing_trait.rs:2:5
+   |
+ 2 |     pub struct NoFromScanf;
+   |     ^^^^^^^^^^^^^^^^^^^^^^
    = note: derive or implement `FromScanf` for `NoFromScanf` to use it with `sscanf!`
    = note: see the `FromScanf` documentation for details: <https://docs.rs/sscanf/latest/sscanf/trait.FromScanf.html>
    = help: the following other types implement trait `FromScanf<'input>`:

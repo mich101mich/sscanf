@@ -43,7 +43,7 @@ use std::str::FromStr; // for links in docs
 ///     denominator: usize,
 /// }
 ///
-/// impl sscanf::FromScanfSimple for Fraction {
+/// impl sscanf::FromScanfSimple<'_> for Fraction {
 ///     const REGEX: &'static str = r"[-+]?\d+/\d+"; // (sign) digits '/' digits
 ///
 ///     fn from_match(input: &str) -> Option<Self> {
@@ -83,12 +83,12 @@ use std::str::FromStr; // for links in docs
 ///     }
 /// }
 ///
-/// impl sscanf::FromScanfSimple for Fraction {
+/// impl sscanf::FromScanfSimple<'_> for Fraction {
 ///     const REGEX: &'static str = r"[-+]?\d+/\d+"; // (sign) digits '/' digits
 ///
-///    fn from_match(input: &str) -> Option<Self> {
-///        input.parse().ok() // reuse FromStr implementation
-///    }
+///     fn from_match(input: &str) -> Option<Self> {
+///         input.parse().ok() // reuse FromStr implementation
+///     }
 /// }
 ///
 /// let parsed = sscanf::sscanf!("-10/3", "{Fraction}").unwrap();
@@ -97,6 +97,7 @@ use std::str::FromStr; // for links in docs
 ///
 /// ## Option 3: Manually Implement [`FromScanf`]
 /// ```
+/// # use sscanf::FromScanf;
 /// # #[derive(Debug, PartialEq)] // additional traits for assert_eq below. Not required for sscanf and thus hidden in the example.
 /// struct Fraction {
 ///     numerator: isize,
@@ -104,7 +105,7 @@ use std::str::FromStr; // for links in docs
 /// }
 ///
 /// use sscanf::advanced::*; // for Matcher etc.
-/// impl sscanf::FromScanf<'_> for Fraction {
+/// impl FromScanf<'_> for Fraction {
 ///     fn get_matcher(format: &FormatOptions) -> Matcher {
 ///         // matches <isize> '/' <usize>
 ///         Matcher::Seq(vec![
@@ -134,7 +135,7 @@ use std::str::FromStr; // for links in docs
 /// getting the same performance benefits.
 ///
 /// #### Lifetime Parameter
-/// The lifetime parameter of `FromScanf` is the borrow from the input string given to `sscanf`.
+/// The lifetime parameter of `FromScanf` and `FromScanfSimple` is the borrow from the input string given to `sscanf`.
 /// If your type borrows parts of that string, like `&str` does, you need to specify the lifetime
 /// parameter and match it with the `'input` parameter:
 /// ```

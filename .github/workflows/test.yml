@@ -76,15 +76,6 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - uses: actions-rs/toolchain@v1
         with: { toolchain: 1.56.0 }
-      - run: |
-          # Update dependencies to versions compatible with Rust 1.56.0. See Cargo.toml for details
-          cargo +1.56.0 update
-          cargo +1.56.0 update -p const_format --precise 0.2.31
-          cargo +1.56.0 update -p quote --precise 1.0.40
-          cargo +1.56.0 update -p proc-macro2 --precise 1.0.101
-          cargo +1.56.0 update -p glob --precise 0.3.2
-          cargo +1.56.0 update -p unicode-width --precise 0.1.12
-
       - name: Run tests
         uses: actions-rs/cargo@v1
         with: { command: test, toolchain: 1.56.0 }
