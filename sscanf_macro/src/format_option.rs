@@ -118,20 +118,6 @@ impl<'a> FormatOption<'a> {
 
                 let src = src.slice(start..=end);
 
-                match regex_syntax::Parser::new().parse(&regex) {
-                    Ok(hir) => {
-                        if contains_capture_group(&hir) {
-                            let msg = "custom regex cannot contain capture groups '(...)'.
-Either make them non-capturing by adding '?:' after the '(' or remove/escape the '(' and ')'";
-                            return src.err(msg);
-                        }
-                    }
-                    Err(err) => {
-                        let msg = format!("{}\n\nIn custom Regex format option", err);
-                        return src.err(&msg); // checked in tests/fail/<channel>/invalid_custom_regex.rs
-                    }
-                }
-
                 let kind = FormatOptionKind::Regex(regex);
                 Ok((Self { src, kind }, close_bracket_index))
             }
@@ -193,25 +179,5 @@ Hint: Regex format options must start and end with '/'";
 
         let kind = FormatOptionKind::Radix { radix, prefix };
         Ok((Self { src, kind }, close_bracket_index))
-    }
-}
-
-fn contains_capture_group(hir: &regex_syntax::hir::Hir) -> bool {
-    use regex_syntax::hir::HirKind::*;
-    match hir.kind() {
-        Group(g) => {
-            if g.kind != regex_syntax::hir::GroupKind::NonCapturing {
-                return true;
-            }
-            contains_capture_group(g.hir.as_ref())
-        }
-        Concat(c) | Alternation(c) => c.iter().any(contains_capture_group),
-        Repetition(r) => contains_capture_group(r.hir.as_ref()),
-        _ => false,
-        // regex-syntax 0.7+ version
-        // Capture(_) => true,
-        // Concat(c) | Alternation(c) => c.iter().any(contains_capture_group),
-        // Repetition(r) => contains_capture_group(r.sub.as_ref()),
-        // _ => false,
     }
 }

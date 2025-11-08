@@ -152,30 +152,22 @@ fn find_match<A: Attr>(s: &str, src: &TokenStream) -> syn::Result<A> {
     }
     if !found_others.is_empty() {
         let others = list_items(&found_others, |other| other.to_string());
-        let msg = format!(
-            "attribute `{}` can only be used on {}.\n{} can have the following attributes: {}",
-            s, others, context, valid
-        );
-        return Err(syn::Error::new_spanned(src, msg)); // checked in tests/fail/derive_struct_attributes.rs
+        bail_syn!(src => "attribute `{s}` can only be used on {others}.
+{context} can have the following attributes: {valid}"); // checked in tests/fail/derive_struct_attributes.rs
     }
 
     if let Some(similar) = find_closest(s, context.all_attr_names()) {
-        let msg = format!("unknown attribute `{}`. Did you mean `{}`?", s, similar);
-        return Err(syn::Error::new_spanned(src, msg)); // checked in tests/fail/derive_struct_attributes.rs
+        bail_syn!(src => "unknown attribute `{s}`. Did you mean `{similar}`?"); // checked in tests/fail/derive_struct_attributes.rs
     }
 
     for other in &others {
         if let Some(similar) = find_closest(s, other.all_attr_names()) {
-            let msg = format!(
-                "unknown attribute `{}` is similar to `{}`, which can only be used on {}.\n{} can have the following attributes: {}",
-                s, similar, other, context, valid
-            );
-            return Err(syn::Error::new_spanned(src, msg)); // checked in tests/fail/derive_struct_attributes.rs
+            bail_syn!(src => "unknown attribute `{s}` is similar to `{similar}`, which can only be used on {other}.
+{context} can have the following attributes: {valid}"); // checked in tests/fail/derive_struct_attributes.rs
         }
     }
 
-    let msg = format!("unknown attribute `{}`. Valid attributes are: {}", s, valid);
-    Err(syn::Error::new_spanned(src, msg)) // checked in tests/fail/derive_struct_attributes.rs
+    bail_syn!(src => "unknown attribute `{s}`. Valid attributes are: {valid}"); // checked in tests/fail/derive_struct_attributes.rs
 }
 
 pub struct Attribute<A: Attr> {
@@ -214,12 +206,10 @@ impl<A: Attr> Attribute<A> {
                 .collect::<Vec<_>>();
             let valid = list_items(&valid, |c| c.to_string());
 
-            let msg = format!(
-                "omitting the attribute name is only valid for the `{}` attribute on {}",
-                name, valid,
-            );
-            return Err(syn::Error::new_spanned(value, msg)); // checked in tests/fail/derive_field_attributes.rs
+            bail_syn!(value.start_span() => "omitting the attribute name is only valid for the `{name}` attribute on {valid}");
+            // checked in tests/fail/derive_field_attributes.rs
         }
+
         let attr = input.parse::<syn::Ident>()?;
         src.extend(quote! { #attr });
         let kind = find_match(&attr.to_string(), &src)?;
@@ -233,8 +223,8 @@ impl<A: Attr> Attribute<A> {
             let eq_sign = input.parse::<Token![=]>()?;
 
             if input.is_empty() {
-                let msg = "expected an expression after `=`";
-                return Err(syn::Error::new_spanned(eq_sign, msg)); // checked in tests/fail/derive_struct_attributes.rs
+                bail_syn!(eq_sign.end_span() => "expected an expression after `=`");
+                // checked in tests/fail/derive_struct_attributes.rs
             }
             let expr = input.parse::<syn::Expr>()?;
             src.extend(quote! { #eq_sign #expr });
@@ -247,16 +237,12 @@ impl<A: Attr> Attribute<A> {
     fn value_as<T: Parse>(&self, description: &str, addition: Option<&str>) -> Result<T> {
         if let Some(value) = &self.value {
             Ok(syn::parse2(quote! { #value })?)
+        } else if let Some(addition) = addition {
+            bail!(self.src => "attribute `{0}` has the format: `#[sscanf({0} = {description})]`\n{addition}", self.kind);
+            // checked by the caller
         } else {
-            let mut msg = format!(
-                "attribute `{0}` has the format: `#[sscanf({0} = {1})]`",
-                self.kind, description
-            );
-            if let Some(addition) = addition {
-                msg.push('\n');
-                msg.push_str(addition);
-            }
-            Error::err_spanned(&self.src, msg)
+            bail!(self.src => "attribute `{0}` has the format: `#[sscanf({0} = {description})]`", self.kind);
+            // checked by the caller
         }
     }
 }
@@ -273,15 +259,12 @@ fn find_attrs<A: Attr>(attrs: Vec<syn::Attribute>) -> Result<HashMap<A, Attribut
             // message in the `NameValue` case would just be "expected a '('" with a span
             // underlining the '=' sign, which is not very helpful
             syn::Meta::Path(p) => {
-                let msg = "expected attribute arguments in parentheses: `sscanf(...)`";
-                return Error::err_spanned(p, msg); // checked in tests/fail/derive_struct_attributes.rs
+                bail!(p => "expected attribute arguments in parentheses: `sscanf(...)`");
+                // checked in tests/fail/derive_struct_attributes.rs
             }
             syn::Meta::NameValue(nv) => {
-                let msg = format!(
-                    "attribute arguments must be in parentheses: `sscanf({})`",
-                    nv.value.to_token_stream()
-                );
-                return Error::err_spanned(nv, msg); // checked in tests/fail/derive_struct_attributes.rs
+                bail!(nv => "attribute arguments must be in parentheses: `sscanf({})`", nv.value.to_token_stream());
+                // checked in tests/fail/derive_struct_attributes.rs
             }
         };
 

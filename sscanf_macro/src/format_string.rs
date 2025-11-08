@@ -34,7 +34,7 @@ impl<'a> FormatString<'a> {
                 }
             }
 
-            if escape_input && regex_syntax::is_meta_character(c) {
+            if escape_input && is_regex_special_char(c) {
                 current_part.push('\\');
             }
 
@@ -47,4 +47,10 @@ impl<'a> FormatString<'a> {
             parts,
         })
     }
+}
+
+#[rustfmt::skip]
+const fn is_regex_special_char(c: char) -> bool {
+    matches!(c, '\\' | '.' | '+' | '*' | '?' | '(' | ')' | '|' | '[' | ']'
+                | '{' | '}' | '^' | '$' | '#' | '&' | '-' | '~')
 }

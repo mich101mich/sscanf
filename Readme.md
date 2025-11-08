@@ -188,12 +188,11 @@ More uses for `#` may be added in the future. Let me know if you have a suggesti
 # Custom Types
 
 `sscanf` works with most primitive Types from `std` as well as `String` by default. The
-full list can be seen here: [Implementations of `RegexRepresentation`](https://docs.rs/sscanf/latest/sscanf/trait.RegexRepresentation.html#foreign-impls).
+full list can be seen here: [Implementations of `FromScanf`](https://docs.rs/sscanf/latest/sscanf/trait.FromScanf.html#foreign-impls).
 
-To add more types there are three options:
-- Derive [`FromScanf`](https://docs.rs/sscanf/latest/sscanf/trait.FromScanf.html) for your type (recommended)
-- Implement **both** [`RegexRepresentation`](https://docs.rs/sscanf/latest/sscanf/trait.RegexRepresentation.html) and [`std::str::FromStr`](https://doc.rust-lang.org/std/str/trait.FromStr.html) for your type
-- Implement [`RegexRepresentation`](https://docs.rs/sscanf/latest/sscanf/trait.RegexRepresentation.html) and manually implement [`FromScanf`](https://docs.rs/sscanf/latest/sscanf/trait.FromScanf.html) for your type (highly discouraged)
+To add more types there are two options:
+- Derive [`FromScanf`](https://docs.rs/sscanf/latest/sscanf/trait.FromScanf.html) for your type (simple, readable, fool proof (mostly))
+- Manually implement [`FromScanf`](https://docs.rs/sscanf/latest/sscanf/trait.FromScanf.html) for your type (flexible, but requires more code)
 
 The simplest option is to use `derive`:
 ```rust

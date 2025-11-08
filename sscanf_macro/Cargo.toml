@@ -1,9 +1,9 @@
 [package]
 name = "sscanf_macro"
-version = "0.4.4"
+version = "0.5.0"
 authors = ["mich101mich <mich101mich@gmail.com>"]
-edition = "2018"
-rust-version = "1.56.0"
+edition = "2024"
+rust-version = "1.88.0"
 description = "Proc-Macros for the sscanf Crate. Not meant to be used as a standalone Crate"
 repository = "https://github.com/mich101mich/sscanf"
 readme = "Readme.md"
@@ -16,11 +16,6 @@ proc-macro = true
 syn = { version = "2.0.1", features = ["parsing", "derive", "full"] }
 quote = "1.0.0"
 proc-macro2 = "1.0.60"
-regex-syntax = "0.6.0" # Can't be updated yet due to the MSRV of 1.56.0
 strsim = "0.11.1"
-convert_case = "0.6.0" # Can't be updated yet due to the MSRV of 1.56.0
-
-# unicode-width version 0.1.13 and onward uses features which aren't supported by our MSRV of 1.56.
-# Please standardize having an MSRV with tests.
-# => This crates tests use a hardcoded fix for MSRV checks. See Cargo.toml of the main crate for more information.
-unicode-width = "0.1.5"
+convert_case = "0.8.0"
+unicode-width = "0.2.0"

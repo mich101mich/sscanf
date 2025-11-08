@@ -1,9 +1,9 @@
 [package]
 name = "sscanf"
-version = "0.4.4"
+version = "0.5.0"
 authors = ["mich101mich <mich101mich@gmail.com>"]
-edition = "2018"
-rust-version = "1.56.0"
+edition = "2024"
+rust-version = "1.88.0"
 description = "A sscanf (inverse of format!()) Macro based on Regex"
 repository = "https://github.com/mich101mich/sscanf"
 readme = "Readme.md"
@@ -13,24 +13,9 @@ categories = ["parsing"]
 exclude = ["/.vscode", "/.gitignore", "/.github", "/*.bat", "/*.sh", "/todo.md", "/submodules", "/.gitmodules"]
 
 [dependencies]
-sscanf_macro = { path = "sscanf_macro", version = "=0.4.4" }
-regex = "1.6.0"
-lazy_static = "1.4.0"
-
-# const_format version 0.2.32 bumped the MSRV to 1.57.0. (while writing "Breaking change" in the changelog of a patch increment 😞. Thanks.)
-const_format = "0.2.26"
-
-# Note for users on an older rust version:
-# Some of the dependencies of this crate have explicitly or implicitly bumped their minimum supported Rust version
-# without marking it as a breaking change according to semver versions.
-# There is currently no reasonable way for this crate to support new features while still supporting older Rust versions
-# as-is, and bumping the MSRV of this crate would be a breaking change itself.
-# Instead, it might be necessary to fix some dependencies to an older version manually like this. Known cases are:
-# cargo update -p const_format --precise 0.2.31
-# cargo update -p quote --precise 1.0.40
-# cargo update -p proc-macro2 --precise 1.0.101
-# cargo update -p glob --precise 0.3.2
-# cargo update -p unicode-width --precise 0.1.12
+sscanf_macro = { path = "sscanf_macro", version = "=0.5.0" }
+regex = "1.11.0"
+const_format = "0.2.34"
 
 [dev-dependencies]
 trybuild = "1.0.78"

@@ -86,14 +86,15 @@ impl Parse for Type<'_> {
             // possibly &str
             let ty: syn::Type = input.parse::<syn::TypeReference>()?.into();
             let ret = Self::from_ty(ty);
-            if !matches!(ret.kind, TypeKind::Str(_)) {
-                let msg = "references are only allowed for &str";
-                return Err(syn::Error::new_spanned(ret, msg)); // TODO: check
-            } else if !matches!(ret.kind, TypeKind::Str(None)) {
-                let msg = "str references are not allowed to have lifetimes. The lifetime of the return value is set to the lifetime of the input string";
-                return Err(syn::Error::new_spanned(ret, msg)); // TODO: check
+            match &ret.kind {
+                TypeKind::Str(None) => Ok(ret),
+                TypeKind::Str(Some(lt)) if lt.ident == "input" => Ok(ret),
+                TypeKind::Str(Some(_)) => {
+                    bail_syn!(ret => "str references are not allowed to have lifetimes. The lifetime of the return value is set to the lifetime of the input string");
+                    // TODO: check
+                }
+                _ => bail_syn!(ret => "references are only allowed for &str"), // TODO: check
             }
-            Ok(ret)
         } else {
             let ty: syn::Type = input.parse::<syn::TypePath>()?.into();
             Ok(Self::from_ty(ty))
@@ -128,16 +129,17 @@ pub mod ty_check {
     }
     pub fn get_str(ty: &syn::Type) -> Option<Option<syn::Lifetime>> {
         match ty {
-            syn::Type::Path(ref ty) => {
+            syn::Type::Path(ty) => {
                 if is_str_path(ty) {
                     Some(None)
                 } else {
                     None
                 }
             }
-            syn::Type::Reference(ref ty) => {
+            syn::Type::Reference(ty) => {
                 if ty.mutability.is_none()
-                    && matches!(*ty.elem, syn::Type::Path(ref inner) if is_str_path(inner))
+                    && let syn::Type::Path(inner) = &*ty.elem
+                    && is_str_path(inner)
                 {
                     Some(ty.lifetime.clone())
                 } else {
@@ -173,7 +175,7 @@ pub mod ty_check {
             } else {
                 None
             };
-            if !matches!(ty, syn::GenericArgument::Type(syn::Type::Path(ref inner)) if is_str_path(inner))
+            if !matches!(ty, syn::GenericArgument::Type(syn::Type::Path(inner)) if is_str_path(inner))
             {
                 return None;
             }
@@ -208,7 +210,7 @@ pub mod ty_check {
     }
     pub fn get_cow_str(ty: &syn::Type) -> Option<Option<syn::Lifetime>> {
         match ty {
-            syn::Type::Path(ref ty) => get_cow_str_path(ty),
+            syn::Type::Path(ty) => get_cow_str_path(ty),
             _ => None,
         }
     }

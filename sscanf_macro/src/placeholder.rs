@@ -50,11 +50,8 @@ impl<'a> Placeholder<'a> {
         } else if let Some(ident) = ident.as_ref() {
             if ident.text().starts_with('/') && ident.text().ends_with('/') {
                 // types/fields cannot start with a slash
-                let msg = format!(
-                    "missing `:` in front of custom regex. Write `{{:{}}}` instead",
-                    ident.text()
-                );
-                return ident.err(&msg); // checked in tests/fail/<channel>/invalid_placeholder.rs
+                bail!(ident => "missing `:` in front of custom regex. Write `{{:{ident}}}` instead");
+                // checked in tests/fail/<channel>/invalid_placeholder.rs
             }
         }
 

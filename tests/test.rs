@@ -45,19 +45,6 @@ fn no_types() {
 }
 
 #[test]
-fn get_regex() {
-    let input = "Test 5 {} bob!";
-    let regex = sscanf_get_regex!("Test {usize} {{}} {}!", std::string::String);
-    assert_eq!(regex.as_str(), r"^Test (\+?\d{1,20}) \{\} (.+?)!$");
-
-    let output = regex.captures(input);
-    assert!(output.is_some());
-    let output = output.unwrap();
-    assert_eq!(output.get(1).map(|m| m.as_str()), Some("5"));
-    assert_eq!(output.get(2).map(|m| m.as_str()), Some("bob"));
-}
-
-#[test]
 fn unescaped() {
     let input = "5.0SOME_RANDOM_TEXT3";
     let output = sscanf_unescaped!(input, "{f32}.*{usize}");
@@ -229,6 +216,7 @@ fn string_lifetime() {
     }
     process_with_borrow("hi");
 
+    #[allow(clippy::needless_lifetimes)]
     fn process_with_lifetime<'a, 'b>(_a: &'a str, b: &'b str) -> &'b str {
         sscanf!(b, "{&str}").unwrap()
     }

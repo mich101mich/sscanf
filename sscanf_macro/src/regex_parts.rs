@@ -56,16 +56,13 @@ impl ToTokens for RegexPart {
             RegexPart::Literal(literal) => tokens.extend(quote! { #literal }),
             RegexPart::FromType(ty, span) => {
                 // See the comment in `NumCaptures::FromType` for an explanation of the span
-                // Final expression: `<#ty as ::sscanf::RegexRepresentation>::REGEX`
+                // Final expression: `<#ty as ::sscanf::FromScanf>::REGEX`
                 //            start:  ^   ^^^^
-                //              end:          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                //              end:          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
                 //         original:   ^^^
                 tokens.extend(span.apply_start(quote! { < }));
                 ty.to_tokens(tokens);
-                tokens.extend(span.apply(
-                    quote! { as },
-                    quote! { ::sscanf::RegexRepresentation >::REGEX },
-                ));
+                tokens.extend(span.apply(quote! { as }, quote! { ::sscanf::FromScanf >::REGEX }));
             }
             RegexPart::Custom(custom) => tokens.extend(quote! { #custom }),
         }
@@ -84,15 +81,15 @@ impl ToTokens for Converter {
         match self {
             Converter::Str => tokens.extend(quote! {
                 src.next()
-                   .expect(::sscanf::errors::EXPECT_NEXT_HINT)
-                   .expect(::sscanf::errors::EXPECT_CAPTURE_HINT)
+                   .expect(::sscanf::__macro_utilities::EXPECT_NEXT_HINT)
+                   .expect(::sscanf::__macro_utilities::EXPECT_CAPTURE_HINT)
                    .as_str()
             }),
             Converter::CowStr => tokens.extend(quote! {
                 ::std::borrow::Cow::Borrowed(
                     src.next()
-                        .expect(::sscanf::errors::EXPECT_NEXT_HINT)
-                        .expect(::sscanf::errors::EXPECT_CAPTURE_HINT)
+                        .expect(::sscanf::__macro_utilities::EXPECT_NEXT_HINT)
+                        .expect(::sscanf::__macro_utilities::EXPECT_CAPTURE_HINT)
                         .as_str()
                 )
             }),
@@ -138,7 +135,7 @@ impl ToTokens for Matcher {
                     if n != expected {
                         panic!(
                             "sscanf: {}::NUM_CAPTURES = {} but {} were taken{}",
-                            stringify!(#ty), expected, n, ::sscanf::errors::WRONG_CAPTURES_HINT
+                            stringify!(#ty), expected, n, ::sscanf::__macro_utilities::WRONG_CAPTURES_HINT
                         );
                     }
                 }
@@ -305,8 +302,8 @@ fn regex_from_radix(
     let span = ty.span();
 
     let get_input = quote! { src.next()
-        .expect(::sscanf::errors::EXPECT_NEXT_HINT)
-        .expect(::sscanf::errors::EXPECT_CAPTURE_HINT)
+        .expect(::sscanf::__macro_utilities::EXPECT_NEXT_HINT)
+        .expect(::sscanf::__macro_utilities::EXPECT_CAPTURE_HINT)
         .as_str()
     };
 
@@ -328,7 +325,7 @@ fn regex_from_radix(
             PrefixPolicy::Forced(prefix) => (
                 prefix,
                 quote! {
-                    ::std::option::Option::None.ok_or(::sscanf::errors::MissingPrefixError::#prefix)?;
+                    ::std::option::Option::None.ok_or(::sscanf::__macro_utilities::MissingPrefixError::#prefix)?;
                     #[allow(unreachable_code)]
                 },
             ),

@@ -1,5 +1,7 @@
 use sscanf::*;
 
+// TODO: lifetime tests (static, "input")
+
 static CORRECT_INPUT: &str = "Testing with (3.4,1,-2,0)!";
 macro_rules! correct_result {
     (named) => {

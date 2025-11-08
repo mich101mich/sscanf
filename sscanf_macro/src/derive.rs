@@ -112,7 +112,7 @@ impl ValueConversion {
                 let span = closure.body.span();
                 quote::quote_spanned! {span=> {
                     let f: fn(#from) -> ::std::option::Option<#to> = #closure;
-                    f(#value).ok_or(::sscanf::errors::FilterMapNoneError {
+                    f(#value).ok_or(::sscanf::__macro_utilities::FilterMapNoneError {
                         field_name: stringify!(#field_name)
                     })?
                 }}
@@ -129,11 +129,8 @@ fn parse_format(
         StructAttributeKind::Format { value, escape } => (value, escape),
         StructAttributeKind::Transparent => {
             if raw_fields.len() != 1 {
-                let msg = format!(
-                    "structs or variants marked as `{}` must have exactly one field",
-                    attr::Struct::Transparent
-                );
-                return Error::err_spanned(attr.src, msg); // checked in tests/fail/derive_struct_attributes.rs
+                bail!(attr.src => "structs or variants marked as `{}` must have exactly one field", attr::Struct::Transparent);
+                // checked in tests/fail/derive_struct_attributes.rs
             }
             let lit = syn::LitStr::new("{}", attr.src.span());
             (StrLit::new(lit), true)
@@ -302,7 +299,7 @@ fn merge_lifetimes(
     str_lifetimes: HashSet<syn::Lifetime>,
     src_generics: &syn::Generics,
 ) -> (syn::Lifetime, syn::Generics) {
-    let mut lifetime = syn::Lifetime::new("'__from_scanf_lifetime", Span::call_site());
+    let mut lifetime = syn::Lifetime::new("'input", Span::call_site());
     let mut is_static = false;
     if let Some(lt) = str_lifetimes.iter().find(|lt| lt.ident == "static") {
         lifetime = lt.clone();
@@ -317,7 +314,9 @@ fn merge_lifetimes(
 
         let where_clause = &mut lifetimed_generics.make_where_clause().predicates;
         for lt in str_lifetimes {
-            where_clause.push(syn::parse_quote! { #lifetime: #lt });
+            if lt.ident != "static" && lt.ident != lifetime.ident {
+                where_clause.push(syn::parse_quote! { #lifetime: #lt });
+            }
         }
     }
 
@@ -330,65 +329,40 @@ pub fn parse_struct(
     attrs: Vec<syn::Attribute>,
     data: syn::DataStruct,
 ) -> Result<TokenStream> {
-    let attr = StructAttribute::from_attrs(attrs)?
-        .ok_or_else(|| {
-            let mut msg = "FromScanf: structs must have a format string as an attribute.
-Please add either of #[sscanf(format = \"...\")], #[sscanf(format_unescaped = \"...\")] or #[sscanf(\"...\")]".to_string();
-            if data.fields.len() == 1 {
-                msg += ".
-Alternatively, you can use #[sscanf(transparent)] to derive FromScanf for a single-field struct";
-            }
-            Error::new_spanned(name, msg) // checked in tests/fail/derive_struct_attributes.rs
-        })?;
+    let Some(attr) = StructAttribute::from_attrs(attrs)? else {
+        let mut hint = "";
+        if data.fields.len() == 1 {
+            hint = ".
+Alternatively, you can use #[sscanf(transparent)] to derive FromScanf for a single-field struct"
+        }
+        bail!(name => r#"FromScanf: structs must have a format string as an attribute.
+Please add either of #[sscanf(format = "...")], #[sscanf(format_unescaped = "...")] or #[sscanf("...")]{hint}"#);
+        // checked in tests/fail/derive_struct_attributes.rs
+    };
 
     let (regex_parts, from_matches, str_lifetimes) = parse_format(attr, data.fields)?;
 
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    let (lifetime, lt_generics) = merge_lifetimes(str_lifetimes, generics);
+    let (impl_generics, ty_generics, where_clause) = lt_generics.split_for_impl();
 
     let regex = regex_parts.regex();
-    let regex_impl = quote! {
-        #[automatically_derived]
-        impl #impl_generics ::sscanf::RegexRepresentation for #name #ty_generics #where_clause {
-            const REGEX: &'static ::std::primitive::str = #regex;
-        }
-    };
-
-    let (lifetime, lt_generics) = merge_lifetimes(str_lifetimes, generics);
-    let (impl_generics, _, where_clause) = lt_generics.split_for_impl();
-
-    let num_captures = regex_parts.num_captures();
     let from_sscanf_impl = quote! {
         #[automatically_derived]
         impl #impl_generics ::sscanf::FromScanf<#lifetime> for #name #ty_generics #where_clause {
-            type Err = ::sscanf::errors::FromScanfFailedError;
-            const NUM_CAPTURES: usize = #num_captures;
-            fn from_matches(src: &mut ::sscanf::regex::SubCaptureMatches<'_, #lifetime>) -> ::std::result::Result<Self, Self::Err> {
-                let start_len = src.len();
-                src.next().unwrap(); // skip the whole match
+            const REGEX: &'static ::std::primitive::str = #regex;
 
-                let mut catcher = || -> ::std::result::Result<Self, ::std::boxed::Box<dyn ::std::error::Error>> {
-                    ::std::result::Result::Ok(#name #from_matches)
-                };
-                let res = catcher().map_err(|error| ::sscanf::errors::FromScanfFailedError {
-                    type_name: stringify!(#name),
-                    error,
-                })?;
-                let n = start_len - src.len();
-                if n != Self::NUM_CAPTURES {
-                    panic!(
-                        "sscanf: {}::NUM_CAPTURES = {} but {} were taken{}",
-                        stringify!(#name), Self::NUM_CAPTURES, n, ::sscanf::errors::WRONG_CAPTURES_HINT
-                    );
-                }
-                Ok(res)
+            fn from_matches(
+                _: &::std::primitive::str,
+                mut src: &[Option<&#lifetime ::std::primitive::str>]
+            ) -> ::std::option::Option<Self> {
+                let res = #name #from_matches;
+                assert!(src.is_empty());
+                ::std::option::Option::Some(res)
             }
         }
     };
 
-    Ok(quote! {
-        #regex_impl
-        #from_sscanf_impl
-    })
+    Ok(from_sscanf_impl)
 }
 
 pub fn parse_enum(
@@ -405,8 +379,7 @@ pub fn parse_enum(
     });
 
     if data.variants.is_empty() {
-        let msg = "FromScanf: enums must have at least one variant";
-        return Error::err_spanned(name, msg); // checked in tests/fail/derive_enum_attributes.rs
+        bail!(name => "FromScanf: enums must have at least one variant"); // checked in tests/fail/derive_enum_attributes.rs
     }
 
     let mut regex_parts = RegexParts::empty();
@@ -428,9 +401,9 @@ pub fn parse_enum(
             }
         } else if let Some((autogen, src)) = autogen.as_ref() {
             if !variant.fields.is_empty() {
-                let msg = "FromScanf: autogen only works if the variants have no fields.
-Use `#[sscanf(format = \"...\")]` to specify a format for a variant with fields or `#[sscanf(skip)]` to skip a variant";
-                return Error::err_spanned(variant.fields, msg); // checked in tests/fail/derive_enum_attributes.rs
+                bail!(variant.fields => r#"FromScanf: autogen only works if the variants have no fields.
+Use `#[sscanf(format = "...")]` to specify a format for a variant with fields or `#[sscanf(skip)]` to skip a variant"#);
+                // checked in tests/fail/derive_enum_attributes.rs
             }
             autogen.create_struct_attr(&variant.ident.to_string(), src.clone())
         } else {
@@ -463,10 +436,10 @@ Use `#[sscanf(format = \"...\")]` to specify a format for a variant with fields 
             let expected = #num_captures;
 
             remaining -= expected;
-            if src.next().expect(::sscanf::errors::EXPECT_NEXT_HINT).is_some() {
-                return ::std::result::Result::Ok(#name::#ident #from_matches);
+            if src.next().expect(::sscanf::__macro_utilities::EXPECT_NEXT_HINT).is_some() {
+                return ::std::option::Option::Some(#name::#ident #from_matches);
             } else if expected > 1 { // one was already taken by `src.next()` above
-                src.nth(expected - 2).expect(::sscanf::errors::EXPECT_NEXT_HINT);
+                src.nth(expected - 2).expect(::sscanf::__macro_utilities::EXPECT_NEXT_HINT);
             }
         };
         variant_constructors.push(matcher);
@@ -476,71 +449,35 @@ Use `#[sscanf(format = \"...\")]` to specify a format for a variant with fields 
     regex_parts.push_literal(")");
 
     if variant_constructors.is_empty() {
-        let msg = if autogen.is_some() {
-            "at least one variant has to be constructable from sscanf and not skipped."
+        if autogen.is_some() {
+            bail!(name => "at least one variant has to be constructable from sscanf and not skipped.");
+            // checked in tests/fail/derive_enum_attributes.rs
         } else {
-            "at least one variant has to be constructable from sscanf.
-To do this, add #[sscanf(format = \"...\")] to a variant"
-        };
-        return Error::err_spanned(name, msg); // checked in tests/fail/derive_enum_attributes.rs
+            bail!(name => "at least one variant has to be constructable from sscanf.
+To do this, add #[sscanf(format = \"...\")] to a variant");
+            // checked in tests/fail/derive_enum_attributes.rs
+        }
     }
 
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-
     let regex = regex_parts.regex();
-    let regex_impl = quote! {
-        #[automatically_derived]
-        impl #impl_generics ::sscanf::RegexRepresentation for #name #ty_generics #where_clause {
-            const REGEX: &'static ::std::primitive::str = #regex;
-        }
-    };
-
     let (lifetime, lt_generics) = merge_lifetimes(str_lifetimes, generics);
-    let (impl_generics, _, where_clause) = lt_generics.split_for_impl();
+    let (impl_generics, ty_generics, where_clause) = lt_generics.split_for_impl();
 
     let from_sscanf_impl = quote! {
         #[automatically_derived]
         impl #impl_generics ::sscanf::FromScanf<#lifetime> for #name #ty_generics #where_clause {
-            type Err = ::sscanf::errors::FromScanfFailedError;
+            const REGEX: &'static ::std::primitive::str = #regex;
 
-            const NUM_CAPTURES: usize = #(#num_captures_list)+*;
-
-            fn from_matches(src: &mut ::sscanf::regex::SubCaptureMatches<'_, #lifetime>) -> ::std::result::Result<Self, Self::Err> {
-                let start_len = src.len();
-                let mut remaining = Self::NUM_CAPTURES;
-                src.next().unwrap(); // skip the whole match
-                remaining -= 1;
-
-                let mut catcher = || -> ::std::result::Result<Self, ::std::boxed::Box<dyn ::std::error::Error>> {
-                    #(#variant_constructors)*
-
-                    unreachable!("sscanf: enum regex matched but no variant was captured");
-                };
-                let res = catcher().map_err(|error| ::sscanf::errors::FromScanfFailedError {
-                    type_name: stringify!(#name),
-                    error,
-                })?;
-
-                if remaining > 0 {
-                    src.nth(remaining - 1).expect(::sscanf::errors::EXPECT_NEXT_HINT);
-                }
-
-                let n = start_len - src.len();
-                if n != Self::NUM_CAPTURES {
-                    panic!(
-                        "sscanf: {}::NUM_CAPTURES = {} but {} were taken{}",
-                        stringify!(#name), Self::NUM_CAPTURES, n, ::sscanf::errors::WRONG_CAPTURES_HINT
-                    );
-                }
-                Ok(res)
+            fn from_matches(
+                _: &::std::primitive::str,
+                mut src: &[Option<&#lifetime ::std::primitive::str>]
+            ) -> ::std::option::Option<Self> {
+                ::std::option::Option::Some(#(#variant_constructors)*)
             }
         }
     };
 
-    Ok(quote! {
-        #regex_impl
-        #from_sscanf_impl
-    })
+    Ok(from_sscanf_impl)
 }
 
 pub fn parse_union(
@@ -549,6 +486,5 @@ pub fn parse_union(
     _attrs: Vec<syn::Attribute>,
     _data: syn::DataUnion,
 ) -> Result<TokenStream> {
-    let msg = "FromScanf: unions not supported yet";
-    Error::err_spanned(name, msg)
+    bail!(name => "FromScanf: unions not supported yet");
 }

@@ -20,7 +20,7 @@ macro_rules! declare_autogen {
             const AUTOGEN_KINDS: &'static [&'static str] = &[$($text,)+ $($special_text,)+];
 
             pub fn valid_hint() -> String {
-                list_items(Self::AUTOGEN_KINDS, |kind| format!("\"{}\"", kind))
+                list_items(Self::AUTOGEN_KINDS, |kind| format!(r#""{}""#, kind))
             }
 
             pub fn from_str(s: &str) -> Result<Self> {
@@ -29,11 +29,11 @@ macro_rules! declare_autogen {
                     $(s if $matching(s) => Ok(Self::$special_ident),)+
                     _ => {
                         if let Some(closest) = find_closest(s, Self::AUTOGEN_KINDS) {
-                            let msg = format!("invalid value for autogen: \"{}\". Did you mean \"{}\"?", s, closest);
-                            Error::err_spanned(s, msg) // checked in tests/fail/derive_enum_attributes.rs
+                            bail!(s => r#"invalid value for autogen: "{s}". Did you mean "{closest}"?"#);
+                            // checked in tests/fail/derive_enum_attributes.rs
                         } else {
-                            let msg = format!("invalid value for autogen: \"{}\". valid values are: {}", s, Self::valid_hint());
-                            Error::err_spanned(s, msg) // checked in tests/fail/derive_enum_attributes.rs
+                            bail!(s => r#"invalid value for autogen: "{s}". valid values are "{}"?"#, Self::valid_hint());
+                            // checked in tests/fail/derive_enum_attributes.rs
                         }
                     }
                 }
@@ -85,9 +85,9 @@ declare_autogen!(
         PascalCase: ("PascalCase", Pascal),
         CamelCase: ("camelCase", Camel),
         SnakeCase: ("snake_case", Snake),
-        ScreamingSnakeCase: ("SCREAMING_SNAKE_CASE", ScreamingSnake),
+        UpperSnakeCase: ("UPPER_SNAKE_CASE", UpperSnake),
         KebabCase: ("kebab-case", Kebab),
-        ScreamingKebabCase: ("SCREAMING-KEBAB-CASE", UpperKebab),
+        UpperKebabCase: ("UPPER-KEBAB-CASE", UpperKebab),
     },
     special: {
         CaseSensitive: ("CaseSensitive", match_case_sensitive, convert_case_sensitive),
