@@ -1,8 +1,8 @@
 error: expected an expression after `=`
- --> tests/fail/derive_field_attributes.rs:3:37
+ --> tests/fail/derive_field_attributes.rs:3:38
   |
 3 | struct TestNoValue(#[sscanf(default =)] u8);
-  |                                     ^
+  |                                      ^
 
 error: expected `,` or `=`
  --> tests/fail/derive_field_attributes.rs:7:38
@@ -27,7 +27,7 @@ error: omitting the attribute name is only valid for the `format` attribute on s
   --> tests/fail/derive_field_attributes.rs:19:42
    |
 19 | struct TestImpliedFormatInField(#[sscanf("")] u8);
-   |                                          ^^
+   |                                          ^
 
 error: unknown attribute `bob`. Valid attributes are: `default`, `map`, `filter_map`, `from`, or `try_from`
   --> tests/fail/derive_field_attributes.rs:23:32
@@ -110,10 +110,10 @@ error: attribute `map` has the format: `#[sscanf(map = |<arg>: <type>| <conversi
    |                                 ^^^
 
 error: expected an expression after `=`
-  --> tests/fail/derive_field_attributes.rs:59:36
+  --> tests/fail/derive_field_attributes.rs:59:37
    |
 59 | struct TestMapNoValue(#[sscanf(map =)] u8);
-   |                                    ^
+   |                                     ^
 
 error: attribute `map` requires a closure like: `|<arg>: <type>| <conversion>`
        where `<type>` is the type that should be matched against and `<conversion>` converts from `<type>` to `u8`

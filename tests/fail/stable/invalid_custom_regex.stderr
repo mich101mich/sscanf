@@ -53,25 +53,3 @@ error: missing '/' to end regex:
   |
 9 |     sscanf::sscanf!("", "{:/\\/", str);
   |                         ^^^^^^^^
-
-error: regex parse error:
-           ab(ab
-             ^
-       error: unclosed group
-
-       In custom Regex format option:
-       At "{:/ab(ab/}"
-             ^^^^^^^
-  --> tests/fail/stable/invalid_custom_regex.rs:11:25
-   |
-11 |     sscanf::sscanf!("", "{:/ab(ab/}", str);
-   |                         ^^^^^^^^^^^^
-
-error: custom regex cannot contain capture groups '(...)'.
-       Either make them non-capturing by adding '?:' after the '(' or remove/escape the '(' and ')':
-       At "{:/ab()ab/}"
-             ^^^^^^^^
-  --> tests/fail/stable/invalid_custom_regex.rs:12:25
-   |
-12 |     sscanf::sscanf!("", "{:/ab()ab/}", str);
-   |                         ^^^^^^^^^^^^^

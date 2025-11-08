@@ -37,7 +37,7 @@ error: expected string literal
 20 | #[sscanf(autogen = {})]
    |                    ^^
 
-error: invalid value for autogen: "bob". valid values are: "lower case", "UPPER CASE", "lowercase", "UPPERCASE", "PascalCase", "camelCase", "snake_case", "SCREAMING_SNAKE_CASE", "kebab-case", "SCREAMING-KEBAB-CASE", "CaseSensitive", or "CaseInsensitive"
+error: invalid value for autogen: "bob". valid values are: "lower case", "UPPER CASE", "lowercase", "UPPERCASE", "PascalCase", "camelCase", "snake_case", "UPPER_SNAKE_CASE", "SCREAMING_SNAKE_CASE", "kebab-case", "UPPER-KEBAB-CASE", "SCREAMING-KEBAB-CASE", "CaseSensitive", or "CaseInsensitive"
   --> tests/fail/derive_enum_attributes.rs:23:10
    |
 23 | #[derive(sscanf::FromScanf)]

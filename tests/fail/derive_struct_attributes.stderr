@@ -103,10 +103,10 @@ error: expected string literal
    |                   ^
 
 error: expected an expression after `=`
-  --> tests/fail/derive_struct_attributes.rs:52:17
+  --> tests/fail/derive_struct_attributes.rs:52:18
    |
 52 | #[sscanf(format =)]
-   |                 ^
+   |                  ^
 
 error: expected `,` or `=`
   --> tests/fail/derive_struct_attributes.rs:56:17
