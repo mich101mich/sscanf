@@ -40,7 +40,7 @@ as neither works without the other and versions are always released in parallel.
   - This has the benefit that `FromScanf` is now implemented for `&str` and `Cow<str>`, which was previously
     blocked by an "upstream crate might implement FromStr" error
   - This also improves the error message in case `FromScanf` is not implemented
-- The `RegexRepresentation` trait. The `REGEX` constant is now simply part of `FromScanf` (**BREAKING**)
+- The `RegexRepresentation` trait. The `REGEX` constant is now simply part of `FromScanf` (**BREAKING**) TODO:
 - Removed the previously deprecated `FullF32`, `FullF64` and `HexNumber` (technically breaking, but they have been
   deprecated for 3 years or more...)
 

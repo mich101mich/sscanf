@@ -1,4 +1,4 @@
-use crate::FromScanf;
+use crate::{FromScanf, advanced::FormatOptions};
 
 use regex_automata::{Span, util::captures::Captures};
 
@@ -32,7 +32,7 @@ use regex_automata::{Span, util::captures::Captures};
 ///
 /// | Problem Description | Example | Action | Explanation |
 /// |---------------------|---------|--------|-------------|
-/// | The regex is too broad | The first capture group can match 100+ digits, but our final data type might not store that many | return&nbsp;`None` | This case should have been filtered by the regex, but wasn't. <br/>Note that this might be unavoidable. For example `u8::REGEX` matches only three digits, but 999 is not a valid `u8` and has to be filtered during the parsing process |
+/// | The regex is too broad | The first capture group can match 100+ digits, but our final data type might not store that many | return&nbsp;`None` | This case should have been filtered by the regex, but wasn't. <br/>Note that this might be unavoidable. For example `u8`'s regex matches only three digits, but 999 is not a valid `u8` and has to be filtered during the parsing process |
 /// | The `MatchTree` has fewer children than there are direct capture groups in the regex | The `MatchTree` only has 0 or 1 child | `panic!()` | This is a programming error in the calling code |
 /// | You tried to access a capture group that does not exist | Attempting to access a third capture group | `panic!()` | This is a programming error in your code |
 /// | An optional capture group did not match | the second group did not match an `s` | continue parsing | This is a valid case, so the parsing should be able to handle it. Otherwise, the group should be made non-optional |
@@ -45,7 +45,9 @@ use regex_automata::{Span, util::captures::Captures};
 /// # use sscanf::MatchTree;
 /// # struct MyType;
 /// impl sscanf::FromScanf<'_> for MyType {
-///     const REGEX: &'static str = "a(b)c(x)?d(ef(ghi)j(k))lm";
+///     fn get_matcher() -> sscanf::Matcher {
+///         sscanf::Matcher::from_regex(r"a(b)c(x)?d(ef(ghi)j(k))lm")
+///     }
 ///
 ///     fn from_match(_: &str) -> Option<Self> { None }
 ///
@@ -112,13 +114,13 @@ use regex_automata::{Span, util::captures::Captures};
 ///     Digits(&'a str),
 ///     Letters(&'a str),
 /// }
-/// impl<'input> sscanf::FromScanf<'input> for MyType<'input> {
+/// impl<'input> sscanf::advanced::FromScanf<'input> for MyType<'input> {
 ///     // matches either digits or letters, but not both
-///     const REGEX: &'static str = r"(\d+)|([a-zA-Z]+)";
+///     fn get_matcher() -> sscanf::advanced::Matcher {
+///        sscanf::advanced::Matcher::from_regex(r"(\d+)|([a-zA-Z]+)")
+///     }
 ///
-///     fn from_match(_: &str) -> Option<Self> { None }
-///
-///     fn from_match_tree(matches: sscanf::MatchTree<'_, 'input>) -> Option<Self> {
+///     fn from_match_tree(matches: sscanf::advanced::MatchTree<'_, 'input>) -> Option<Self> {
 ///         if let Some(digits) = matches.get(0) {
 ///             assert!(matches.get(1).is_none()); // only one of the capture groups matches
 ///             Some(Self::Digits(digits.text()))
@@ -140,6 +142,14 @@ use regex_automata::{Span, util::captures::Captures};
 /// Side note: This is the mechanism used by the derive macro when used on an enum. If the derive macro does not
 /// work for your enum, consider implementing this trait in this exact way, using alternations in the regex for the
 /// enum variants, each wrapped in a capture group to check which variant matched: `(...)|(...)|(...)`.
+///
+/// Because of this, there are utility methods on [`Matcher`](crate::advanced::Matcher) for combining matchers:
+/// ```
+/// sscanf::advanced::Matcher::from_alternation(vec![
+///     sscanf::advanced::Matcher::from_regex(r"(\d+)"),
+///     sscanf::advanced::Matcher::from_regex(r"([a-zA-Z]+)"),
+/// ])
+/// ```
 ///
 /// ## Lifetime Parameters
 /// The first lifetime parameter (`'t`) is the lifetime of the match tree itself. Match trees are only valid within
@@ -190,11 +200,11 @@ impl<'t, 'input> MatchTree<'t, 'input> {
 
     /// Convenience method to call [`FromScanf::from_match_tree`] with this match tree.
     ///
-    /// The type `T` must implement the `FromScanf` trait, and this object must have been created from a match to
-    /// `T::REGEX`.
-    pub fn parse<T: FromScanf<'input>>(&self) -> Option<T> {
+    /// The type `T` must implement the [`FromScanf`] trait, and this object must have been created from a match to
+    /// [`T::get_matcher()`](FromScanf::get_matcher).
+    pub fn parse<T: FromScanf<'input>>(&self, format: &FormatOptions) -> Option<T> {
         let context = self.context.and(Context::Parse(std::any::type_name::<T>()));
-        T::from_match_tree(MatchTree { context, ..*self })
+        T::from_match_tree(MatchTree { context, ..*self }, format)
     }
 
     /// Directly parse one of the inner matches at the given index, if it participated in the match.
@@ -204,17 +214,26 @@ impl<'t, 'input> MatchTree<'t, 'input> {
     ///
     /// Shorthand for `self.at(index).parse()`. The same restrictions apply as for [`parse()`](Self::parse).
     #[track_caller]
-    pub fn parse_at<T: FromScanf<'input>>(&self, index: usize) -> Option<T> {
+    pub fn parse_at<T: FromScanf<'input>>(
+        &self,
+        index: usize,
+        format: &FormatOptions,
+    ) -> Option<T> {
         let context = Context::ParseAt(std::any::type_name::<T>(), index);
-        T::from_match_tree(self.inner_at(index, context))
+        T::from_match_tree(self.inner_at(index, context), format)
     }
 
     /// Internal method to parse a field at the given index, asserting that it exists.
     #[doc(hidden)]
     #[track_caller]
-    pub fn parse_field<T: FromScanf<'input>>(&self, name: &'static str, index: usize) -> Option<T> {
+    pub fn parse_field<T: FromScanf<'input>>(
+        &self,
+        name: &'static str,
+        index: usize,
+        format: &FormatOptions,
+    ) -> Option<T> {
         let context = Context::ParseField(name, index, std::any::type_name::<T>());
-        T::from_match_tree(self.inner_at(index, context))
+        T::from_match_tree(self.inner_at(index, context), format)
     }
 
     /// Returns the inner match at the given index, asserting that it exists.
@@ -339,14 +358,19 @@ impl From<Context> for ContextChain<'_> {
 }
 
 /// The source structure of a MatchTree, consisting of only the indices in the capture group list.
+#[derive(Debug)]
 pub(crate) struct MatchTreeIndex {
     pub index: usize,
     pub children: Vec<MatchTreeIndex>,
 }
 
 pub(crate) fn fill_index(hir: &regex_syntax::hir::Hir, out: &mut MatchTreeIndex) {
+    if hir.properties().explicit_captures_len() == 0 {
+        return; // No captures to process
+    }
+    use regex_syntax::hir::HirKind;
     match hir.kind() {
-        regex_syntax::hir::HirKind::Capture(capture) => {
+        HirKind::Capture(capture) => {
             let mut child = MatchTreeIndex {
                 index: capture.index as usize,
                 children: Vec::new(),
@@ -355,15 +379,15 @@ pub(crate) fn fill_index(hir: &regex_syntax::hir::Hir, out: &mut MatchTreeIndex)
             out.children.push(child);
         }
 
-        regex_syntax::hir::HirKind::Repetition(repetition) => {
+        HirKind::Repetition(repetition) => {
             fill_index(&repetition.sub, out);
         }
-        regex_syntax::hir::HirKind::Concat(hirs) => {
+        HirKind::Concat(hirs) => {
             for sub_hir in hirs {
                 fill_index(sub_hir, out);
             }
         }
-        regex_syntax::hir::HirKind::Alternation(hirs) => {
+        HirKind::Alternation(hirs) => {
             for sub_hir in hirs {
                 fill_index(sub_hir, out);
             }

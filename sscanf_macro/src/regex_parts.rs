@@ -115,14 +115,7 @@ impl RegexParts {
                     }
                 }
             } else {
-                match ty.kind {
-                    TypeKind::Str(_) | TypeKind::CowStr(_) => {
-                        let token = quote! { &str }.with_span(inner.span());
-                        let ty = syn::parse2(token).unwrap();
-                        RegexPart::FromType(ty, span)
-                    }
-                    _ => RegexPart::FromType(inner.clone(), span),
-                }
+                RegexPart::FromType(inner.clone(), span)
             };
             ret.regex_builder.push(regex);
 
@@ -141,7 +134,7 @@ impl RegexParts {
         Ok(ret)
     }
 
-    pub fn regex(&self) -> TokenStream {
+    pub fn get_matcher(&self) -> TokenStream {
         let regex_builder = &self.regex_builder;
         quote! { ::sscanf::__macro_utilities::concat_str!( #(#regex_builder),* ) }
     }

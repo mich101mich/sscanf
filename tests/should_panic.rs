@@ -6,8 +6,10 @@ use sscanf::*;
 #[should_panic = r#"sscanf: Failed to compile regex: "regex parse error:\n    ^())$\n       ^\nerror: unopened group""#]
 fn invalid_regex() {
     struct Test;
-    impl FromScanf<'_> for Test {
-        const REGEX: &'static str = ")";
+    impl FromScanfSimple<'_> for Test {
+        fn get_matcher() -> Matcher {
+            Matcher::from_regex(")")
+        }
         fn from_match(_: &str) -> Option<Self> {
             Some(Test)
         }
@@ -31,8 +33,10 @@ fn check_error_from_str_1() {
 #[should_panic = "called `Option::unwrap()` on a `None` value"]
 fn check_error_from_str_2() {
     struct Test(usize);
-    impl FromScanf<'_> for Test {
-        const REGEX: &'static str = ".*";
+    impl FromScanfSimple<'_> for Test {
+        fn get_matcher() -> Matcher {
+            Matcher::from_regex(".*")
+        }
         fn from_match(s: &str) -> Option<Self> {
             s.parse().ok().map(Test)
         }
@@ -63,8 +67,10 @@ fn nesting() {
     }
     static R: Vec<usize> = vec![];
     use my_mod::MyType;
-    impl FromScanf<'_> for MyType<'static, std::vec::Vec<usize>> {
-        const REGEX: &'static str = "a(b()(c()()(d)?))";
+    impl FromScanfSimple<'_> for MyType<'static, std::vec::Vec<usize>> {
+        fn get_matcher() -> Matcher {
+            Matcher::from_regex("a(b()(c()()(d)?))")
+        }
         fn from_match(_: &str) -> Option<Self> {
             None
         }

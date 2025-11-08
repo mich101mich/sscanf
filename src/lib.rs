@@ -59,13 +59,14 @@
 
 mod from_scanf;
 mod macros;
-mod match_tree;
 pub use from_scanf::*;
 pub use macros::*;
-pub use match_tree::*;
+
+pub mod advanced;
 
 #[doc = include_str!("../Changelog.md")]
 pub mod changelog {}
 
 #[doc(hidden)]
+#[macro_use]
 pub mod __macro_utilities;
