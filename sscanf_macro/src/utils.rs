@@ -2,6 +2,11 @@
 
 use crate::*;
 
+mod visitors {
+    pub mod lifetime;
+}
+pub use visitors::lifetime::*;
+
 /// A workaround for Spans on stable Rust.
 ///
 /// Span manipulation doesn't work on stable Rust, which also means that spans cannot be joined
@@ -52,7 +57,7 @@ pub fn find_closest<'a>(s: &str, compare: &[&'a str]) -> Option<&'a str> {
     best_match
 }
 /// Find the closest match to a string in a list of elements, removing it.
-pub fn take_closest<'a, T: Display>(s: &str, compare: &mut Vec<T>) -> Option<T> {
+pub fn take_closest<T: Display>(s: &str, compare: &mut Vec<T>) -> Option<T> {
     let mut best_confidence = 0.8; // minimum confidence
     let mut best_index = None;
     for (i, valid) in compare.iter().enumerate() {
