@@ -42,11 +42,12 @@ impl<'t, 'input> SeqMatch<'t, 'input> {
         T::from_match_tree(self.inner_at(index, context), format)
     }
 
-    /// Internal method to parse a field at the given index, asserting that it exists.
+    /// Same as [`parse_at`](Self::parse_at) but allows specifying a name for better error messages.
+    ///
+    /// Intended for use when parsing fields of structs.
     ///
     /// ## Panics
     /// Panics if the index is out of bounds or if the slot did not contain a [`MatchPart::Matcher`].
-    #[doc(hidden)]
     #[track_caller]
     pub fn parse_field<T: FromScanf<'input>>(
         &self,

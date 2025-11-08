@@ -23,7 +23,7 @@ as neither works without the other and versions are always released in parallel.
   - This change was originally made to allow debugging custom types, but the returned error was never really useful,
     and the addition of the derive macro made it useless in not just 99% of use cases like before, but 99,99%.  
     Having a `Result` that should have been an `Option` was adding far too much complexity and multiple pitfalls.
-- Changed custom Regex string escaping
+- Changed custom Regex string escaping (**BREAKING**)
   - instead of using `'\'` to escape the closing `'/'`-character, it now uses the same `#`-padding as raw strings
     - Example: a format string like `"{String:/\\d+\\/\\d+/}"` (which matches `"<number>/<number>"`) now becomes
       `"{String:#/\\d+/\\d+/#}"`
@@ -33,10 +33,10 @@ as neither works without the other and versions are always released in parallel.
 - Removed auto-implementation of `FromScanf` for types implementing `FromStr` (**BREAKING**)
   - This has the benefit that `FromScanf` is now implemented for `&str` and `Cow<str>`, which was previously
     blocked by an "upstream crate might implement FromStr" error
-    - Parsing the types was previously possible through a hack in the sscanf macro
+    - Note: Parsing the types was previously possible through a hack in the sscanf macro
   - This also improves the error message in case `FromScanf` is not implemented
   - The same functionality can still be achieved with the [`FromScanfSimple`][FromScanfSimple@0.5.0] trait
-- The [`RegexRepresentation`][RegexRepresentation@0.4.3] trait. The `REGEX` constant is now part of
+- Removed the [`RegexRepresentation`][RegexRepresentation@0.4.3] trait. The `REGEX` constant is now part of
   [`FromScanfSimple`][FromScanfSimple@0.5.0] (**BREAKING**)
 - Removed the previously deprecated `FullF32`, `FullF64` and `HexNumber` (technically breaking, but they have been
   deprecated for 3 years or more...)

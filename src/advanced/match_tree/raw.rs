@@ -30,7 +30,7 @@ impl<'t, 'input> RawMatch<'t, 'input> {
             self.context.and(Context::Get(index))
         );
         self.captures
-            .get_group(self.indices.start + index)
+            .get_group(self.indices.start + index) // TODO: test that the indices are correct
             .map(|span| &self.input[span])
     }
 }
