@@ -19,14 +19,10 @@ impl FullSpan {
     pub fn from_span(span: Span) -> Self {
         Self(span, span)
     }
-    pub fn from_spanned<T: ToTokens + syn::spanned::Spanned>(span: &T) -> Self {
-        let start = span.span();
-        let end = span
-            .to_token_stream()
-            .into_iter()
-            .last()
-            .map(|t| t.span())
-            .unwrap_or(start);
+    pub fn from_spanned<T: ToTokens>(span: &T) -> Self {
+        let mut tokens = span.to_token_stream().into_iter().map(|t| t.span());
+        let start = tokens.next().unwrap_or(Span::call_site());
+        let end = tokens.last().unwrap_or(start);
         Self(start, end)
     }
     pub fn apply(self, a: TokenStream, b: TokenStream) -> TokenStream {

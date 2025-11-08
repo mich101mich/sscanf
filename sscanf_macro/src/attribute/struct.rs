@@ -5,6 +5,7 @@ pub type StructAttribute = SingleAttributeContainer<attr::Struct, StructAttribut
 pub enum StructAttributeKind {
     Format { value: StrLit, escape: bool },
     Transparent,
+    // TODO: add lifetime modifiers
 }
 
 impl FromAttribute<attr::Struct> for StructAttributeKind {

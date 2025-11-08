@@ -132,7 +132,7 @@ impl<'a> StrLitSlice<'a> {
             // Workaround for stable: print a copy of the entire format string into the error message
             // and manually underline the desired section.
             let mut m = String::new();
-            writeln!(m, "{}:", message).unwrap();
+            writeln!(m, "{}:", message).unwrap(); // TODO: split by lines
 
             let text_prefix = "At ";
             let text_prefix_len = 3; // length of "At "

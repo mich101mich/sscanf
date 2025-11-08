@@ -175,7 +175,7 @@ fn parse_format(
             }
         }
 
-        let ty = Type::from_ty(ty);
+        let ty = Type::from_field(ty, ident.to_string());
 
         if value_source.is_none()
             && let Some(lt) = ty.lifetime()
@@ -293,6 +293,7 @@ The syntax for default values is: `#[sscanf(default)]` to use Default::default()
     Ok((regex_parts, from_matches, str_lifetimes))
 }
 
+// TODO: depend on all the lifetimes
 fn merge_lifetimes(
     str_lifetimes: HashSet<syn::Lifetime>,
     src_generics: &syn::Generics,
@@ -354,6 +355,7 @@ Please add either of #[sscanf(format = "...")], #[sscanf(format_unescaped = "...
             fn from_match(_: &::std::primitive::str) -> ::std::option::Option<Self> { ::std::option::Option::None }
 
             fn from_match_tree(src: ::sscanf::MatchTree<'_, #lifetime>) -> ::std::option::Option<Self> {
+                // TODO: add assertion for the number of matches
                 ::std::option::Option::Some(#name #from_matches)
             }
         }
@@ -466,6 +468,7 @@ To do this, add #[sscanf(format = \"...\")] to a variant");
             fn from_match(_: &::std::primitive::str) -> ::std::option::Option<Self> { ::std::option::Option::None }
 
             fn from_match_tree(src: ::sscanf::MatchTree<'_, #lifetime>) -> ::std::option::Option<Self> {
+                // TODO: add assertion for the number of matches
                 #(#variant_constructors)* {
                     panic!("FromScanf: no variant matched");
                 }

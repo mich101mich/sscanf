@@ -80,3 +80,20 @@ fn nesting() {
     }
     sscanf_unescaped!("abc", "{MyType<_>}").unwrap();
 }
+
+#[test]
+#[should_panic = "sscanf: inner match at index 0 is None. Are there any unescaped `?` or `|` in a regex?
+Context: sscanf -> parse group 0 as should_panic::nesting2::MyUnnamedType -> parse field .1 from group 1 as should_panic::nesting2::MyNamedType -> parse field .x from group 0 as char"]
+fn nesting2() {
+    #[derive(FromScanf)]
+    #[sscanf(r"x={x}?")]
+    struct MyNamedType {
+        x: char,
+    }
+
+    #[derive(FromScanf)]
+    #[sscanf("{}: {}")]
+    struct MyUnnamedType(usize, MyNamedType);
+
+    sscanf_unescaped!("3: x=", "{MyUnnamedType}").unwrap();
+}
