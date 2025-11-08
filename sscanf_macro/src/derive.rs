@@ -230,6 +230,10 @@ fn parse_format(
             use ValueConversion as Conv;
             match attr.kind {
                 FieldAttributeKind::Default(def) => {
+                    if let Some(ph_index) = ph_index {
+                        let ph = &format.placeholders[ph_index];
+                        bail!({ph, attr.src} => "field `{}` is marked as default, but is also used in a placeholder", ident);
+                    }
                     value_source = Some(ValueSource::Default { def, src: attr.src });
                 }
                 FieldAttributeKind::From { ty: from, tries } => {
@@ -249,10 +253,7 @@ fn parse_format(
 
         let value_source = if let Some(value_source) = value_source {
             // value is provided by an attribute
-            if let Some(ph_index) = ph_index {
-                let ph = &format.placeholders[ph_index];
-                bail!({ph, value_source} => "field `{ident}` is used in multiple placeholders");
-            }
+            // ph_index is None here, because we already checked for it above
             value_source
         } else if let Some(index) = ph_index.or_else(|| unused_ph_indices.next()) {
             // value is provided by a placeholder

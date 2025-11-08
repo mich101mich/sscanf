@@ -131,7 +131,7 @@ mod tests {
         type Tuple = (u8, u8);
         parser.assert_compiled(|| Tuple::get_matcher(&Default::default()));
         let output = parser.parse_captures(input, |matches| {
-            matches.parse_at::<Tuple>(0, &Default::default())
+            Tuple::from_match_tree(matches, &Default::default())
         });
         assert_eq!(output.unwrap(), (1, 2));
     }

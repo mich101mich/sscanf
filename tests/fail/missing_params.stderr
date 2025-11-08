@@ -6,7 +6,7 @@ error: sscanf: at least 2 Parameters required: Input and format string
   |
   = note: this error originates in the macro `sscanf::sscanf` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error: at least 2 Parameters required: Missing format string
+error: sscanf: at least 2 Parameters required: Missing format string
  --> tests/fail/missing_params.rs:3:24
   |
 3 |     sscanf::sscanf!("5");

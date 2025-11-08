@@ -33,7 +33,14 @@ impl<'a> FormatString<'a> {
             } else if c == '}' {
                 if parser.take_if_eq('}').is_some() {
                     // escaped '}}', will be handled like a regular char by the following code
+                } else if current_part.as_bytes().last() == Some(&b'}') {
+                    // '{}}'
+                    let msg = "escaped '}}' after an unescaped '{'.
+If you didn't mean to create a placeholder, escape the '{' as '{{'
+If you did, either remove the second '}' or escape it with another '}'";
+                    return parser.err_at(pos, msg); // checked in tests/fail/<channel>/invalid_placeholder.rs
                 } else {
+                    // standalone '}'
                     let msg = "unexpected standalone '}'. Literal '}' need to be escaped as '}}'";
                     return parser.err_at(pos, msg); // checked in tests/fail/<channel>/missing_bracket.rs
                 }

@@ -10,12 +10,14 @@ pub struct Matcher {
 
 impl Matcher {
     /// Create a new matcher from a regex string.
-    #[track_caller]
-    pub fn from_regex(regex: &str) -> Self {
-        let inner = regex_syntax::parse(regex).expect("Failed to parse regex");
-        Self {
-            inner: MatcherType::Raw(inner),
-        }
+    pub fn from_regex(regex: &str) -> Result<Self, String> {
+        let inner = match regex_syntax::parse(regex) {
+            Ok(hir) => MatcherType::Raw(hir),
+            Err(err) => {
+                return Err(err.to_string());
+            }
+        };
+        Ok(Self { inner })
     }
 
     /// Chain several matchers together in sequence.
@@ -32,7 +34,12 @@ impl Matcher {
         }
     }
 
-    pub(crate) fn compile(self, capture_index: &mut usize) -> Hir {
+    /// Internal constructor for a matcher from a raw HIR. Not public to avoid having a dependency in the public API.
+    pub(crate) fn from_inner(inner: MatcherType) -> Self {
+        Self { inner }
+    }
+
+    pub(crate) fn compile(self, capture_index: &mut usize) -> Result<Hir, String> {
         let index = *capture_index;
         *capture_index += 1;
         let hir = match self.inner {
@@ -45,14 +52,15 @@ impl Matcher {
                 for matcher in matchers {
                     match matcher {
                         MatchPart::Matcher(matcher) => {
-                            hirs.push(matcher.compile(capture_index));
+                            hirs.push(matcher.compile(capture_index)?);
                         }
                         MatchPart::Regex(cow) => {
-                            let hir = regex_syntax::parse(&cow).expect("Failed to parse regex");
+                            let hir = regex_syntax::parse(&cow)
+                                .map_err(|err| format!("sscanf: Invalid regex segment: {err}"))?;
                             assert_eq!(
                                 hir.properties().explicit_captures_len(),
                                 0,
-                                "sscanf: MatcherComponent::Regex must not contain any capture groups"
+                                "sscanf: MatchPart::Regex must not contain any capture groups"
                             );
                             hirs.push(hir);
                         }
@@ -68,7 +76,7 @@ impl Matcher {
                 let hirs = matchers
                     .into_iter()
                     .map(|m| m.compile(capture_index))
-                    .collect();
+                    .collect::<Result<Vec<_>, _>>()?;
                 Hir::alternation(hirs)
             }
         };
@@ -77,7 +85,7 @@ impl Matcher {
             name: None,
             sub: Box::new(hir),
         };
-        Hir::capture(capture)
+        Ok(Hir::capture(capture))
     }
 
     /// Convert a matcher to a regex string.
@@ -86,9 +94,10 @@ impl Matcher {
     ///
     /// Note that the resulting regex might be different from a regex passed to [`Matcher::from_regex`] due to
     /// optimizations and transformations applied by the regex engine.
+    #[track_caller]
     pub fn to_regex(&self) -> String {
         let mut capture_index = 0;
-        let hir = self.clone().compile(&mut capture_index);
+        let hir = self.clone().compile(&mut capture_index).unwrap();
         hir.to_string()
     }
 }
@@ -127,7 +136,7 @@ impl From<Matcher> for MatchPart {
 /// reconstruct the entire hir from scratch anyway at the end to set the capture indices, so we might as well
 /// keep them separate for now.
 #[derive(Debug, Clone)]
-enum MatcherType {
+pub(crate) enum MatcherType {
     Raw(Hir),
     Sequence(Vec<MatchPart>),
     Alternation(Vec<Matcher>),

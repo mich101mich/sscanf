@@ -86,15 +86,15 @@ impl Parse for Type<'_> {
         // Note that we don't directly parse syn::Type because there are far too many possible variations of types,
         // like `fn()`, `impl Trait`, `_`, `[T]`, etc.
         // The vast majority of these are not valid in sscanf, and they would just clutter the
-        // error message, since syn always says "expected one of fn, impl, _, [, ..." with all possible
+        // error message, since syn always says "expected one of: `for`, parentheses, `fn`, `unsafe`, `extern`, identifier, `::`, `<`, `dyn`, square brackets, `*`, `&`, `!`, `impl`, `_`, lifetime.
 
-        // let ty = if input.peek(Token![&]) {
-        //     // possibly &str
-        //     input.parse::<syn::TypeReference>()?.into()
-        // } else {
-        //     input.parse::<syn::TypePath>()?.into()
-        // };
-        Ok(Self::from_ty(input.parse::<syn::Type>()?))
+        let ty = if input.peek(Token![&]) {
+            // possibly &str
+            input.parse::<syn::TypeReference>()?.into()
+        } else {
+            input.parse::<syn::TypePath>()?.into()
+        };
+        Ok(Self::from_ty(ty))
     }
 }
 

@@ -25,7 +25,7 @@ impl<'a> FormatStringParser<'a> {
             chars,
             char_indices,
             pos: 0,
-            open_bracket_pos: 0,
+            open_bracket_pos: usize::MAX, // invalid value, will be set on first mark
         }
     }
 
@@ -72,7 +72,14 @@ impl<'a> FormatStringParser<'a> {
     pub fn peek_required(&mut self) -> Result<(usize, char)> {
         match self.chars.get(self.pos) {
             Some(&c) => Ok((self.pos, c)),
-            None => self.err_at(self.open_bracket_pos, MISSING_CLOSE_STRING),
+            None => {
+                if self.open_bracket_pos == usize::MAX {
+                    // reached end without any placeholders, just return any error
+                    Err(Error::new(Span::call_site(), ""))
+                } else {
+                    self.err_since(self.open_bracket_pos, MISSING_CLOSE_STRING)
+                }
+            }
         }
     }
     pub fn peek2(&mut self) -> Option<(usize, char)> {

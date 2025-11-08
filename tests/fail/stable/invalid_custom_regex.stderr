@@ -1,4 +1,5 @@
-error: end of regex '/' has to be followed by end of placeholder '}':
+error: unknown format option starting with 'g'.
+       Use '/' for regex, '[' for custom format options, or 'b', 'o', 'x' or 'r' for number format options:
        At "{://g}"
                ^
  --> tests/fail/stable/invalid_custom_regex.rs:2:25

@@ -69,20 +69,20 @@ mod impls {
 ///     b: u8,
 /// }
 ///
-/// use sscanf::advanced::{FromScanf, Matcher, MatcherComponent, FormatOptions, MatchTree};
-/// impl FromScanf<'_> for Color {
+/// use sscanf::advanced::{Matcher, MatchPart, FormatOptions, MatchTree};
+/// impl sscanf::FromScanf<'_> for Color {
 ///     // matches '#' followed by 3 capture groups of 2 hexadecimal digits each
 ///     fn get_matcher(_: &FormatOptions) -> Matcher {
 ///         let hex_format = FormatOptions::builder().hex().build();
-///         let hex_u8_matcher: MatcherComponent = u8::get_matcher(&hex_format).into();
+///         let hex_u8_matcher: MatchPart = u8::get_matcher(&hex_format).into();
 ///         Matcher::from_sequence(vec![
-///             MatcherComponent::Literal(r"#"),
+///             MatchPart::literal("#"),
 ///             hex_u8_matcher.clone(),
 ///             hex_u8_matcher.clone(),
 ///             hex_u8_matcher,
 ///         ])
 ///         // alternatively, we could write
-///         //     `Matcher::from_regex(r"#([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})")`
+///         //     `Matcher::from_regex(r"#([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})").unwrap()`
 ///     }
 ///
 ///     fn from_match_tree(matches: MatchTree<'_, '_>, _: &FormatOptions) -> Option<Self> {
@@ -124,8 +124,8 @@ mod impls {
 ///
 ///     const REGEX: &'static str = r"\w+ \w+";
 ///
-///     fn from_match(input: &str) -> Option<Self> {
-///         let (first, last) = input.split_once(' ')?; // has lifetime 'input
+///     fn from_match(input: &'input str) -> Option<Self> {
+///         let (first, last) = input.split_once(' ')?;
 ///         Some(Self {
 ///             first,
 ///             last,
@@ -191,16 +191,17 @@ pub trait FromScanf<'input>: Sized {
     /// Callback to parse the input string from a match tree.
     ///
     /// ```
+    /// # use sscanf::advanced::{Matcher, MatchTree, FormatOptions};
     /// # struct MyType { first_field: u8, second_field: u8 }
-    /// impl sscanf::advanced::FromScanf<'_> for MyType {
-    ///     fn get_matcher() -> sscanf::advanced::Matcher {
-    ///         sscanf::advanced::Matcher::from_regex(r"your-(capturing)-(regex)-here")
+    /// impl sscanf::FromScanf<'_> for MyType {
+    ///     fn get_matcher(_: &FormatOptions) -> Matcher {
+    ///         Matcher::from_regex(r"your-(capturing)-(regex)-here").unwrap()
     ///     }
     ///
-    ///     fn from_match_tree(matches: sscanf::advanced::MatchTree<'_, '_>) -> Option<Self> {
+    ///     fn from_match_tree(matches: MatchTree<'_, '_>, format: &FormatOptions) -> Option<Self> {
     ///         Some(Self {
-    ///             first_field: matches.parse_at(0)?,
-    ///             second_field: matches.parse_at(1)?,
+    ///             first_field: matches.parse_at(0, format)?,
+    ///             second_field: matches.parse_at(1, format)?,
     ///             // ...
     ///         })
     ///     }
@@ -231,7 +232,7 @@ where
     /// ```
     /// # struct MyType;
     /// # impl std::str::FromStr for MyType { type Err = (); fn from_str(_: &str) -> Result<Self, Self::Err> { Ok(MyType) } }
-    /// impl sscanf::FromScanf<'_> for MyType {
+    /// impl sscanf::FromScanfSimple<'_> for MyType {
     ///     const REGEX: &'static str = // your regex here
     /// # "placeholder regex to make this compile";
     ///
@@ -243,11 +244,18 @@ where
     fn from_match(input: &'input str) -> Option<Self>;
 }
 
+#[diagnostic::do_not_recommend]
 impl<'input, T: FromScanfSimple<'input>> FromScanf<'input> for T {
     fn get_matcher(_: &FormatOptions) -> Matcher {
-        Matcher::from_regex(T::REGEX)
+        Matcher::from_regex(T::REGEX).unwrap_or_else(|err| {
+            panic!(
+                "sscanf: Invalid REGEX on FromScanfSimple of type {}: {err}",
+                std::any::type_name::<T>()
+            );
+        })
     }
 
+    #[track_caller]
     fn from_match_tree(matches: MatchTree<'_, 'input>, _: &FormatOptions) -> Option<Self> {
         Self::from_match(matches.text())
     }

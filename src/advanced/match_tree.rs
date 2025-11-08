@@ -42,16 +42,14 @@ use regex_automata::{Span, util::captures::Captures};
 ///
 /// ## Example structure
 /// ```
-/// # use sscanf::MatchTree;
+/// # use sscanf::advanced::{Matcher, MatchTree, FormatOptions};
 /// # struct MyType;
 /// impl sscanf::FromScanf<'_> for MyType {
-///     fn get_matcher() -> sscanf::Matcher {
-///         sscanf::Matcher::from_regex(r"a(b)c(x)?d(ef(ghi)j(k))lm")
+///     fn get_matcher(_: &FormatOptions) -> Matcher {
+///         Matcher::from_regex(r"a(b)c(x)?d(ef(ghi)j(k))lm").unwrap()
 ///     }
 ///
-///     fn from_match(_: &str) -> Option<Self> { None }
-///
-///     fn from_match_tree(matches: MatchTree<'_, '_>) -> Option<Self> {
+///     fn from_match_tree(matches: MatchTree<'_, '_>, _: &FormatOptions) -> Option<Self> {
 ///         // This is what the complete match tree looks like:
 ///
 ///         assert_eq!(matches.text(), "abcdefghijklm");
@@ -76,13 +74,13 @@ use regex_automata::{Span, util::captures::Captures};
 ///             { // the "(ghi)" group
 ///                 let ghi = efghijk.at(0);
 ///                 assert_eq!(ghi.text(), "ghi");
-///                 assert_eq!(ghi.num_children(), 0); // no more capture groups within this group
+///                 assert_eq!(ghi.num_children(), 0);
 ///             }
 ///
 ///             { // the "(k)" group
 ///                 let k = efghijk.at(1);
 ///                 assert_eq!(k.text(), "k");
-///                 assert_eq!(k.num_children(), 0); // no more capture groups within this group
+///                 assert_eq!(k.num_children(), 0);
 ///             }
 ///         }
 ///
@@ -109,18 +107,19 @@ use regex_automata::{Span, util::captures::Captures};
 ///
 /// #### Example of using optional capture groups to parse an enum:
 /// ```
+/// use sscanf::advanced::{Matcher, MatchTree, FormatOptions};
 /// # #[derive(Debug, PartialEq, Eq)]
 /// enum MyType<'a> {
 ///     Digits(&'a str),
 ///     Letters(&'a str),
 /// }
-/// impl<'input> sscanf::advanced::FromScanf<'input> for MyType<'input> {
+/// impl<'input> sscanf::FromScanf<'input> for MyType<'input> {
 ///     // matches either digits or letters, but not both
-///     fn get_matcher() -> sscanf::advanced::Matcher {
-///        sscanf::advanced::Matcher::from_regex(r"(\d+)|([a-zA-Z]+)")
+///     fn get_matcher(_: &FormatOptions) -> Matcher {
+///        Matcher::from_regex(r"(\d+)|([a-zA-Z]+)").unwrap()
 ///     }
 ///
-///     fn from_match_tree(matches: sscanf::advanced::MatchTree<'_, 'input>) -> Option<Self> {
+///     fn from_match_tree(matches: MatchTree<'_, 'input>, _: &FormatOptions) -> Option<Self> {
 ///         if let Some(digits) = matches.get(0) {
 ///             assert!(matches.get(1).is_none()); // only one of the capture groups matches
 ///             Some(Self::Digits(digits.text()))
@@ -145,10 +144,12 @@ use regex_automata::{Span, util::captures::Captures};
 ///
 /// Because of this, there are utility methods on [`Matcher`](crate::advanced::Matcher) for combining matchers:
 /// ```
+/// # fn get_matcher() -> sscanf::advanced::Matcher {
 /// sscanf::advanced::Matcher::from_alternation(vec![
-///     sscanf::advanced::Matcher::from_regex(r"(\d+)"),
-///     sscanf::advanced::Matcher::from_regex(r"([a-zA-Z]+)"),
+///     sscanf::advanced::Matcher::from_regex(r"(\d+)").unwrap(),
+///     sscanf::advanced::Matcher::from_regex(r"([a-zA-Z]+)").unwrap(),
 /// ])
+/// # }
 /// ```
 ///
 /// ## Lifetime Parameters
@@ -260,6 +261,7 @@ impl<'t, 'input> MatchTree<'t, 'input> {
         self.inner_get(index, Context::Get(index))
     }
 
+    /// Internal method to get the inner match at the given index, if it exists.
     #[track_caller]
     fn inner_get(&'t self, index: usize, context: Context) -> Option<MatchTree<'t, 'input>> {
         let context = self.context.and(context);
@@ -275,6 +277,7 @@ impl<'t, 'input> MatchTree<'t, 'input> {
             .map(|span| MatchTree::new(child, self.captures, self.input, span, context))
     }
 
+    /// Internal method to get the inner match at the given index, asserting that it exists.
     #[track_caller]
     fn inner_at(&'t self, index: usize, context: Context) -> MatchTree<'t, 'input> {
         match self.inner_get(index, context) {
@@ -291,8 +294,25 @@ impl<'t, 'input> MatchTree<'t, 'input> {
 
 impl std::fmt::Debug for MatchTree<'_, '_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let children = self
+            .inner
+            .children
+            .iter()
+            .map(|index| {
+                self.captures.get_group(index.index).map(|span| {
+                    MatchTree::new(
+                        index,
+                        self.captures,
+                        self.input,
+                        span,
+                        self.context.and(Context::At(index.index)),
+                    )
+                })
+            })
+            .collect::<Vec<_>>();
         f.debug_struct("MatchTree")
             .field("text", &self.text())
+            .field("children", &children)
             .finish_non_exhaustive()
     }
 }

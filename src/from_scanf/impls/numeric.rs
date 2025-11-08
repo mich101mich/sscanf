@@ -13,7 +13,8 @@ use crate::{
 // Sign   ::= [+-]
 // Digit  ::= [0-9]
 // Float  ::= Sign? ( 'inf' | 'infinity' | 'nan' | Number )
-const FLOAT: &str = r"[+-]?(?i:inf|infinity|nan|(?:\d+|\d+\.\d*|\d*\.\d+)(?:e[+-]?\d+)?)";
+const FLOAT: &str =
+    r"[+-]?(?i:inf|infinity|nan|(?:[0-9]+|[0-9]+\.[0-9]*|[0-9]*\.[0-9]+)(?:e[+-]?[0-9]+)?)";
 
 macro_rules! doc_concat {
     ($target: item, $($doc: expr),+) => {
@@ -42,29 +43,75 @@ fn primitive_get_matcher<T: PrimitiveNumber>(format: &FormatOptions) -> Matcher 
     let format = &format.number;
     let radix = format.to_number();
 
-    let sign = if T::SIGNED { "[-+]?" } else { "\\+?" };
-
-    let mut needs_case_insensitive = false;
-
-    let prefix = format
-        .prefix()
-        .map(|prefix| {
-            needs_case_insensitive = true; // the prefix contains letters
-            match format.prefix_policy() {
-                NumberPrefixPolicy::Forbidden => unreachable!(),
-                NumberPrefixPolicy::Required => prefix.to_string(),
-                NumberPrefixPolicy::Optional => format!("(?:{prefix})?"),
-            }
+    use regex_syntax::hir::*;
+    fn optional(inner: Hir) -> Hir {
+        // regex_syntax uses a repetition for optional groups
+        Hir::repetition(Repetition {
+            min: 0,
+            max: Some(1),
+            greedy: true,
+            sub: Box::new(inner),
         })
-        .unwrap_or_default();
+    }
+    fn cl(c: char) -> ClassUnicodeRange {
+        ClassUnicodeRange::new(c, c)
+    }
+
+    // The final regex is:
+    // sign prefix ( [ possible_chars ] { 1, num_digits } )
+    // - "sign" matches an optional sign, either '+' or '-'
+    // - "prefix" matches the prefix, if any
+    // - "(...)" creates a capture group for the number itself
+    //   - "[possible_chars]" matches one of the possible characters for the given radix
+    //   - "{1,num_digits}" means repeat the previous character class one to `num_digits` times
+    let mut regex = vec![];
+
+    regex.push(optional(if T::SIGNED {
+        Hir::class(Class::Unicode(ClassUnicode::new([cl('-'), cl('+')]))) // "[-+]?"
+    } else {
+        Hir::literal(b"+".as_slice()) // "\\+?"
+    }));
+
+    fn make_prefix(lower: char) -> Hir {
+        let zero = Hir::literal(b"0".as_slice());
+
+        let upper = lower.to_ascii_uppercase();
+        let specifier = Hir::class(Class::Unicode(ClassUnicode::new([cl(lower), cl(upper)])));
+
+        Hir::concat(vec![zero, specifier])
+    }
+    fn add_prefix(regex: &mut Vec<Hir>, format: NumberFormatOption) {
+        let (lower, policy) = match format {
+            NumberFormatOption::Binary(number_prefix_policy) => ('b', number_prefix_policy),
+            NumberFormatOption::Octal(number_prefix_policy) => ('o', number_prefix_policy),
+            NumberFormatOption::Decimal => return,
+            NumberFormatOption::Hexadecimal(number_prefix_policy) => ('x', number_prefix_policy),
+            NumberFormatOption::Other(_) => return,
+        };
+        match policy {
+            NumberPrefixPolicy::Forbidden => {}
+            NumberPrefixPolicy::Optional => regex.push(optional(make_prefix(lower))),
+            NumberPrefixPolicy::Required => regex.push(make_prefix(lower)),
+        }
+    }
+    add_prefix(&mut regex, *format);
 
     // possible characters for digits
     let possible_chars = if radix <= 10 {
-        format!("0-{}", radix - 1)
+        // "0-{radix - 1}"
+        let range = ClassUnicodeRange::new('0', (b'0' + radix as u8 - 1) as char);
+        Hir::class(Class::Unicode(ClassUnicode::new([range])))
     } else {
-        needs_case_insensitive = true; // letters are now involved
-        let last_letter = (b'a' + radix as u8 - 1 - 10) as char;
-        format!("0-9a-{last_letter}")
+        // "0-9a-{'a' + radix - 1 - 10}"
+        let number_range = ClassUnicodeRange::new('0', '9');
+        let last_letter_offset = radix as u8 - 1 - 10;
+        let letter_range = ClassUnicodeRange::new('a', (b'a' + last_letter_offset) as char);
+        let upper_letter_range = ClassUnicodeRange::new('A', (b'A' + last_letter_offset) as char);
+        Hir::class(Class::Unicode(ClassUnicode::new([
+            number_range,
+            letter_range,
+            upper_letter_range,
+        ])))
     };
 
     let num_digits = if radix == 2 {
@@ -76,28 +123,32 @@ fn primitive_get_matcher<T: PrimitiveNumber>(format: &FormatOptions) -> Matcher 
         f32::ceil(T::BITS as f32 / f32::log2(radix as f32)) as u32
     };
 
-    // The final regex is:
-    // sign prefix ( [ possible_chars ] { 1, num_digits } )
-    // - "sign" matches an optional sign, either '+' or '-'
-    // - "prefix" matches the optional prefix, if any
-    // - "(...)" creates a capture group for the number itself
-    //   - "[possible_chars]" matches one of the possible characters for the given radix
-    //   - "{1,num_digits}" means repeat the previous character class one to `num_digits` times
-    let mut regex = format!("{sign}{prefix}([{possible_chars}]{{1,{num_digits}}})");
+    let digit_matcher = Hir::repetition(Repetition {
+        min: 1,
+        max: Some(num_digits),
+        greedy: true,
+        sub: Box::new(possible_chars),
+    });
+    let digit_matcher = Hir::capture(Capture {
+        index: 0, // will be overwritten by matcher compilation
+        name: None,
+        sub: Box::new(digit_matcher),
+    });
+    regex.push(digit_matcher);
 
-    if needs_case_insensitive {
-        // "(?i:...)" a non-capturing group that makes the inside case-insensitive.
-        regex = format!("(?i:{regex})");
-    }
-
-    Matcher::from_regex(&regex)
+    Matcher::from_inner(MatcherType::Raw(Hir::concat(regex)))
 }
 
 fn primitive_from_match_tree<T: PrimitiveNumber>(
     matches: MatchTree<'_, '_>,
     format: &FormatOptions,
 ) -> Option<T> {
-    let number = matches.at(0).text();
+    let number = if matches.num_children() != 1 {
+        // User specified a custom regex override. Assume that the entire match is the number.
+        matches.text()
+    } else {
+        matches.at(0).text()
+    };
     if matches.text().starts_with('-') {
         // negative numbers have a different range from positive numbers (e.g. i8::MIN is -128 while i8::MAX is 127).
         // in order to avoid an overflow when trying to parse number like -128i8, we need to parse the number as its
@@ -137,13 +188,13 @@ macro_rules! impl_int {
                     concat!("Matches an unsigned number with ", $digits_2, " bits in the respective radix."),
                     "",
                     "```",
-                    "# use sscanf::*; use sscanf::NumberFormatOption::*; use sscanf::NumberPrefixPolicy::*;",
+                    "# use sscanf::*; use sscanf::advanced::*;",
                     concat!("let re = ", stringify!($unsigned), "::get_matcher(&Default::default()).to_regex();"),
-                    concat!(r#"assert_eq!(re, r"((?i:\+?([0-9]{1,"#, $digits_10, r#"})))");"#),
+                    concat!(r#"assert_eq!(re, r"((?:\+?([0-9]{1,"#, $digits_10, r#"})))");"#),
                     "",
                     "let hex_options = FormatOptions::builder().hex().with_prefix().build();",
                     concat!("let re = ", stringify!($unsigned), "::get_matcher(&hex_options).to_regex();"),
-                    concat!(r#"assert_eq!(re, r"((?i:\+?0x([0-9a-f]{1,"#, $digits_16, r#"})))");"#),
+                    concat!(r#"assert_eq!(re, r"((?:\+?0[Xx]([0-9A-Fa-f]{1,"#, $digits_16, r#"})))");"#),
                     "```"
                 }
             }
@@ -175,13 +226,13 @@ macro_rules! impl_int {
                     concat!("Matches a signed number with ", $digits_2, " bits in the respective radix."),
                     "",
                     "```",
-                    "# use sscanf::*; use sscanf::NumberFormatOption::*; use sscanf::NumberPrefixPolicy::*;",
+                    "# use sscanf::*; use sscanf::advanced::*;",
                     concat!("let re = ", stringify!($signed), "::get_matcher(&Default::default()).to_regex();"),
-                    concat!(r#"assert_eq!(re, r"((?i:[-+]?([0-9]{1,"#, $digits_10, r#"})))");"#),
+                    concat!(r#"assert_eq!(re, r"((?:[\+\-]?([0-9]{1,"#, $digits_10, r#"})))");"#),
                     "",
                     "let hex_options = FormatOptions::builder().hex().with_prefix().build();",
                     concat!("let re = ", stringify!($signed), "::get_matcher(&hex_options).to_regex();"),
-                    concat!(r#"assert_eq!(re, r"((?i:[-+]?0x([0-9a-f]{1,"#, $digits_16, r#"})))");"#),
+                    concat!(r#"assert_eq!(re, r"((?:[\+\-]?0[Xx]([0-9A-Fa-f]{1,"#, $digits_16, r#"})))");"#),
                     "```"
                 }
             }
@@ -211,24 +262,24 @@ impl FromScanf<'_> for usize {
     /// Matches an unsigned number with a platform-specific number of bits in the respective radix.
     ///
     /// ```
-    /// # use sscanf::*; use sscanf::NumberFormatOption::*; use sscanf::NumberPrefixPolicy::*;
+    /// # use sscanf::*; use sscanf::advanced::*;
     /// #[cfg(target_pointer_width = "64")]
     /// {
     ///     let re = usize::get_matcher(&Default::default()).to_regex();
-    ///     assert_eq!(re, r"((?i:\+?([0-9]{1,20})))");
+    ///     assert_eq!(re, r"((?:\+?([0-9]{1,20})))");
     ///
     ///     let hex_options = FormatOptions::builder().hex().with_prefix().build();
     ///     let re = usize::get_matcher(&hex_options).to_regex();
-    ///     assert_eq!(re, r"((?i:\+?0x([0-9a-f]{1,16})))");
+    ///     assert_eq!(re, r"((?:\+?0[Xx]([0-9A-Fa-f]{1,16})))");
     /// }
     /// #[cfg(target_pointer_width = "32")]
     /// {
     ///     let re = usize::get_matcher(&Default::default()).to_regex();
-    ///     assert_eq!(re, r"((?i:\+?([0-9]{1,10})))");
+    ///     assert_eq!(re, r"((?:\+?([0-9]{1,10})))");
     ///
     ///     let hex_options = FormatOptions::builder().hex().with_prefix().build();
     ///     let re = usize::get_matcher(&hex_options).to_regex();
-    ///     assert_eq!(re, r"((?i:\+?0x([0-9a-f]{1,8})))");
+    ///     assert_eq!(re, r"((?:\+?0[Xx]([0-9A-Fa-f]{1,8})))");
     /// }
     /// ```
     fn from_match_tree(matches: MatchTree<'_, '_>, format: &FormatOptions) -> Option<Self> {
@@ -259,24 +310,24 @@ impl FromScanf<'_> for isize {
     /// Matches a signed number with a platform-specific number of bits in the respective radix.
     ///
     /// ```
-    /// # use sscanf::*; use sscanf::NumberFormatOption::*; use sscanf::NumberPrefixPolicy::*;
+    /// # use sscanf::*; use sscanf::advanced::*;
     /// #[cfg(target_pointer_width = "64")]
     /// {
     ///     let re = isize::get_matcher(&Default::default()).to_regex();
-    ///     assert_eq!(re, r"((?i:[-+]?([0-9]{1,20})))");
+    ///     assert_eq!(re, r"((?:[\+\-]?([0-9]{1,20})))");
     ///
     ///     let hex_options = FormatOptions::builder().hex().with_prefix().build();
     ///     let re = isize::get_matcher(&hex_options).to_regex();
-    ///     assert_eq!(re, r"((?i:[-+]?0x([0-9a-f]{1,16})))");
+    ///     assert_eq!(re, r"((?:[\+\-]?0[Xx]([0-9A-Fa-f]{1,16})))");
     /// }
     /// #[cfg(target_pointer_width = "32")]
     /// {
     ///     let re = isize::get_matcher(&Default::default()).to_regex();
-    ///     assert_eq!(re, r"((?i:[-+]?([0-9]{1,10})))");
+    ///     assert_eq!(re, r"((?:[\+\-]?([0-9]{1,10})))");
     ///
     ///     let hex_options = FormatOptions::builder().hex().with_prefix().build();
     ///     let re = isize::get_matcher(&hex_options).to_regex();
-    ///     assert_eq!(re, r"((?i:[-+]?0x([0-9a-f]{1,8})))");
+    ///     assert_eq!(re, r"((?:[\+\-]?0[Xx]([0-9A-Fa-f]{1,8})))");
     /// }
     /// ```
     fn from_match_tree(matches: MatchTree<'_, '_>, format: &FormatOptions) -> Option<Self> {
@@ -330,9 +381,9 @@ macro_rules! impl_float {
                 "",
                 concat!("See [FromStr on ", stringify!($ty), "](https://doc.rust-lang.org/std/primitive.", stringify!($ty), ".html#method.from_str) for details"),
                 "```",
-                "# use sscanf::FromScanf;",
-                concat!("let re = ", stringify!($ty), "::get_matcher(&Default::default()).to_regex();"),
-                r#"assert_eq!(re, r"([+-]?(?i:inf|infinity|nan|(?:\d+|\d+\.\d*|\d*\.\d+)(?:e[+-]?\d+)?))");"#,
+                "# use sscanf::FromScanfSimple;",
+                concat!("let re = ", stringify!($ty), "::REGEX;"),
+                r#"assert_eq!(re, r"[+-]?(?i:inf|infinity|nan|(?:[0-9]+|[0-9]+\.[0-9]*|[0-9]*\.[0-9]+)(?:e[+-]?[0-9]+)?)");"#,
                 "```"
             }
         })+
@@ -396,7 +447,8 @@ mod tests {
         };
         let parser = __macro_utilities::Parser::new();
         parser.assert_compiled(|| T::get_matcher(&format));
-        let output = parser.parse_captures(value_str, |matches| matches.parse_at::<T>(0, &format));
+        let output =
+            parser.parse_captures(value_str, |matches| T::from_match_tree(matches, &format));
 
         let Some(parsed_value) = output else {
             panic!(
@@ -424,7 +476,8 @@ mod tests {
         };
         let parser = __macro_utilities::Parser::new();
         parser.assert_compiled(|| T::get_matcher(&format));
-        let result = parser.parse_captures(value_str, |matches| matches.parse_at::<T>(0, &format));
+        let result =
+            parser.parse_captures(value_str, |matches| T::from_match_tree(matches, &format));
 
         assert!(
             result.is_none(),

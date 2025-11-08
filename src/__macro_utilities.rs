@@ -34,8 +34,22 @@ impl Parser {
         let regex = self.regex.get_or_init(|| {
             let matcher = get_matcher();
 
+            // We need to re-index the capture groups. Capture group 0 is the whole match, so our matchers
+            // should start at 1. However, since our outermost Matcher is itself the whole match, we assign it
+            // to group 0 but then remove it again after compilation.
             let mut capture_index = 0;
-            let hir = matcher.compile(&mut capture_index);
+            let hir = match matcher.compile(&mut capture_index) {
+                Ok(hir) => hir,
+                Err(err) => panic!("{err}"),
+            };
+
+            // Remove the outermost capture group since it is identical to the whole match.
+            let hir = match hir.into_kind() {
+                HirKind::Capture(capture) => *capture.sub,
+                _ => panic!("sscanf: Internal error: Matcher did not compile to a capture group!"),
+            };
+            capture_index -= 1;
+
             let hir = Hir::concat(vec![Hir::look(Look::Start), hir, Hir::look(Look::End)]);
 
             let mut match_tree_index = MatchTreeIndex {
@@ -72,7 +86,7 @@ impl Parser {
     pub fn parse_captures<'input, T>(
         &self,
         input: &'input str,
-        f: impl FnOnce(&MatchTree<'_, 'input>) -> Option<T>,
+        f: impl FnOnce(MatchTree<'_, 'input>) -> Option<T>,
     ) -> Option<T> {
         let meta = self.regex.get().unwrap();
         let regex = meta.regex.as_ref().unwrap();
@@ -85,7 +99,7 @@ impl Parser {
             captures.get_group(0)?,
             Context::Named("sscanf").into(),
         );
-        f(&match_tree)
+        f(match_tree)
     }
 }
 impl std::fmt::Debug for Parser {

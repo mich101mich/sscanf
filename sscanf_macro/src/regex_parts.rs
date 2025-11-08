@@ -38,6 +38,12 @@ impl MatchPart {
 
         Self(quote! { ::sscanf::advanced::MatchPart::Matcher( #function ( & #format_options ) ) })
     }
+
+    fn from_custom_regex(regex: &str) -> MatchPart {
+        Self(
+            quote! { ::sscanf::advanced::MatchPart::Matcher( ::sscanf::advanced::Matcher::from_regex(#regex).unwrap() ) },
+        )
+    }
 }
 
 impl ToTokens for MatchPart {
@@ -51,11 +57,27 @@ pub struct Parser(TokenStream);
 impl Parser {
     pub fn from_type(index: usize, ty: &Type<'_>, format_options: &FormatOptions) -> Self {
         if let Some(name) = &ty.field_name {
+            // effectively just `src.parse_field(name, index, format_options)`
+            // However, we need to arrange the tokens so that the type is always underlined with a proper error message
+            // when something goes wrong.
+            // This code optimizes for two cases:
+            // 1. The type does not implement FromScanf. In this case, the `#ty` in `let ret: #ty` will be underlined.
+            // 2. The type implements FromScanf, but there is a lifetime mismatch.
+            //    If we just called `src.parse_field`, the compiler would underline just the `parse_field` with the
+            //    error: "borrowed data escapes outside of associated function" and a hint pointing to the fact that
+            //    `src` is being borrowed by its method call etc, which is not very helpful.
+            //    By using the `MatchTree::parse_field(self, ...)` call syntax, it will instead underline the entire
+            //    call with the error message: "lifetime may not live long enough" and the hint that the lifetime of
+            //    the FromScanf implementation would need to outlive the lifetime of the parsed type, which is
+            //    exactly the error we want to point out.
             let span = ty.full_span();
-            let getter = span.apply(quote! { __ret }, quote! { .0 });
+            let call = span.apply(
+                quote! {::sscanf::advanced::MatchTree::parse_field},
+                quote! {(&src, #name, #index, &#format_options)},
+            );
             Self(quote! {{
-                let __ret = __SscanfTokenExtensionWrapper(src.parse_field(#name, #index, &#format_options)?);
-                #getter
+                let ret: #ty = #call?;
+                ret
             }})
         } else {
             Self(quote! { src.parse_at::<#ty>(#index, &#format_options)? })
@@ -100,7 +122,7 @@ impl SequenceMatcher {
             }
 
             let match_part = if let Some(custom) = &ph.config.regex {
-                MatchPart::from_text(&custom.regex, false)
+                MatchPart::from_custom_regex(&custom.regex)
             } else {
                 MatchPart::from_type(ty, &ph.config)
             };
