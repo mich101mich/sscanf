@@ -1,4 +1,4 @@
-use super::{MatchTreeTemplate, MatchTreeKind};
+use super::{MatchTreeKind, MatchTreeTemplate};
 
 use std::borrow::Cow;
 
@@ -13,6 +13,8 @@ pub enum Matcher {
     Seq(Vec<MatchPart>),
     /// Combine several matchers in a way that only one of them can match at a time.
     Alt(Vec<Matcher>),
+    /// Make a matcher optional. TODO: implement
+    Optional(Box<Matcher>),
 }
 
 /// Implementation of a raw regex matcher.
