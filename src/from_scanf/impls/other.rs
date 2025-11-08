@@ -108,7 +108,7 @@ mod tests {
         B: FromScanf<'input>,
     {
         fn get_matcher(format: &FormatOptions) -> Matcher {
-            Matcher::from_sequence(vec![
+            Matcher::Seq(vec![
                 MatchPart::literal("("),
                 A::get_matcher(format).into(),
                 MatchPart::regex(r",\s*"),
@@ -118,6 +118,7 @@ mod tests {
         }
 
         fn from_match_tree(matches: MatchTree<'_, 'input>, format: &FormatOptions) -> Option<Self> {
+            let matches = matches.as_seq();
             let a = matches.parse_at(0, format)?;
             let b = matches.parse_at(1, format)?;
             Some((a, b))

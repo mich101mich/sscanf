@@ -136,18 +136,19 @@ fn primitive_get_matcher<T: PrimitiveNumber>(format: &FormatOptions) -> Matcher 
     });
     regex.push(digit_matcher);
 
-    Matcher::from_inner(MatcherType::Raw(Hir::concat(regex)))
+    Matcher::from_raw(Hir::concat(regex))
 }
 
 fn primitive_from_match_tree<T: PrimitiveNumber>(
     matches: MatchTree<'_, '_>,
     format: &FormatOptions,
 ) -> Option<T> {
-    let number = if matches.num_children() != 1 {
+    let matches = matches.as_raw();
+    let number = if matches.num_capture_groups() == 1 {
+        matches.get(0).unwrap()
+    } else {
         // User specified a custom regex override. Assume that the entire match is the number.
         matches.text()
-    } else {
-        matches.at(0).text()
     };
     if matches.text().starts_with('-') {
         // negative numbers have a different range from positive numbers (e.g. i8::MIN is -128 while i8::MAX is 127).
