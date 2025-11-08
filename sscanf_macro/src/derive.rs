@@ -31,8 +31,8 @@ impl ToTokens for FieldIdent {
 impl std::fmt::Display for FieldIdent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            FieldIdent::Named(ident) => write!(f, "{}", ident),
-            FieldIdent::Index(index) => write!(f, "{}", index),
+            FieldIdent::Named(ident) => write!(f, "{ident}"),
+            FieldIdent::Index(index) => write!(f, "{index}"),
         }
     }
 }
@@ -52,7 +52,7 @@ impl ValueSource {
         }
     }
 
-    fn get(&self, field_ty: &Type, converters: &[Converter]) -> TokenStream {
+    fn get(&self, field_ty: &Type, converters: &[Parser]) -> TokenStream {
         match self {
             ValueSource::Default { def, .. } => def
                 .as_ref()
@@ -119,19 +119,18 @@ impl ValueConversion {
 fn parse_format(
     attr: StructAttribute,
     raw_fields: syn::Fields,
-) -> Result<(RegexParts, TokenStream, HashSet<syn::Lifetime>)> {
+) -> Result<(SequenceMatcher, TokenStream, HashSet<syn::Lifetime>)> {
     let (value, escape) = match attr.kind {
         StructAttributeKind::Format { value, escape } => (value, escape),
         StructAttributeKind::Transparent => {
-            if raw_fields.len() != 1 {
-                bail!(attr.src => "structs or variants marked as `{}` must have exactly one field", attr::Struct::Transparent);
-                // checked in tests/fail/derive_struct_attributes.rs
-            }
+            assert_or_bail!(raw_fields.len() == 1, attr.src => "structs or variants marked as `{}` must have exactly one field", attr::Struct::Transparent);
+            // checked in tests/fail/derive_struct_attributes.rs
+
             let lit = syn::LitStr::new("{}", attr.src.span());
             (StrLit::new(lit), true)
         }
     };
-    let format = FormatString::new(value.to_slice(), escape)?;
+    let format = FormatString::new(value.to_slice())?;
 
     let mut fields = vec![];
     let mut field_map = HashMap::new();
@@ -186,7 +185,7 @@ fn parse_format(
     }
 
     let mut ph_to_field_map = vec![0; format.placeholders.len()];
-    let mut error = Error::builder();
+    let mut error = ErrorBuilder::new();
     for (ph_index, ph) in format.placeholders.iter().enumerate() {
         let name = match ph.ident.as_ref() {
             Some(name) => name,
@@ -255,7 +254,7 @@ The syntax for default values is: `#[sscanf(default)]` to use Default::default()
         .iter()
         .map(|i| fields[*i].ty.clone())
         .collect::<Vec<_>>();
-    let regex_parts = RegexParts::new(&format, &ph_types)?;
+    let matcher = SequenceMatcher::new(&format, &ph_types, escape)?;
 
     let mut from_matches = vec![];
 
@@ -268,10 +267,7 @@ The syntax for default values is: `#[sscanf(default)]` to use Default::default()
         let ident = field.ident;
         let ty = field.ty;
 
-        let mut value = field
-            .value_source
-            .unwrap()
-            .get(&ty, &regex_parts.converters);
+        let mut value = field.value_source.unwrap().get(&ty, &matcher.parsers);
         // unwrap is safe because the unused_field_iter above ensures that all fields have a value_source
 
         if let Some(conv) = field.conversion {
@@ -282,9 +278,9 @@ The syntax for default values is: `#[sscanf(default)]` to use Default::default()
     }
     error.ok_or_build()?;
 
-    let from_matches = quote! { { #(#from_matches),* } };
+    let parser = quote! { { #(#from_matches),* } };
 
-    Ok((regex_parts, from_matches, str_lifetimes))
+    Ok((matcher, parser, str_lifetimes))
 }
 
 // TODO: depend on all the lifetimes
@@ -329,8 +325,7 @@ pub fn parse_struct(
 Alternatively, you can use #[sscanf(transparent)] to derive FromScanf for a single-field struct"
         }
         bail!(name => r#"FromScanf: structs must have a format string as an attribute.
-Please add either of #[sscanf(format = "...")], #[sscanf(format_unescaped = "...")] or #[sscanf("...")]{hint}"#);
-        // checked in tests/fail/derive_struct_attributes.rs
+Please add either of #[sscanf(format = "...")], #[sscanf(format_unescaped = "...")] or #[sscanf("...")]{hint}"#); // checked in tests/fail/derive_struct_attributes.rs
     };
 
     let (regex_parts, from_matches, str_lifetimes) = parse_format(attr, data.fields)?;
@@ -374,15 +369,11 @@ pub fn parse_enum(
         _ => None,
     });
 
-    if data.variants.is_empty() {
-        bail!(name => "FromScanf: enums must have at least one variant"); // checked in tests/fail/derive_enum_attributes.rs
-    }
+    assert_or_bail!(!data.variants.is_empty(), name => "FromScanf: enums must have at least one variant"); // checked in tests/fail/derive_enum_attributes.rs
 
-    let mut regex_parts = RegexParts::empty();
-    regex_parts.push_literal("(?:");
-    let mut variant_constructors = vec![];
+    let mut variant_matchers = vec![];
+    let mut variant_parsers = vec![];
     let mut str_lifetimes = HashSet::new();
-    let mut first = true;
 
     let mut match_index = 0usize;
     for variant in data.variants.into_iter() {
@@ -396,55 +387,40 @@ pub fn parse_enum(
                 }
             }
         } else if let Some((autogen, src)) = autogen.as_ref() {
-            if !variant.fields.is_empty() {
-                bail!(variant.fields => r#"FromScanf: autogen only works if the variants have no fields.
+            assert_or_bail!(variant.fields.is_empty(), variant.fields => r#"FromScanf: autogen only works if the variants have no fields.
 Use `#[sscanf(format = "...")]` to specify a format for a variant with fields or `#[sscanf(skip)]` to skip a variant"#);
-                // checked in tests/fail/derive_enum_attributes.rs
-            }
+            // checked in tests/fail/derive_enum_attributes.rs
+
             autogen.create_struct_attr(&variant.ident.to_string(), src.clone())
         } else {
             continue;
         };
 
-        if first {
-            regex_parts.push_literal("(");
-            first = false;
-        } else {
-            regex_parts.push_literal("|(");
-        };
-
         let ident = variant.ident;
 
-        let (variant_parts, from_matches, variant_str_lifetimes) =
+        let (variant_matcher, from_matches, variant_str_lifetimes) =
             parse_format(variant_attr, variant.fields)?;
 
-        regex_parts
-            .regex_builder
-            .extend(variant_parts.regex_builder);
+        variant_matchers.push(variant_matcher.get_matcher());
 
         str_lifetimes.extend(variant_str_lifetimes);
 
         let converter = quote! {
             if let Some(src) = src.get(#match_index) {
                 return ::std::option::Option::Some(Self::#ident #from_matches);
-            } else
+            } else // either `else if` with the next variant or `else` at the end
         };
-        variant_constructors.push(converter);
-
-        regex_parts.push_literal(")");
+        variant_parsers.push(converter);
 
         match_index += 1; // only increment if the variant is constructable from sscanf
     }
-    regex_parts.push_literal(")");
 
-    if variant_constructors.is_empty() {
+    if variant_parsers.is_empty() {
         if autogen.is_some() {
-            bail!(name => "at least one variant has to be constructable from sscanf and not skipped.");
-            // checked in tests/fail/derive_enum_attributes.rs
+            bail!(name => "at least one variant has to be constructable from sscanf and not skipped."); // checked in tests/fail/derive_enum_attributes.rs
         } else {
             bail!(name => "at least one variant has to be constructable from sscanf.
-To do this, add #[sscanf(format = \"...\")] to a variant");
-            // checked in tests/fail/derive_enum_attributes.rs
+To do this, add #[sscanf(format = \"...\")] to a variant"); // checked in tests/fail/derive_enum_attributes.rs
         }
     }
 
@@ -453,17 +429,16 @@ To do this, add #[sscanf(format = \"...\")] to a variant");
     let (lifetime, lt_generics) = merge_lifetimes(str_lifetimes, generics);
     let (impl_generics, _, where_clause) = lt_generics.split_for_impl();
 
-    let matcher = regex_parts.get_matcher();
     let from_sscanf_impl = quote! {
         #[automatically_derived]
         impl #impl_generics ::sscanf::FromScanf<#lifetime> for #name #ty_generics #where_clause {
             fn get_matcher(_: &::sscanf::advanced::FormatOptions) -> ::sscanf::advanced::Matcher {
-                #matcher
+                ::sscanf::advanced::Matcher::from_alternation(vec![ #(#variant_matchers),* ])
             }
 
             fn from_match_tree(src: ::sscanf::advanced::MatchTree<'_, #lifetime>, _: &::sscanf::advanced::FormatOptions) -> ::std::option::Option<Self> {
                 // TODO: add assertion for the number of matches
-                #(#variant_constructors)* {
+                #(#variant_parsers)* {
                     panic!("FromScanf: no variant matched");
                 }
             }

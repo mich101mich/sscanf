@@ -70,7 +70,7 @@ impl<'a> Type<'a> {
             TypeSource::Format(src) => src.error(message),
         }
     }
-    pub fn from_str(src: StrLitSlice<'a>) -> syn::Result<Self> {
+    pub fn from_str(src: StrLitSlice<'a>) -> Result<Self> {
         let span = src.span();
 
         let tokens = src.text().parse::<TokenStream>()?.with_span(span);
@@ -81,7 +81,7 @@ impl<'a> Type<'a> {
 }
 
 impl Parse for Type<'_> {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
+    fn parse(input: ParseStream) -> Result<Self> {
         // Parse the input as a syn::Type.
         // Note that we don't directly parse syn::Type because there are far too many possible variations of types,
         // like `fn()`, `impl Trait`, `_`, `[T]`, etc.

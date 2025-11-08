@@ -29,11 +29,9 @@ macro_rules! declare_autogen {
                     $(s if $matching(s) => Ok(Self::$special_ident),)+
                     _ => {
                         if let Some(closest) = find_closest(s, Self::AUTOGEN_KINDS) {
-                            bail!(s => r#"invalid value for autogen: "{s}". Did you mean "{closest}"?"#);
-                            // checked in tests/fail/derive_enum_attributes.rs
+                            bail!(s => r#"invalid value for autogen: "{s}". Did you mean "{closest}"?"#); // checked in tests/fail/derive_enum_attributes.rs
                         } else {
-                            bail!(s => r#"invalid value for autogen: "{s}". valid values are: {}"#, Self::valid_hint());
-                            // checked in tests/fail/derive_enum_attributes.rs
+                            bail!(s => r#"invalid value for autogen: "{s}". valid values are: {}"#, Self::valid_hint()); // checked in tests/fail/derive_enum_attributes.rs
                         }
                     }
                 }
@@ -69,7 +67,7 @@ fn match_case_insensitive(s: &str) -> bool {
     s.to_case(Case::Flat) == "caseinsensitive"
 }
 fn convert_case_insensitive(ident: &str, src: &TokenStream) -> StructAttributeKind {
-    let text = format!("(?i:{})", ident);
+    let text = format!("(?i:{ident})");
     StructAttributeKind::Format {
         value: StrLit::new(syn::LitStr::new(&text, src.span())),
         escape: false,

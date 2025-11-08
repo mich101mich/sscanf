@@ -55,21 +55,23 @@ impl StrLit {
 
         StrLitSlice {
             src: self,
-            range: start..end,
+            start,
+            end,
         }
     }
 }
 
 /// A slice into [`StrLit`]
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct StrLitSlice<'a> {
     src: &'a StrLit,
-    range: std::ops::Range<usize>,
+    start: usize,
+    end: usize,
 }
 
 impl<'a> StrLitSlice<'a> {
     pub fn text(&self) -> &str {
-        &self.src.text[self.range.clone()]
+        &self.src.text[self.start..self.end]
     }
     pub fn is_raw(&self) -> bool {
         self.src.is_raw()
@@ -85,14 +87,14 @@ impl<'a> StrLitSlice<'a> {
     {
         use std::ops::Bound::*;
         let start = match range.start_bound() {
-            Included(&n) => n,
+            Included(&start) => start,
             Excluded(_) => unimplemented!("StrLitSlice::slice: excluded start"),
             Unbounded => 0,
         };
         let end = match range.end_bound() {
-            Included(&n) => n + self.text()[n..].chars().next().unwrap().len_utf8(),
-            Excluded(&n) => n,
-            Unbounded => self.range.len(),
+            Included(&end) => end + self.text()[end..].chars().next().unwrap().len_utf8(),
+            Excluded(&end) => end,
+            Unbounded => self.end - self.start,
         };
 
         let text = self.text().get(start..end).unwrap_or_else(|| {
@@ -104,42 +106,42 @@ impl<'a> StrLitSlice<'a> {
         });
         assert!(!text.is_empty(), "StrLitSlice::slice: empty slice");
 
-        StrLitSlice {
-            src: self.src,
-            range: self.range.start + start..self.range.start + end,
-        }
+        let mut ret = *self;
+        ret.start += start;
+        ret.end += end;
+        ret
     }
 
     /// Provides a span for the slice if possible. Otherwise, returns the entire span.
     pub fn span(&self) -> Span {
         self.src
             .span_provider
-            .subspan(self.range.clone())
+            .subspan(self.start..self.end)
             .unwrap_or_else(|| self.src.span_provider.span())
     }
 
     /// Generates a `Result::Err` with the given message for the slice.
-    pub fn err<T>(&self, message: impl Display) -> Result<T> {
-        Err(self.error(message))
+    pub fn err<T, E: From<Error>>(&self, message: impl Display) -> std::result::Result<T, E> {
+        Err(self.error(message).into())
     }
 
     /// Generates a [`crate::Error`] with the given message for the slice.
     pub fn error(&self, message: impl Display) -> Error {
         // subspan allows pointing at a span that is not the whole string, but it only works in nightly
-        if let Some(span) = self.src.span_provider.subspan(self.range.clone()) {
+        if let Some(span) = self.src.span_provider.subspan(self.start..self.end) {
             Error::new(span, message)
         } else {
             // Workaround for stable: print a copy of the entire format string into the error message
             // and manually underline the desired section.
             let mut m = String::new();
-            writeln!(m, "{}:", message).unwrap(); // TODO: split by lines
+            writeln!(m, "{message}:").unwrap(); // TODO: split by lines
 
             let text_prefix = "At ";
             let text_prefix_len = 3; // length of "At "
 
             writeln!(m, "{}{}", text_prefix, self.src.text).unwrap();
 
-            let squiggle_start = UnicodeWidthStr::width(&self.src.text[..self.range.start]);
+            let squiggle_start = UnicodeWidthStr::width(&self.src.text[..self.start]);
             let squiggle_len = UnicodeWidthStr::width(self.text());
 
             // Add the line with the error squiggles
@@ -156,7 +158,7 @@ impl<'a> StrLitSlice<'a> {
 }
 
 impl Parse for StrLit {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
+    fn parse(input: ParseStream) -> Result<Self> {
         input.parse().map(Self::new)
     }
 }

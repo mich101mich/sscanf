@@ -4,16 +4,14 @@ use proc_macro::TokenStream as TokenStream1;
 pub(crate) use proc_macro2::{Span, TokenStream};
 pub(crate) use quote::{ToTokens, quote};
 pub(crate) use syn::{
-    Token,
+    Error, Result, Token,
     parse::{Parse, ParseStream},
     spanned::Spanned,
 };
 
 mod attribute;
 mod error;
-mod format_option;
 mod format_string;
-mod placeholder;
 mod regex_parts;
 mod str_lit;
 mod ty;
@@ -21,9 +19,7 @@ mod utils;
 
 pub(crate) use attribute::*;
 pub(crate) use error::*;
-pub(crate) use format_option::*;
 pub(crate) use format_string::*;
-pub(crate) use placeholder::*;
 pub(crate) use regex_parts::*;
 pub(crate) use str_lit::*;
 pub(crate) use ty::*;
@@ -42,36 +38,28 @@ struct Scanf {
 }
 
 impl Parse for Scanf {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        if input.is_empty() {
-            // All of these special cases have to be handled separately, because syn's default
-            // behavior when something is missing is to point at the entire macro invocation with
-            // an error message that says "expected <missing thing>". But if a user sees the entire
-            // thing underlined with the message "expected a comma", they will assume that they
-            // should replace that macro call with a comma or something similar. They would not
-            // guess that the actual meaning is:
-            // "this macro requires more parameters than I have given it, and the next
-            // parameter should be separated with a comma from the current ones which is why the
-            // macro expected a comma, and it would point to the end of the input where the comma
-            // was expected, but since there is nothing there it has no span to point to so it
-            // just points at the entire thing."
+    fn parse(input: ParseStream) -> Result<Self> {
+        // All of these special cases have to be handled separately, because syn's default
+        // behavior when something is missing is to point at the entire macro invocation with
+        // an error message that says "expected <missing thing>". But if a user sees the entire
+        // thing underlined with the message "expected a comma", they will assume that they
+        // should replace that macro call with a comma or something similar. They would not
+        // guess that the actual meaning is:
+        // "this macro requires more parameters than I have given it, and the next
+        // parameter should be separated with a comma from the current ones which is why the
+        // macro expected a comma, and it would point to the end of the input where the comma
+        // was expected, but since there is nothing there it has no span to point to so it
+        // just points at the entire thing."
+        assert_or_bail!(!input.is_empty(), Span::call_site() => "sscanf: at least 2 Parameters required: Input and format string"); // checked in tests/fail/missing_params.rs
 
-            bail_syn!(Span::call_site() => "sscanf: at least 2 Parameters required: Input and format string");
-            // checked in tests/fail/missing_params.rs
-        }
         let parse_input: syn::Expr = input.parse()?;
-        if input.is_empty() {
-            bail_syn!(parse_input.end_span() => "at least 2 Parameters required: Missing format string");
-            // checked in tests/fail/missing_params.rs
-        }
+        assert_or_bail!(!input.is_empty(), parse_input.end_span() => "sscanf: at least 2 Parameters required: Missing format string"); // checked in tests/fail/missing_params.rs
+
         let comma = input.parse::<Token![,]>()?;
-        if input.is_empty() {
-            // Addition to the comment above: here we actually have a comma to point to to say:
-            // "Hey, you put a comma here, put something after it". syn doesn't do this
-            // because it cannot rewind the input stream to check this.
-            bail_syn!(comma.end_span() => "at least 2 Parameters required: Missing format string");
-            // checked in tests/fail/missing_params.rs
-        }
+        // Addition to the comment above: here we actually have a comma to point to to say:
+        // "Hey, you put a comma here, put something after it". syn doesn't do this
+        // because it cannot rewind the input stream to check this.
+        assert_or_bail!(!input.is_empty(), comma.end_span() => "at least 2 Parameters required: Missing format string"); // checked in tests/fail/missing_params.rs
 
         let fmt = input.parse::<StrLit>()?;
 
@@ -123,14 +111,14 @@ pub fn derive_from_sscanf(input: TokenStream1) -> TokenStream1 {
     };
     match res {
         Ok(res) => res.into(),
-        Err(err) => err.into(),
+        Err(err) => err.into_compile_error().into(),
     }
 }
 
 fn sscanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
     let (matcher, converters) = match generate_matcher(&input, escape_input) {
         Ok(v) => v,
-        Err(e) => return e.into(),
+        Err(e) => return e.into_compile_error().into(),
     };
     let src_str = {
         let src_str = input.parse_input;
@@ -155,12 +143,10 @@ fn sscanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
     ret.into()
 }
 
-fn generate_matcher(input: &Scanf, escape_input: bool) -> Result<(TokenStream, Vec<Converter>)> {
-    let mut format = FormatString::new(input.fmt.to_slice(), escape_input)?;
-    format.parts[0].insert(0, '^');
-    format.parts.last_mut().unwrap().push('$');
+fn generate_matcher(input: &Scanf, escape_input: bool) -> Result<(TokenStream, Vec<Parser>)> {
+    let format = FormatString::new(input.fmt.to_slice())?;
 
-    // inner function to use ?-operator. This should be a closure, but those can't have lifetimes
+    // inner function to use early return. This should be a closure, but those can't have lifetimes
     fn find_ph_type<'a>(
         ph: &Placeholder<'a>,
         visited: &mut [bool],
@@ -169,25 +155,20 @@ fn generate_matcher(input: &Scanf, escape_input: bool) -> Result<(TokenStream, V
     ) -> Result<Type<'a>> {
         let n = if let Some(name) = ph.ident.as_ref() {
             if let Ok(n) = name.text().parse::<usize>() {
-                if n >= visited.len() {
-                    let msg = format!("type index {} out of range of {} types", n, visited.len());
-                    return name.err(msg); // checked in tests/fail/<channel>/invalid_type_in_placeholder.rs
-                }
+                assert_or_bail!(n < visited.len(), name => "type index {} out of range of {} types", n, visited.len()); // checked in tests/fail/<channel>/invalid_type_in_placeholder.rs
                 n
             } else {
-                return Type::from_str(name.clone()).map_err(|err| {
+                return Type::from_str(*name).map_err(|err| {
                     let hint =  "The syntax for placeholders is {<type>} or {<type>:<config>}. Make sure <type> is a valid type or index.";
                     let hint2 = "If you want syntax highlighting and better errors, place the type in the arguments after the format string while debugging";
-                    let msg = format!("invalid type in placeholder: {}.\nHint: {}\n{}", err, hint, hint2);
+                    let msg = format!("invalid type in placeholder: {err}.\nHint: {hint}\n{hint2}");
                     name.error(msg) // checked in tests/fail/<channel>/invalid_type_in_placeholder.rs
                 });
             }
         } else {
             let n = *ph_index;
             *ph_index += 1;
-            if n >= visited.len() {
-                bail!(ph.src => "more placeholders than types provided"); // checked in tests/fail/<channel>/missing_type.rs
-            }
+            assert_or_bail!(n < visited.len(), ph.src => "more placeholders than types provided"); // checked in tests/fail/<channel>/missing_type.rs
             n
         };
         visited[n] = true;
@@ -197,7 +178,7 @@ fn generate_matcher(input: &Scanf, escape_input: bool) -> Result<(TokenStream, V
     let mut ph_index = 0;
     let mut visited = vec![false; input.type_tokens.len()];
     let mut types = vec![];
-    let mut error = Error::builder();
+    let mut error = ErrorBuilder::new();
 
     for ph in &format.placeholders {
         match find_ph_type(ph, &mut visited, &mut ph_index, &input.type_tokens) {
@@ -214,9 +195,9 @@ fn generate_matcher(input: &Scanf, escape_input: bool) -> Result<(TokenStream, V
 
     error.ok_or_build()?;
 
-    let regex_parts = RegexParts::new(&format, &types)?;
+    let regex_parts = SequenceMatcher::new(&format, &types, escape_input)?;
 
     let matcher = regex_parts.get_matcher();
 
-    Ok((matcher, regex_parts.converters))
+    Ok((matcher, regex_parts.parsers))
 }

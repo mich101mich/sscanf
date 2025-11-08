@@ -1,47 +1,38 @@
-#![allow(dead_code)]
+#![allow(
+    dead_code,
+    reason = "This is a utility module, some methods are here for completeness and in case they are needed in the future"
+)]
 
-use proc_macro2::{Span, TokenStream};
+use super::*;
+use proc_macro2::Span;
 use std::fmt::Display;
 
-pub struct Error(TokenStream);
-
-pub type Result<T> = std::result::Result<T, Error>;
-
 macro_rules! bail {
+    ( $( { $span:expr => $format:expr $(, $arg:expr)* }, )+ ) => {{
+        let mut build = ErrorBuilder::new();
+        $(
+            build.push($span.error(format_args!($format, $($arg),*)));
+        )+
+        return build.build_err();
+    }};
     ( $span:expr => $format:expr $(, $arg:expr)* ) => {
-        return $span.err(format!($format, $($arg),*))
+        return Err($span.error(format_args!($format, $($arg),*)));
     };
 }
-macro_rules! bail_syn {
-    ( $span:expr => $format:expr $(, $arg:expr)* ) => {
-        return $span.err_syn(format!($format, $($arg),*))
+macro_rules! assert_or_bail {
+    ( $condition:expr, $span:expr => $message:expr $(, $arg:expr)* ) => {
+        if !$condition {
+            bail!($span => $message $(, $arg)*);
+        }
     };
 }
-pub(crate) use {bail, bail_syn};
+pub(crate) use {assert_or_bail, bail};
 
-impl Error {
-    pub fn new<T: Display>(span: Span, message: T) -> Self {
-        syn::Error::new(span, message).into()
-    }
-    pub fn new_spanned<T: quote::ToTokens, U: Display>(tokens: T, message: U) -> Self {
-        syn::Error::new_spanned(tokens, message).into()
-    }
-    pub fn err<T: Display, R>(span: Span, message: T) -> Result<R> {
-        Err(Self::new(span, message))
-    }
-    pub fn err_spanned<T: quote::ToTokens, U: Display, R>(tokens: T, message: U) -> Result<R> {
-        Err(Self::new_spanned(tokens, message))
-    }
-    pub fn builder() -> ErrorBuilder {
-        ErrorBuilder::new()
-    }
-}
-
-pub struct ErrorBuilder(TokenStream);
+pub struct ErrorBuilder(Option<Error>);
 
 impl ErrorBuilder {
-    fn new() -> Self {
-        Self(TokenStream::new())
+    pub fn new() -> Self {
+        Self(None)
     }
     pub fn with<T: Display>(&mut self, span: Span, message: T) -> &mut Self {
         self.with_error(Error::new(span, message))
@@ -54,7 +45,10 @@ impl ErrorBuilder {
         self.with_error(Error::new_spanned(tokens, message))
     }
     pub fn with_error(&mut self, error: Error) -> &mut Self {
-        self.0.extend(TokenStream::from(error));
+        match self.0 {
+            Some(ref mut existing) => existing.combine(error),
+            None => self.0 = Some(error),
+        }
         self
     }
     pub fn push(&mut self, error: Error) {
@@ -62,69 +56,38 @@ impl ErrorBuilder {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
+        self.0.is_none()
     }
 
     pub fn build(&mut self) -> Error {
-        Error(std::mem::take(&mut self.0))
+        self.0.take().unwrap()
     }
     pub fn build_err<R>(&mut self) -> Result<R> {
         Err(self.build())
     }
     pub fn ok_or_build(&mut self) -> Result<()> {
-        if self.is_empty() {
-            Ok(())
+        if let Some(err) = self.0.take() {
+            Err(err)
         } else {
-            self.build_err()
+            Ok(())
         }
     }
 }
 
-impl From<syn::Error> for Error {
-    fn from(err: syn::Error) -> Self {
-        Error(err.to_compile_error())
-    }
-}
-
-impl From<TokenStream> for Error {
-    fn from(err: TokenStream) -> Self {
-        Error(err)
-    }
-}
-
-impl From<Error> for TokenStream {
-    fn from(err: Error) -> Self {
-        err.0
-    }
-}
-impl From<Error> for proc_macro::TokenStream {
-    fn from(err: Error) -> Self {
-        err.0.into()
-    }
-}
-
 pub trait ToTokensErrExt {
-    fn err<T>(&self, message: impl Display) -> Result<T>;
-    fn err_syn<T>(&self, message: impl Display) -> syn::Result<T>;
+    fn error(&self, message: impl Display) -> Error;
 }
 impl<S: quote::ToTokens> ToTokensErrExt for S {
-    fn err<T>(&self, message: impl Display) -> Result<T> {
-        Error::err_spanned(self, message)
-    }
-    fn err_syn<T>(&self, message: impl Display) -> syn::Result<T> {
-        Err(syn::Error::new_spanned(self, message))
+    fn error(&self, message: impl Display) -> Error {
+        Error::new_spanned(self, message)
     }
 }
 
 pub trait SpanErrExt {
-    fn err<T>(self, message: impl Display) -> Result<T>;
-    fn err_syn<T>(self, message: impl Display) -> syn::Result<T>;
+    fn error(self, message: impl Display) -> Error;
 }
 impl SpanErrExt for Span {
-    fn err<T>(self, message: impl Display) -> Result<T> {
-        Error::err(self, message)
-    }
-    fn err_syn<T>(self, message: impl Display) -> syn::Result<T> {
-        Err(syn::Error::new(self, message))
+    fn error(self, message: impl Display) -> Error {
+        Error::new(self, message)
     }
 }
