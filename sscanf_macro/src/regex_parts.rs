@@ -13,7 +13,7 @@ impl MatchPart {
         Self(tokens)
     }
 
-    pub fn from_type(ty: &syn::Type, span: FullSpan, format_options: &FormatOptions) -> Self {
+    pub fn from_type(ty: &Type<'_>, format_options: &FormatOptions) -> Self {
         // proc_macros don't have any type information, so we cannot check if the type
         // implements the trait, so we wrap it in this verbose <#ty as Trait> code,
         // so that the compiler can check if the trait is implemented, and, most importantly,
@@ -31,11 +31,12 @@ impl MatchPart {
         //            start:  ^   ^^^^
         //              end:          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
         //         original:   ^^^
+        let span = ty.full_span();
         let mut function = span.apply_start(quote! { < });
         ty.to_tokens(&mut function);
         function.extend(span.apply(quote! { as }, quote! { ::sscanf::FromScanf >::get_matcher }));
 
-        Self(quote! { #function ( & #format_options ) })
+        Self(quote! { ::sscanf::advanced::MatchPart::Matcher( #function ( & #format_options ) ) })
     }
 }
 
@@ -48,16 +49,17 @@ impl ToTokens for MatchPart {
 pub struct Parser(TokenStream);
 
 impl Parser {
-    pub fn from_type(
-        index: usize,
-        ty: &syn::Type,
-        field_name: &Option<String>,
-        format_options: &FormatOptions,
-    ) -> Self {
-        if let Some(name) = field_name {
-            Self(quote! { src.parse_field::<#ty>(#name, #index, #format_options)? })
+    pub fn from_type(index: usize, ty: &Type<'_>, format_options: &FormatOptions) -> Self {
+        if let Some(name) = &ty.field_name {
+            let span = ty.full_span();
+            let getter = span.apply(quote! { __ret }, quote! { .0 });
+            Self(quote! {{
+                struct TokenExtensionWrapper<T>(T);
+                let __ret = TokenExtensionWrapper(src.parse_field(#name, #index, &#format_options)?);
+                #getter
+            }})
         } else {
-            Self(quote! { src.parse_at::<#ty>(#index, #format_options)? })
+            Self(quote! { src.parse_at::<#ty>(#index, &#format_options)? })
         }
     }
 }
@@ -96,17 +98,14 @@ impl SequenceMatcher {
             ret.match_parts
                 .push(MatchPart::from_text(part, escape_input));
 
-            let inner = ty.inner();
-            let span = ty.full_span();
-
             let match_part = if let Some(custom) = &ph.config.regex {
                 MatchPart::from_text(&custom.regex, false)
             } else {
-                MatchPart::from_type(inner, span, &ph.config)
+                MatchPart::from_type(ty, &ph.config)
             };
             ret.match_parts.push(match_part);
 
-            let parser = Parser::from_type(match_index, inner, &ty.field_name, &ph.config);
+            let parser = Parser::from_type(match_index, ty, &ph.config);
             ret.parsers.push(parser);
         }
 

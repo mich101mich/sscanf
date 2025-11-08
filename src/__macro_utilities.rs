@@ -1,7 +1,7 @@
 #![allow(unused)]
 //! Utilities for the macros. These elements are public but doc_hidden
 
-use regex_syntax::hir::{Hir, HirKind};
+use regex_syntax::hir::{Hir, HirKind, Look};
 
 use crate::advanced::*;
 

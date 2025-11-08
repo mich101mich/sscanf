@@ -1,15 +1,13 @@
 #![allow(dead_code)]
 
-use sscanf::*;
+use sscanf::{advanced::*, *};
 
 #[test]
 #[should_panic = r#"sscanf: Failed to compile regex: "regex parse error:\n    ^())$\n       ^\nerror: unopened group""#]
 fn invalid_regex() {
     struct Test;
     impl FromScanfSimple<'_> for Test {
-        fn get_matcher() -> Matcher {
-            Matcher::from_regex(")")
-        }
+        const REGEX: &'static str = ")";
         fn from_match(_: &str) -> Option<Self> {
             Some(Test)
         }
@@ -34,9 +32,7 @@ fn check_error_from_str_1() {
 fn check_error_from_str_2() {
     struct Test(usize);
     impl FromScanfSimple<'_> for Test {
-        fn get_matcher() -> Matcher {
-            Matcher::from_regex(".*")
-        }
+        const REGEX: &'static str = ".*";
         fn from_match(s: &str) -> Option<Self> {
             s.parse().ok().map(Test)
         }
@@ -67,19 +63,16 @@ fn nesting() {
     }
     static R: Vec<usize> = vec![];
     use my_mod::MyType;
-    impl FromScanfSimple<'_> for MyType<'static, std::vec::Vec<usize>> {
-        fn get_matcher() -> Matcher {
+    impl FromScanf<'_> for MyType<'static, std::vec::Vec<usize>> {
+        fn get_matcher(_: &FormatOptions) -> Matcher {
             Matcher::from_regex("a(b()(c()()(d)?))")
         }
-        fn from_match(_: &str) -> Option<Self> {
-            None
-        }
-        fn from_match_tree(matches: MatchTree<'_, '_>) -> Option<Self> {
+        fn from_match_tree(matches: MatchTree<'_, '_>, _: &FormatOptions) -> Option<Self> {
             matches
                 .at(0)
                 .get(1)
                 .unwrap()
-                .parse_at::<MyType<_>>(2)
+                .parse_at::<MyType<_>>(2, &Default::default())
                 .unwrap();
             Some(MyType(&R))
         }

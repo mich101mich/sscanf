@@ -49,9 +49,7 @@ fn generic_types() {
     #[derive(Debug, PartialEq, Eq, Default)]
     pub struct Bob<T>(pub std::marker::PhantomData<T>);
     impl<T: Default> FromScanfSimple<'_> for Bob<T> {
-        fn get_matcher() -> Matcher {
-            Matcher::from_regex(".*")
-        }
+        const REGEX: &'static str = ".*";
         fn from_match(_: &str) -> Option<Self> {
             Some(Default::default())
         }
