@@ -138,7 +138,7 @@ impl RegexParts {
 
     pub fn regex(&self) -> TokenStream {
         let regex_builder = &self.regex_builder;
-        quote! { ::sscanf::const_format::concatcp!( #(#regex_builder),* ) }
+        quote! { ::sscanf::__macro_utilities::concat_str!( #(#regex_builder),* ) }
     }
 }
 
