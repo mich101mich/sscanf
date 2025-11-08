@@ -4,7 +4,7 @@
 ///
 /// ## Signature
 /// ```ignore
-/// sscanf!(input: impl Deref<Target=str>, format: <literal>, Type...) -> Result<(Type...), sscanf::Error>
+/// sscanf!(input: impl Deref<Target=str>, format: <literal>, Type...) -> Option<(Type...)>
 /// ```
 ///
 /// ## Parameters
@@ -32,7 +32,7 @@
 /// ## Examples
 /// A few examples for possible inputs:
 /// ```
-/// # use sscanf::sscanf;
+/// # use sscanf::sscanf; use std::{borrow::Cow, rc::Rc, boxed::Box};
 /// let input = "5"; // &str
 /// assert_eq!(sscanf!(input, "{usize}").unwrap(), 5);
 ///
@@ -43,10 +43,13 @@
 /// assert_eq!(sscanf!(input, "{usize}").unwrap(), 5);
 /// assert_eq!(sscanf!(input.as_str(), "{usize}").unwrap(), 5);
 ///
-/// let input = std::borrow::Cow::from("5"); // Cow<str>
+/// let input: Box<str> = String::from("5").into_boxed_str();
 /// assert_eq!(sscanf!(input, "{usize}").unwrap(), 5);
 ///
-/// let input = std::rc::Rc::from("5"); // Rc<str>
+/// let input: Cow<str> = Cow::Borrowed("5");
+/// assert_eq!(sscanf!(input, "{usize}").unwrap(), 5);
+///
+/// let input: Rc<str> = Rc::from(String::from("5"));
 /// assert_eq!(sscanf!(input, "{usize}").unwrap(), 5);
 ///
 /// // and many more

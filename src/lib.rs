@@ -57,11 +57,12 @@
 //! with no drawbacks in functionality or performance. The only difference is the compiler errors
 //! that you get while writing format strings.
 
-mod macros;
-pub use macros::*;
-
 mod from_scanf;
+mod macros;
+mod match_tree;
 pub use from_scanf::*;
+pub use macros::*;
+pub use match_tree::*;
 
 #[doc = include_str!("../Changelog.md")]
 pub mod changelog {}

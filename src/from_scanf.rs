@@ -1,3 +1,5 @@
+use crate::MatchTree;
+
 mod impls;
 
 /// A trait that allows you to use a custom regex for parsing a type.
@@ -39,14 +41,14 @@ mod impls;
 ///
 ///     fn from_match(_: &str) -> Option<Self> { None }
 ///
-///     fn from_match_tree(matches: &sscanf::MatchTree<'_>) -> Option<Self> {
+///     fn from_match_tree(matches: sscanf::MatchTree<'_, '_>) -> Option<Self> {
 ///         // The matches.full is the entire matched string including the '#', but we don't need it
 ///         // here since we created capture groups in our regex.
 ///         // Those groups can be accessed through matches.inner.
 ///         Some(Self {
-///             r: u8::from_str_radix(matches.at(0).full, 16).unwrap(),
-///             g: u8::from_str_radix(matches.at(1).full, 16).unwrap(),
-///             b: u8::from_str_radix(matches.at(2).full, 16).unwrap(),
+///             r: u8::from_str_radix(matches.at(0).text(), 16).unwrap(),
+///             g: u8::from_str_radix(matches.at(1).text(), 16).unwrap(),
+///             b: u8::from_str_radix(matches.at(2).text(), 16).unwrap(),
 ///         })
 ///         // note the use of `at()` and `unwrap()` here, since the input to this function is
 ///         // guaranteed to match the regex and so we know that the contents are valid.
@@ -77,10 +79,10 @@ mod impls;
 ///
 ///     fn from_match(_: &str) -> Option<Self> { None }
 ///
-///     fn from_match_tree(matches: &sscanf::MatchTree<'input>) -> Option<Self> {
+///     fn from_match_tree(matches: sscanf::MatchTree<'_, 'input>) -> Option<Self> {
 ///         Some(Self {
-///             first: matches.at(0).full, // has lifetime 'input
-///             last: matches.at(1).full,
+///             first: matches.at(0).text(), // has lifetime 'input
+///             last: matches.at(1).text(),
 ///         })
 ///     }
 /// }
@@ -177,151 +179,17 @@ where
     ///         None // This function won't ever be called if from_match_tree is overridden
     ///     }
     ///
-    ///     fn from_match_tree(matches: &sscanf::MatchTree<'_>) -> Option<Self> {
+    ///     fn from_match_tree(matches: sscanf::MatchTree<'_, '_>) -> Option<Self> {
     ///         Some(Self {
-    ///             first_field: matches.at(0).parse()?,
-    ///             second_field: matches.at(1).parse()?,
+    ///             first_field: matches.parse_at(0)?,
+    ///             second_field: matches.parse_at(1)?,
     ///             // ...
     ///         })
     ///     }
     /// }
     /// ```
-    fn from_match_tree(matches: &'_ MatchTree<'input>) -> Option<Self> {
-        Self::from_match(matches.full)
-    }
-}
-
-/// Representation of the match of a capture group in a regex, arranged in a tree structure.
-///
-/// This type is the parameter to the [`FromScanf::from_match_tree`] method.
-///
-/// The `full` field contains the entire matched string, while `inner` contains
-/// the matches of any inner capture groups within this capture group.
-/// ```
-/// # use sscanf::MatchTree;
-/// # struct MyType;
-/// impl sscanf::FromScanf<'_> for MyType {
-///     const REGEX: &'static str = "a(b)c(x)?d(ef(ghi)j(k))lm";
-///
-///     fn from_match(_: &str) -> Option<Self> { None }
-///
-///     fn from_match_tree(matches: &MatchTree<'_>) -> Option<Self> {
-///         // This is what the matches would look like:
-///         assert_eq!(*matches, MatchTree {
-///             full: "abcdefghijklm",
-///             inner: vec![
-///                 Some(MatchTree { // the "(b)" group
-///                     full: "b",
-///                     inner: vec![] // no more capture groups within this group
-///                 }),
-///                 None, // the "(x)?" group (did not match)
-///                 Some(MatchTree { // the "(ef(ghi)j(k))" group
-///                     full: "efghijk",
-///                     inner: vec![
-///                         Some(MatchTree { // the "(ghi)" group
-///                             full: "ghi",
-///                             inner: vec![]
-///                         }),
-///                         Some(MatchTree { // the "(k)" group
-///                             full: "k",
-///                             inner: vec![]
-///                         })
-///                     ]
-///                 })
-///             ]
-///         });
-///         // ... do something with the matches ...
-///         # Some(MyType)
-///     }
-/// }
-/// sscanf::sscanf!("abcdefghijklm", "{MyType}").unwrap();
-/// ```
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct MatchTree<'input> {
-    /// The full match of this capture group
-    pub full: &'input str,
-    /// The matches of any inner capture groups within this capture group.
-    ///
-    /// Note that they are wrapped in `Option`, because not all capture groups are guaranteed to participate in a
-    /// match. For example, if a capture group is optional `()?` or in an alternation `()|()`, then it may not match
-    /// anything, resulting in `None` for that group.
-    /// ```
-    /// # #[derive(Debug, PartialEq, Eq)]
-    /// enum MyType<'a> {
-    ///     Digits(&'a str),
-    ///     Letters(&'a str),
-    /// }
-    /// impl<'input> sscanf::FromScanf<'input> for MyType<'input> {
-    ///     // matches either digits or letters, but not both
-    ///     const REGEX: &'static str = r"(\d+)|([a-zA-Z]+)";
-    ///
-    ///     fn from_match(_: &str) -> Option<Self> { None }
-    ///
-    ///     fn from_match_tree(matches: &sscanf::MatchTree<'input>) -> Option<Self> {
-    ///         if let Some(digits) = matches.get(0) {
-    ///             assert!(matches.get(1).is_none()); // only one of the capture groups matches
-    ///             Some(Self::Digits(digits.full))
-    ///         } else {
-    ///             // exactly one of the capture groups will match
-    ///             let letters = matches.at(1);
-    ///             Some(Self::Letters(letters.full))
-    ///         }
-    ///     }
-    /// }
-    ///
-    /// let digits = sscanf::sscanf!("123", "{MyType}").unwrap();
-    /// assert_eq!(digits, MyType::Digits("123"));
-    ///
-    /// let letters = sscanf::sscanf!("abc", "{MyType}").unwrap();
-    /// assert_eq!(letters, MyType::Letters("abc"));
-    /// ```
-    ///
-    /// Side note: This is the mechanism used by the derive macro when used on an enum. If the derive macro does not
-    /// work for your enum, consider implementing this trait in this exact way, using alternations in the regex for the
-    /// enum variants, each wrapped in a capture group to check which variant matched: `(...)|(...)|(...)`.
-    pub inner: Vec<Option<MatchTree<'input>>>,
-}
-
-impl<'input> MatchTree<'input> {
-    /// Convenience method to call [`FromScanf::from_match_tree`] with this match tree.
-    ///
-    /// The type `T` must implement the `FromScanf` trait, and this object must have been created from a match to
-    /// `T::REGEX`.
-    pub fn parse<T: FromScanf<'input>>(&self) -> Option<T> {
-        T::from_match_tree(self)
-    }
-
-    /// Returns the inner match at the given index, if it participated in the match.
-    ///
-    /// ## Panics
-    /// Panics if the index is out of bounds.
-    #[track_caller]
-    pub fn get(&self, index: usize) -> Option<&MatchTree<'input>> {
-        let child = self.inner.get(index);
-        let child = child
-            .as_ref()
-            .expect("sscanf: index out of bounds in MatchTree. Does the regex contain the correct number of capture groups?");
-        child.as_ref()
-    }
-
-    /// Returns the inner match at the given index, asserting that it exists.
-    ///
-    /// ## Panics
-    /// Panics if the index is out of bounds or if the inner match at that index is `None`.
-    #[track_caller]
-    pub fn at(&self, index: usize) -> &MatchTree<'input> {
-        let child = self.inner.get(index);
-        let child = child
-            .as_ref()
-            .expect("sscanf: index out of bounds in MatchTree. Does the regex contain the correct number of capture groups?");
-        let Some(ret) = child else {
-            // using let else because we need to format the error message but we don't want to create a non-track_caller function
-            // by using unwrap_or_else
-            panic!(
-                "sscanf: inner match at index {index} is None. Does the regex contain the correct number of capture groups?"
-            );
-        };
-        ret
+    fn from_match_tree(matches: MatchTree<'_, 'input>) -> Option<Self> {
+        Self::from_match(matches.text())
     }
 }
 
