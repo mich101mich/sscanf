@@ -8,7 +8,7 @@ use regex_syntax::hir::{Capture, Hir};
 #[derive(Debug, Clone)]
 pub enum Matcher {
     /// A raw regex matcher. Created using [`Matcher::from_regex`].
-    Raw(RawMatcher),
+    Regex(RegexMatcher),
     /// Chain several parts together in sequence.
     Seq(Vec<MatchPart>),
     /// Combine several matchers in a way that only one of them can match at a time.
@@ -17,15 +17,17 @@ pub enum Matcher {
     Optional(Box<Matcher>),
 }
 
-/// Implementation details of a raw regex matcher.
+/// Implementation details of [`Matcher::Regex`].
 #[derive(Debug, Clone)]
-pub struct RawMatcher(Hir);
+pub struct RegexMatcher {
+    hir: Hir,
+}
 
 impl Matcher {
-    /// Create a new raw matcher from a regex string.
+    /// Create a new matcher from a regex string.
     pub fn from_regex(regex: &str) -> Result<Self, String> {
         regex_syntax::parse(regex)
-            .map(|hir| Self::Raw(RawMatcher(hir)))
+            .map(|hir| Self::Regex(RegexMatcher { hir }))
             .map_err(|err| err.to_string())
     }
 
@@ -35,8 +37,8 @@ impl Matcher {
     }
 
     /// Internal constructor for a matcher from a raw HIR. Not public to avoid having a dependency in the public API.
-    pub(crate) fn from_raw(inner: Hir) -> Self {
-        Self::Raw(RawMatcher(inner))
+    pub(crate) fn from_raw(hir: Hir) -> Self {
+        Self::Regex(RegexMatcher { hir })
     }
 
     pub(crate) fn compile(
@@ -46,11 +48,11 @@ impl Matcher {
         let index = *capture_index;
         *capture_index += 1;
         let (hir, kind) = match self {
-            Matcher::Raw(RawMatcher(mut hir)) => {
+            Matcher::Regex(RegexMatcher { mut hir }) => {
                 let start_index = *capture_index;
                 compile_raw(&mut hir, capture_index);
                 let end_index = *capture_index;
-                (hir, MatchTreeKind::Raw(start_index..end_index))
+                (hir, MatchTreeKind::Regex(start_index..end_index))
             }
             Matcher::Seq(matchers) => {
                 let mut hirs = vec![];
@@ -102,7 +104,7 @@ impl Matcher {
                     greedy: true,
                     sub: Box::new(hir),
                 });
-                (hir, MatchTreeKind::Opt(Box::new(child_index)))
+                (hir, MatchTreeKind::Optional(Box::new(child_index)))
             }
         };
         let capture = Capture {

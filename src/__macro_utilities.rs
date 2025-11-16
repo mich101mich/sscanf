@@ -1,4 +1,3 @@
-#![allow(unused)]
 //! Utilities for the macros. These elements are public but doc_hidden
 
 use regex_syntax::hir::{Hir, HirKind, Look};
@@ -19,7 +18,7 @@ struct ParserMeta {
 
 impl Parser {
     /// Creates an empty `WrappedRegex`. Callable in `const` context.
-    #[allow(
+    #[expect(
         clippy::new_without_default,
         reason = "This is a const constructor. There is no reason to have Default for this struct."
     )]
@@ -91,7 +90,7 @@ impl Parser {
             &captures,
             input,
             captures.get_group(0)?,
-            Context::Named("sscanf").into(),
+            Context::Root.into(),
         );
         f(match_tree)
     }

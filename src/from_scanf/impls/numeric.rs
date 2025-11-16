@@ -143,7 +143,7 @@ fn primitive_from_match_tree<T: PrimitiveNumber>(
     matches: MatchTree<'_, '_>,
     format: &FormatOptions,
 ) -> Option<T> {
-    let mut number = matches.as_raw().text();
+    let mut number = matches.text();
 
     let negative = number.starts_with('-');
     number = number.strip_prefix(['+', '-']).unwrap_or(number);
@@ -158,7 +158,7 @@ fn primitive_from_match_tree<T: PrimitiveNumber>(
                     panic!(
                         "sscanf: Expected required prefix '{}' but not found in input '{}'",
                         prefix,
-                        matches.as_raw().text()
+                        matches.text()
                     )
                 });
         } else {

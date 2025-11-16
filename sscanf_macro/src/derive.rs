@@ -448,6 +448,7 @@ pub fn parse_enum(
 
     let mut variant_matchers = vec![];
     let mut variant_parsers = vec![];
+    let mut variant_names = vec![];
     let mut str_lifetimes = HashSet::new();
 
     let mut match_index = 0usize;
@@ -482,10 +483,12 @@ Use `#[sscanf(format = "...")]` to specify a format for a variant with fields or
 
         variant_parsers.push(quote! {
             #match_index => {
+                let src = src.as_seq();
                 // TODO: add assertion for the number of matches
                 return ::std::option::Option::Some(Self::#ident #from_matches);
             }
         });
+        variant_names.push(ident.to_string());
 
         match_index += 1; // only increment if the variant is constructable from sscanf
     }
@@ -513,9 +516,8 @@ To do this, add #[sscanf(format = \"...\")] to a variant"); // checked in tests/
             }
 
             fn from_match_tree(variants: ::sscanf::advanced::MatchTree<'_, #lifetime>, _: &::sscanf::advanced::FormatOptions) -> ::std::option::Option<Self> {
-                let variants = variants.as_alt();
+                let variants = variants.as_alt_enum(&[#(#variant_names),*]);
                 let src = variants.get();
-                let src = src.as_seq();
                 struct __SscanfTokenExtensionWrapper<T>(T);
                 match variants.matched_index() {
                     #(#variant_parsers)*

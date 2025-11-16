@@ -220,7 +220,7 @@ impl<'a> CustomFormatOption<'a> {
     /// "...{<ident>:...##[<custom>]##...}..."
     ///                 ^parser       ^parser when done
     pub fn parse(parser: &mut FormatStringParser<'a>) -> Result<Self> {
-        #![allow(unused, reason = "TODO: used once other todos are done")]
+        #![expect(unused, reason = "TODO: used once other todos are done")]
         todo!()
     }
 }

@@ -2,15 +2,19 @@ use crate::{FromScanf, advanced::FormatOptions};
 
 use regex_automata::{Span, util::captures::Captures};
 
-#[allow(unused_imports)]
-use crate::advanced::{MatchPart, Matcher}; // for links in docs
+#[expect(unused_imports, reason = "for doc links")]
+use crate::advanced::{MatchPart, Matcher};
 
 mod alt;
-mod raw;
+mod context;
 mod seq;
+mod template;
+
 pub use alt::*;
-pub use raw::*;
 pub use seq::*;
+
+pub(crate) use context::*;
+pub(crate) use template::*;
 
 /// Representation of the match of a capture group in a regex, arranged in a tree structure.
 ///
@@ -209,25 +213,25 @@ impl<'t, 'input> MatchTree<'t, 'input> {
         T::from_match_tree(MatchTree { context, ..*self }, format)
     }
 
-    /// Returns the match as a [`RawMatch`].
+    /// Returns the match as a Vec of regex captures.
+    ///
+    /// Each entry in the Vec corresponds to a capture group in the regex. Note that they are each wrapped in an
+    /// `Option`, because capture groups in optional sections and alternations might not have matched.
     ///
     /// ## Panics
-    /// Panics if this `MatchTree` was not created from a [`Matcher::Raw`].
-    pub fn as_raw(&'t self) -> RawMatch<'t, 'input> {
-        let MatchTreeKind::Raw(range) = &self.template.kind else {
+    /// Panics if this `MatchTree` was not created from a [`Matcher::Regex`].
+    pub fn as_regex_matches(&'t self) -> Vec<Option<&'input str>> {
+        let MatchTreeKind::Regex(range) = &self.template.kind else {
             panic!(
-                "sscanf: MatchTree::as_raw called on a {}.\nContext: {}",
+                "sscanf: MatchTree::as_regex_matches called on a {}.\nContext: {}",
                 self.template.kind_name(),
                 self.context
             )
         };
-        RawMatch {
-            indices: range.clone(),
-            captures: self.captures,
-            input: self.input,
-            full: self.full,
-            context: self.context.and(Context::AsRaw),
-        }
+        range
+            .clone()
+            .map(|i| self.captures.get_group(i).map(|span| &self.input[span]))
+            .collect()
     }
 
     /// Returns the match as a [`SeqMatch`].
@@ -279,7 +283,53 @@ impl<'t, 'input> MatchTree<'t, 'input> {
             self.captures,
             self.input,
             span,
-            self.context.and(Context::AltMatch(matched_index)),
+            self.context.and(Context::AsAlt(matched_index)),
+        );
+        AltMatch {
+            matched_index,
+            child,
+            full: self.full,
+        }
+    }
+
+    /// Returns the match as an [`AltMatch`], with enum variants as context.
+    ///
+    /// ## Panics
+    /// Panics if this `MatchTree` was not created from a [`Matcher::Alt`].
+    pub fn as_alt_enum(&'t self, variants: &[&'static str]) -> AltMatch<'t, 'input> {
+        let MatchTreeKind::Alt(children) = &self.template.kind else {
+            panic!(
+                "sscanf: MatchTree::as_alt_enum called on a {}.\nContext: {}",
+                self.template.kind_name(),
+                self.context,
+            )
+        };
+
+        assert_eq!(
+            children.len(),
+            variants.len(),
+            "sscanf: Mismatch between number of alternatives and number of variant names provided to MatchTree::as_alt_enum.\nContext: {}",
+            self.context,
+        );
+
+        let Some((matched_index, child, span)) = children
+            .iter()
+            .enumerate()
+            .find_map(|(i, child)| Some((i, child, self.captures.get_group(child.index)?)))
+        else {
+            panic!(
+                "sscanf: AltMatch has no matching alternative!\nContext: {}",
+                self.context,
+            );
+        };
+
+        let child = MatchTree::new(
+            child,
+            self.captures,
+            self.input,
+            span,
+            self.context
+                .and(Context::AsAltEnum(variants[matched_index])),
         );
         AltMatch {
             matched_index,
@@ -293,7 +343,7 @@ impl<'t, 'input> MatchTree<'t, 'input> {
     /// ## Panics
     /// Panics if this `MatchTree` was not created from a [`Matcher::Optional`].
     pub fn as_opt(&'t self) -> Option<MatchTree<'t, 'input>> {
-        let MatchTreeKind::Opt(child) = &self.template.kind else {
+        let MatchTreeKind::Optional(child) = &self.template.kind else {
             panic!(
                 "sscanf: MatchTree::as_opt called on a {}.\nContext: {}",
                 self.template.kind_name(),
@@ -314,10 +364,10 @@ impl<'t, 'input> MatchTree<'t, 'input> {
 impl std::fmt::Debug for MatchTree<'_, '_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.template.kind {
-            MatchTreeKind::Raw(_) => self.as_raw().fmt(f),
+            MatchTreeKind::Regex(_) => self.as_regex_matches().fmt(f),
             MatchTreeKind::Seq(_) => self.as_seq().fmt(f),
             MatchTreeKind::Alt(_) => self.as_alt().fmt(f),
-            MatchTreeKind::Opt(_) => self.as_opt().fmt(f),
+            MatchTreeKind::Optional(_) => self.as_opt().fmt(f),
         }
     }
 }
@@ -325,96 +375,5 @@ impl std::fmt::Debug for MatchTree<'_, '_> {
 impl std::fmt::Display for MatchTree<'_, '_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.text().fmt(f)
-    }
-}
-
-#[derive(Clone, Copy)]
-pub(crate) enum Context {
-    // MatchTree methods
-    Parse(&'static str),
-    AsRaw,
-    AsSeq,
-    AltMatch(usize),
-    AsOpt,
-
-    // SeqMatch methods
-    At(usize),
-    Get(usize),
-    ParseAt(&'static str, usize),
-    ParseField(&'static str, usize, &'static str),
-
-    // other
-    Named(&'static str),
-}
-
-#[derive(Clone, Copy)]
-pub(crate) struct ContextChain<'t> {
-    current: Context,
-    parent: Option<&'t ContextChain<'t>>,
-}
-impl<'t> ContextChain<'t> {
-    fn and(&'t self, child: Context) -> Self {
-        Self {
-            current: child,
-            parent: Some(self),
-        }
-    }
-}
-impl From<Context> for ContextChain<'_> {
-    fn from(context: Context) -> Self {
-        Self {
-            current: context,
-            parent: None,
-        }
-    }
-}
-impl std::fmt::Display for ContextChain<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(parent) = &self.parent {
-            parent.fmt(f)?;
-            f.write_str(" -> ")?;
-        }
-        match &self.current {
-            Context::Parse(ty) => write!(f, "parse::<{ty}>()"),
-            Context::AsRaw => f.write_str("as_raw()"),
-            Context::AsSeq => f.write_str("as_seq()"),
-            Context::AltMatch(index) => write!(f, "Alt ({index} matched)"),
-            Context::AsOpt => f.write_str("as_opt()"),
-
-            Context::At(index) => write!(f, "at({index})"),
-            Context::Get(index) => write!(f, "get({index})"),
-            Context::ParseAt(ty, index) => write!(f, "parse {index} as {ty}"),
-            Context::ParseField(name, index, ty) => {
-                write!(f, "parse .{name} (parse {index} as {ty})")
-            }
-
-            Context::Named(name) => f.write_str(name),
-        }
-    }
-}
-
-/// The source structure of a MatchTree, consisting of only the indices in the capture group list.
-#[derive(Debug)]
-pub(crate) struct MatchTreeTemplate {
-    pub index: usize,
-    pub kind: MatchTreeKind,
-}
-
-#[derive(Debug)]
-pub(crate) enum MatchTreeKind {
-    Raw(std::ops::Range<usize>),
-    Seq(Vec<Option<MatchTreeTemplate>>),
-    Alt(Vec<MatchTreeTemplate>),
-    Opt(Box<MatchTreeTemplate>),
-}
-
-impl MatchTreeTemplate {
-    pub fn kind_name(&self) -> &'static str {
-        match &self.kind {
-            MatchTreeKind::Raw(_) => "RawMatch",
-            MatchTreeKind::Seq(_) => "SeqMatch",
-            MatchTreeKind::Alt(_) => "AltMatch",
-            MatchTreeKind::Opt(_) => "Optional Match",
-        }
     }
 }

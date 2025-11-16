@@ -5,8 +5,8 @@ mod impls {
     mod other;
 }
 
-#[allow(unused_imports)]
-use std::str::FromStr; // for links in docs
+#[expect(unused_imports, reason = "for links in docs")]
+use std::str::FromStr;
 
 /// A trait that allows you to use a custom regex for parsing a type.
 ///
@@ -231,10 +231,10 @@ pub trait FromScanf<'input>: Sized {
     ///     }
     ///
     ///     fn from_match_tree(matches: MatchTree<'_, '_>, _: &FormatOptions) -> Option<Self> {
-    ///         let matches = matches.as_raw(); // our matcher is a raw regex, so we can convert to that
+    ///         let matches = matches.as_regex_matches(); // our matcher used from_regex, so we can convert to that
     ///         Some(Self {
-    ///             first_field: matches.get(0).unwrap().parse().ok()?,
-    ///             second_field: matches.get(1).unwrap().parse().ok()?,
+    ///             first_field: matches[0].unwrap().parse().ok()?,
+    ///             second_field: matches[1].unwrap().parse().ok()?,
     ///             // ...
     ///         })
     ///     }

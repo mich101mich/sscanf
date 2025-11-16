@@ -1,4 +1,7 @@
-#![allow(unused)]
+#![allow(
+    unused,
+    reason = "These are general utilities that I copy-paste between projects"
+)]
 
 use crate::*;
 
