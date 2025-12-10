@@ -1,0 +1,36 @@
+error: missing '}' to close a placeholder. If the '{' was intended to be a literal, escape it with '{{'
+ --> tests/fail/nightly/multiline_format_str.rs:5:9
+  |
+5 |   is a fau{ty
+  |  _________^
+6 | | multiline string!"
+  | |_________________^
+
+error: missing '}' to close a placeholder. If the '{' was intended to be a literal, escape it with '{{'
+  --> tests/fail/nightly/multiline_format_str.rs:12:10
+   |
+12 |           "{This
+   |  __________^
+13 | | is another faulty
+14 | | multiline string!"
+   | |_________________^
+
+error: unexpected standalone '}'. Literal '}' need to be escaped as '}}'
+  --> tests/fail/nightly/multiline_format_str.rs:22:5
+   |
+22 | this}"
+   |     ^
+
+error: missing '}' to close a placeholder. If the '{' was intended to be a literal, escape it with '{{'
+  --> tests/fail/nightly/multiline_format_str.rs:29:11
+   |
+29 |   is a 😟 fau{ty
+   |  ____________^
+30 | | multiline string!"
+   | |_________________^
+
+error: missing '}' to close a placeholder. If the '{' was intended to be a literal, escape it with '{{'
+  --> tests/fail/nightly/multiline_format_str.rs:34:41
+   |
+34 |     sscanf::sscanf!(input, "This\nis a\n{fake\nmultiline string!").unwrap();
+   |                                         ^^^^^^^^^^^^^^^^^^^^^^^^

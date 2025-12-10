@@ -20,13 +20,13 @@ error: type index 99 out of range of 0 types
 6 |     sscanf::sscanf!("hi", "{99}");
   |                             ^^
 
-error[E0412]: cannot find type `bob` in this scope
+error[E0425]: cannot find type `bob` in this scope
  --> tests/fail/nightly/invalid_type_in_placeholder.rs:3:29
   |
 3 |     sscanf::sscanf!("hi", "{bob}");
   |                             ^^^ not found in this scope
 
-error[E0412]: cannot find type `bob` in this scope
+error[E0425]: cannot find type `bob` in this scope
  --> tests/fail/nightly/invalid_type_in_placeholder.rs:5:29
   |
 5 |     sscanf::sscanf!("hi", "{bob:/hi/}");

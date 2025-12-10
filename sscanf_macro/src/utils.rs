@@ -121,6 +121,9 @@ impl TokenStreamExt for TokenStream {
 pub trait SpanExt {
     fn stable_start(&self) -> Span;
     fn stable_end(&self) -> Span;
+    fn stable_line(&self) -> usize;
+    fn stable_column(&self) -> usize;
+    fn stable_file(&self) -> String;
 }
 impl SpanExt for Span {
     fn stable_start(&self) -> Span {
@@ -128,6 +131,15 @@ impl SpanExt for Span {
     }
     fn stable_end(&self) -> Span {
         self.unwrap().end().into() // Span2 -> Span1 -> call end() -> Span2
+    }
+    fn stable_line(&self) -> usize {
+        self.unwrap().line() // Span2 -> Span1 -> line()
+    }
+    fn stable_column(&self) -> usize {
+        self.unwrap().column() // Span2 -> Span1 -> column()
+    }
+    fn stable_file(&self) -> String {
+        self.unwrap().file()
     }
 }
 
@@ -141,16 +153,14 @@ impl<T: ToTokens> ToTokensExt for T {
         self.to_token_stream()
             .into_iter()
             .next()
-            .unwrap()
-            .span()
-            .stable_start()
+            .map(|t| t.span().stable_start())
+            .unwrap_or(Span::call_site())
     }
     fn end_span(&self) -> Span {
         self.to_token_stream()
             .into_iter()
             .last()
-            .unwrap()
-            .span()
-            .stable_end()
+            .map(|t| t.span().stable_end())
+            .unwrap_or(Span::call_site())
     }
 }

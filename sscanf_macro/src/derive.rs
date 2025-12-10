@@ -103,7 +103,7 @@ impl ValueSource<'_> {
         }
     }
 }
-impl<'a> Sourced<'a> for ValueSource<'a> {
+impl Sourced for ValueSource<'_> {
     fn error(&self, message: impl Display) -> Error {
         match self {
             ValueSource::Default { src, .. } => src.error(message),

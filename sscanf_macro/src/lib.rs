@@ -127,7 +127,7 @@ fn sscanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
 
         // wrapping the input in a manual call to str::get ensures that the user
         // gets an appropriate error message if they try to use a non-string input
-        quote! { ::std::primitive::str::get(#param, ..).unwrap() }
+        quote! { ::std::primitive::str::get(#param, ..).unwrap() } // unwrap: full range can't fail
     };
     let ret = quote! {{
         static PARSER: ::sscanf::__macro_utilities::Parser = ::sscanf::__macro_utilities::Parser::new();

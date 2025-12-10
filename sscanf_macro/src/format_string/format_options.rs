@@ -41,17 +41,17 @@ pub struct CustomFormatOption<'a> {
     pub custom: String,
 }
 
-impl<'a> Sourced<'a> for FormatOptions<'a> {
+impl Sourced for FormatOptions<'_> {
     fn error(&self, message: impl Display) -> Error {
         self.src.error(message)
     }
 }
-impl<'a> Sourced<'a> for RegexOverride<'a> {
+impl Sourced for RegexOverride<'_> {
     fn error(&self, message: impl Display) -> Error {
         self.src.error(message)
     }
 }
-impl<'a> Sourced<'a> for CustomFormatOption<'a> {
+impl Sourced for CustomFormatOption<'_> {
     fn error(&self, message: impl Display) -> Error {
         self.src.error(message)
     }

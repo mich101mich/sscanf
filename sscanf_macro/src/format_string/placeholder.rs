@@ -68,7 +68,7 @@ impl<'a> Placeholder<'a> {
     }
 }
 
-impl<'a> Sourced<'a> for Placeholder<'a> {
+impl Sourced for Placeholder<'_> {
     fn error(&self, message: impl Display) -> Error {
         self.src.error(message)
     }

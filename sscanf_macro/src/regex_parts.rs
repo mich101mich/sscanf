@@ -42,7 +42,7 @@ impl MatchPart {
     fn from_custom_regex(regex: &str) -> MatchPart {
         Self(
             quote! { ::sscanf::advanced::MatchPart::Matcher( ::sscanf::advanced::Matcher::from_regex(#regex).unwrap() ) },
-        )
+        ) // unwrap: regex was already checked during attribute parsing
     }
 }
 

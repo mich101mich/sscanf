@@ -85,7 +85,7 @@ impl ErrorBuilder {
     }
 
     pub fn build(&mut self) -> Error {
-        self.0.take().unwrap()
+        self.0.take().unwrap() // it is up to the caller to ensure that there is an error
     }
     pub fn build_err<R>(&mut self) -> Result<R> {
         Err(self.build())
@@ -122,7 +122,7 @@ impl SpanErrExt for Span {
 }
 
 /// Trait for types that have a source, used for error reporting
-pub trait Sourced<'a> {
+pub trait Sourced {
     /// Create an error from the source and message
     fn error(&self, message: impl Display) -> Error;
 }

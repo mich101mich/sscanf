@@ -182,7 +182,7 @@ impl<A: Attr> Attribute<A> {
 
         if input.peek(syn::LitStr) {
             let lit = input.parse::<syn::LitStr>()?;
-            let value = syn::parse2::<syn::Expr>(quote! { #lit }).unwrap();
+            let value = syn::parse2::<syn::Expr>(quote! { #lit }).unwrap(); // safe because lit is a LitStr, which is a valid Expr
             src.extend(quote! { #value });
 
             let kind_name = if StrLit::new(lit).is_raw() {
@@ -242,7 +242,7 @@ impl<A: Attr> Attribute<A> {
     }
 }
 
-impl<A: Attr> Sourced<'_> for Attribute<A> {
+impl<A: Attr> Sourced for Attribute<A> {
     fn error(&self, message: impl Display) -> Error {
         self.src.error(message)
     }
@@ -372,7 +372,7 @@ where
     }
 }
 
-impl<A: Attr, Kind, Data> Sourced<'_> for SingleAttributeContainer<A, Kind, Data>
+impl<A: Attr, Kind, Data> Sourced for SingleAttributeContainer<A, Kind, Data>
 where
     Kind: FromAttribute<A, Data>,
 {

@@ -43,7 +43,7 @@ impl FromAttribute<attr::Field, &'_ syn::Type> for FieldAttributeKind {
                 };
 
                 let param = if mapper.inputs.len() == 1 {
-                    mapper.inputs.first().unwrap()
+                    mapper.inputs.first().unwrap() // safe because len() == 1
                 } else {
                     let mut span_src = TokenStream::new();
                     for param in mapper.inputs.pairs().skip(1) {

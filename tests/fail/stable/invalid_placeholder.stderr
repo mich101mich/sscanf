@@ -1,38 +1,48 @@
 error: missing '}' to close a placeholder. If the '{' was intended to be a literal, escape it with '{{':
-       At "{"
-           ^
+        --> tests/fail/stable/invalid_placeholder.rs:2:26
+         |
+       2 | "{"
+         |  ^
  --> tests/fail/stable/invalid_placeholder.rs:2:25
   |
 2 |     sscanf::sscanf!("", "{", str);
   |                         ^^^
 
 error: missing '}' to close a placeholder. If the '{' was intended to be a literal, escape it with '{{':
-       At "{str"
-           ^^^^
+        --> tests/fail/stable/invalid_placeholder.rs:3:26
+         |
+       3 | "{str"
+         |  ^^^^
  --> tests/fail/stable/invalid_placeholder.rs:3:25
   |
 3 |     sscanf::sscanf!("", "{str");
   |                         ^^^^^^
 
 error: missing '}' to close a placeholder. If the '{' was intended to be a literal, escape it with '{{':
-       At "{:"
-           ^^
+        --> tests/fail/stable/invalid_placeholder.rs:4:26
+         |
+       4 | "{:"
+         |  ^^
  --> tests/fail/stable/invalid_placeholder.rs:4:25
   |
 4 |     sscanf::sscanf!("", "{:", str);
   |                         ^^^^
 
 error: missing '}' to close a placeholder. If the '{' was intended to be a literal, escape it with '{{':
-       At "{:b"
-           ^^^
+        --> tests/fail/stable/invalid_placeholder.rs:5:26
+         |
+       5 | "{:b"
+         |  ^^^
  --> tests/fail/stable/invalid_placeholder.rs:5:25
   |
 5 |     sscanf::sscanf!("", "{:b", str);
   |                         ^^^^^
 
 error: missing '}' to close a placeholder. If the '{' was intended to be a literal, escape it with '{{':
-       At "{://"
-           ^^^^
+        --> tests/fail/stable/invalid_placeholder.rs:6:26
+         |
+       6 | "{://"
+         |  ^^^^
  --> tests/fail/stable/invalid_placeholder.rs:6:25
   |
 6 |     sscanf::sscanf!("", "{://", str);
@@ -41,40 +51,50 @@ error: missing '}' to close a placeholder. If the '{' was intended to be a liter
 error: escaped '}}' after an unescaped '{'.
        If you didn't mean to create a placeholder, escape the '{' as '{{'
        If you did, either remove the second '}' or escape it with another '}':
-       At "{:}}"
-              ^
+        --> tests/fail/stable/invalid_placeholder.rs:7:29
+         |
+       7 | "{:}}"
+         |     ^
  --> tests/fail/stable/invalid_placeholder.rs:7:25
   |
 7 |     sscanf::sscanf!("", "{:}}", str);
   |                         ^^^^^^
 
 error: unexpected standalone '}'. Literal '}' need to be escaped as '}}':
-       At "}"
-           ^
+        --> tests/fail/stable/invalid_placeholder.rs:8:26
+         |
+       8 | "}"
+         |  ^
  --> tests/fail/stable/invalid_placeholder.rs:8:25
   |
 8 |     sscanf::sscanf!("", "}", str);
   |                         ^^^
 
 error: unexpected standalone '}'. Literal '}' need to be escaped as '}}':
-       At ":}"
-            ^
+        --> tests/fail/stable/invalid_placeholder.rs:9:27
+         |
+       9 | ":}"
+         |   ^
  --> tests/fail/stable/invalid_placeholder.rs:9:25
   |
 9 |     sscanf::sscanf!("", ":}", str);
   |                         ^^^^
 
 error: unexpected standalone '}'. Literal '}' need to be escaped as '}}':
-       At "{{:}"
-              ^
+         --> tests/fail/stable/invalid_placeholder.rs:10:29
+          |
+       10 | "{{:}"
+          |     ^
   --> tests/fail/stable/invalid_placeholder.rs:10:25
    |
 10 |     sscanf::sscanf!("", "{{:}", str);
    |                         ^^^^^^
 
 error: missing `:` in front of custom regex. Write `{:/.*?/}` instead:
-       At "{/.*?/}"
-            ^^^^^
+         --> tests/fail/stable/invalid_placeholder.rs:11:27
+          |
+       11 | "{/.*?/}"
+          |   ^^^^^
   --> tests/fail/stable/invalid_placeholder.rs:11:25
    |
 11 |     sscanf::sscanf!("", "{/.*?/}", str);
