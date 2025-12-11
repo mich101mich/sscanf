@@ -1,64 +1,73 @@
 error: missing '}' to close a placeholder. If the '{' was intended to be a literal, escape it with '{{':
-        --> tests/fail/stable/multiline_format_str.rs:5:9
-         |
-       5 |   is a fau{ty
-         |  _________^
-       6 | | multiline string!"
-         | |_________________^
- --> tests/fail/stable/multiline_format_str.rs:4:9
-  |
-4 | /         "This
-5 | | is a fau{ty
-6 | | multiline string!"
-  | |__________________^
-
-error: missing '}' to close a placeholder. If the '{' was intended to be a literal, escape it with '{{':
-         --> tests/fail/stable/multiline_format_str.rs:12:10
+         --> tests/fail/stable/multiline_format_str.rs:4:10
           |
-       12 |   "{This
+        4 |   "{This
           |  __^
-       13 | | is another faulty
-       14 | | multiline string!"
-          | |_________________^
-  --> tests/fail/stable/multiline_format_str.rs:12:9
+        5 | | is
+        6 | | a
+          | | ...
+       12 | | really
+       13 | | long!"
+          | |_____^
+  --> tests/fail/stable/multiline_format_str.rs:4:9
    |
-12 | /         "{This
-13 | | is another faulty
-14 | | multiline string!"
-   | |__________________^
-
-error: unexpected standalone '}'. Literal '}' need to be escaped as '}}':
-         --> tests/fail/stable/multiline_format_str.rs:22:5
-          |
-       22 | this}"
-          |     ^
-  --> tests/fail/stable/multiline_format_str.rs:20:9
-   |
-20 | /         "And so
-21 | | is
-22 | | this}"
+ 4 | /         "{This
+ 5 | | is
+ 6 | | a
+ 7 | | faulty
+...  |
+12 | | really
+13 | | long!"
    | |______^
 
 error: missing '}' to close a placeholder. If the '{' was intended to be a literal, escape it with '{{':
-         --> tests/fail/stable/multiline_format_str.rs:29:12
+         --> tests/fail/stable/multiline_format_str.rs:20:15
           |
-       29 |   is a 😟 fau{ty
-          |  ____________^
-       30 | | multiline string!"
+       20 |   is another fau{ty
+          |  _______________^
+       21 | | multiline string!"
           | |_________________^
-  --> tests/fail/stable/multiline_format_str.rs:28:9
+  --> tests/fail/stable/multiline_format_str.rs:19:9
    |
-28 | /         "This
-29 | | is a 😟 fau{ty
-30 | | multiline string!"
+19 | /         "This
+20 | | is another fau{ty
+21 | | multiline string!"
    | |__________________^
 
-error: missing '}' to close a placeholder. If the '{' was intended to be a literal, escape it with '{{':
-         --> tests/fail/stable/multiline_format_str.rs:34:41
+error: unexpected standalone '}'. Literal '}' need to be escaped as '}}':
+         --> tests/fail/stable/multiline_format_str.rs:29:5
           |
-       34 | "This\nis a\n{fake\nmultiline string!"
-          |              ^^^^^^^^^^^^^^^^^^^^^^^^
-  --> tests/fail/stable/multiline_format_str.rs:34:28
+       29 | this}, but
+          |     ^
+  --> tests/fail/stable/multiline_format_str.rs:27:9
    |
-34 |     sscanf::sscanf!(input, "This\nis a\n{fake\nmultiline string!").unwrap();
+27 | /         "And so
+28 | | is
+29 | | this}, but
+30 | | the error is only
+31 | | on one line"
+   | |____________^
+
+error: missing '}' to close a placeholder. If the '{' was intended to be a literal, escape it with '{{':
+         --> tests/fail/stable/multiline_format_str.rs:38:12
+          |
+       38 |   is a 😟 fau{ty
+          |  ____________^
+       39 | | multiline string with unicode!"
+          | |______________________________^
+  --> tests/fail/stable/multiline_format_str.rs:37:9
+   |
+37 | /         "This
+38 | | is a 😟 fau{ty
+39 | | multiline string with unicode!"
+   | |_______________________________^
+
+error: missing '}' to close a placeholder. If the '{' was intended to be a literal, escape it with '{{':
+         --> tests/fail/stable/multiline_format_str.rs:43:41
+          |
+       43 | "This\nis a\n{fake\nmultiline string!"
+          |              ^^^^^^^^^^^^^^^^^^^^^^^^
+  --> tests/fail/stable/multiline_format_str.rs:43:28
+   |
+43 |     sscanf::sscanf!(input, "This\nis a\n{fake\nmultiline string!").unwrap();
    |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

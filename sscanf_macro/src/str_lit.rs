@@ -203,8 +203,8 @@ impl<'a> StrLitSlice<'a> {
         let start_line = src_span.stable_line() + prefix.lines().count() - 1;
         let end_line = start_line + self_lines.len() - 1;
 
-        let ln_length = end_line.to_string().len();
-        let ln_blank = " ".repeat(ln_length);
+        let ln_length = end_line.to_string().len(); // line number length for formatting
+        let ln_blank = " ".repeat(ln_length); // blank space for line number column
 
         let (prefix, column_offset) =
             if let Some((_previous_lines, prefix)) = prefix.rsplit_once('\n') {
@@ -215,18 +215,26 @@ impl<'a> StrLitSlice<'a> {
         let (prefix, prefix_len) = rust_compiler_replacements(prefix);
         let column = column_offset + prefix_len;
 
-        let suffix = suffix.split_once('\n').map_or(suffix, |(s, _)| s);
-        let suffix = suffix.strip_suffix('\r').unwrap_or(suffix);
+        let suffix = suffix.lines().next().unwrap_or(""); // whatever part of the suffix is on the same line
+        let (suffix, suffix_len) = rust_compiler_replacements(suffix);
+        let suffix = if suffix_len > 12 {
+            suffix.chars().take(12).collect::<String>() + "..."
+        } else {
+            suffix.to_string()
+        };
+
+        const E: &str = ""; // empty string so that we can use the formatting width specifier to create repeated characters
 
         let mut m = String::new();
         writeln!(m, "{message}:").unwrap();
-        writeln!(m, "{ln_blank}--> {file}:{start_line}:{column}",).unwrap();
+        writeln!(m, "{ln_blank}--> {file}:{start_line}:{column}").unwrap();
         writeln!(m, "{ln_blank} |").unwrap();
 
-        if let [single_line] = self_lines.as_slice() {
-            let (line, line_len) = rust_compiler_replacements(single_line);
-            writeln!(m, "{start_line:>ln_length$} | {prefix}{line}{suffix}").unwrap();
-            writeln!(m, "{ln_blank} | {0:<prefix_len$}{0:^<line_len$}", "").unwrap();
+        if self_lines.len() <= 1 {
+            let line = self_lines.first().copied().unwrap_or("");
+            let (line, line_len) = rust_compiler_replacements(line);
+            writeln!(m, "{start_line: >ln_length$} | {prefix}{line}{suffix}").unwrap();
+            writeln!(m, "{ln_blank} | {E: <prefix_len$}{E:^<line_len$}").unwrap(); // spaces for prefix, then '^' for the string part
         } else {
             //   --> tests/fail/nightly/multiline_format_str.rs:12:10
             //    |
@@ -236,19 +244,36 @@ impl<'a> StrLitSlice<'a> {
             // 14 | | multiline string!"
             //    | |_________________^
 
+            // we have at least two lines, so we can safely split first and last. middle_lines may be empty.
             let (first_line, rest_lines) = self_lines.split_first().unwrap();
-            write!(m, "{start_line:>ln_length$} |   {prefix}{first_line}").unwrap(); // no newline, since first_line contains any \r and \n from the original
-            writeln!(m, "{ln_blank} |  _{:_<prefix_len$}^", "").unwrap();
-
             let (last_line, middle_lines) = rest_lines.split_last().unwrap();
-            for (i, line) in middle_lines.iter().enumerate() {
-                let line_no = start_line + 1 + i;
-                write!(m, "{line_no:>ln_length$} | | {line}").unwrap();
+
+            write!(m, "{start_line: >ln_length$} |   {prefix}{first_line}").unwrap(); // no newline, since first_line contains any \r and \n from the original
+            writeln!(m, "{ln_blank} |  _{E:_<prefix_len$}^").unwrap();
+
+            if middle_lines.len() <= 4 {
+                for (i, line) in middle_lines.iter().enumerate() {
+                    let line_no = start_line + 1 + i;
+                    write!(m, "{line_no: >ln_length$} | | {line}").unwrap();
+                }
+            } else {
+                for (i, line) in middle_lines.iter().enumerate().take(2) {
+                    let line_no = start_line + 1 + i;
+                    write!(m, "{line_no: >ln_length$} | | {line}").unwrap();
+                }
+
+                writeln!(m, "{ln_blank} | | ...").unwrap();
+                // Note: The rust compiler would write "... |" instead, but if we do that in the error message itself, it somehow
+                // breaks the indentation of the previous line.
+
+                let line = middle_lines.last().unwrap();
+                let line_no = end_line - 1;
+                write!(m, "{line_no: >ln_length$} | | {line}").unwrap();
             }
 
             let (last_line, last_line_len) = rust_compiler_replacements(last_line);
-            writeln!(m, "{end_line:>ln_length$} | | {last_line}{suffix}").unwrap();
-            writeln!(m, "{ln_blank} | |{:_^last_line_len$}^", "").unwrap();
+            writeln!(m, "{end_line: >ln_length$} | | {last_line}{suffix}").unwrap();
+            writeln!(m, "{ln_blank} | |{E:_<last_line_len$}^").unwrap();
         }
 
         Error::new_spanned(&self.src.span_provider, m)

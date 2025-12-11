@@ -1,16 +1,23 @@
 fn main() {
     sscanf::sscanf!(
         input,
-        "This
-is a fau{ty
-multiline string!"
+        "{This
+is
+a
+faulty
+multiline
+string
+that
+is
+really
+long!"
     )
     .unwrap();
 
     sscanf::sscanf!(
         input,
-        "{This
-is another faulty
+        "This
+is another fau{ty
 multiline string!"
     )
     .unwrap();
@@ -19,7 +26,9 @@ multiline string!"
         input,
         "And so
 is
-this}"
+this}, but
+the error is only
+on one line"
     )
     .unwrap();
 
@@ -27,7 +36,7 @@ this}"
         input,
         "This
 is a 😟 fau{ty
-multiline string!"
+multiline string with unicode!"
     )
     .unwrap();
 
