@@ -25,7 +25,7 @@ error: escaped '}}' after an unescaped '{'.
        If you did, either remove the second '}' or escape it with another '}':
         --> tests/fail/stable/non_ascii.rs:5:91
          |
-       5 | "y\u{306}\u{1f61b}😛y\u{306}{Ay\u{306}y\u{306}y\u{306}:\u{1f61b}}y\u{306}\u{1...
+       5 | "y\u{306}\u{1f61b}😛y\u{306}{Ay\u{306}y\u{306}y\u{306}:\u{1f61b}}y\u{306}\u{1f61b}y\u{306}"
          |                                                                 ^
  --> tests/fail/stable/non_ascii.rs:5:27
   |

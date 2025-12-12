@@ -1,6 +1,6 @@
 fn main() {
     sscanf::sscanf!(
-        input,
+        "Hi",
         "{This
 is
 a
@@ -15,7 +15,7 @@ long!"
     .unwrap();
 
     sscanf::sscanf!(
-        input,
+        "Hi",
         "This
 is another fau{ty
 multiline string!"
@@ -23,7 +23,7 @@ multiline string!"
     .unwrap();
 
     sscanf::sscanf!(
-        input,
+        "Hi",
         "And so
 is
 this}, but
@@ -33,12 +33,12 @@ on one line"
     .unwrap();
 
     sscanf::sscanf!(
-        input,
+        "Hi",
         "This
 is a 😟 fau{ty
 multiline string with unicode!"
     )
     .unwrap();
 
-    sscanf::sscanf!(input, "This\nis a\n{fake\nmultiline string!").unwrap();
+    sscanf::sscanf!("Hi", "This\nis a\n{fake\nmultiline string!").unwrap();
 }

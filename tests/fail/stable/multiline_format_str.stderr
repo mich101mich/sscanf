@@ -63,11 +63,11 @@ error: missing '}' to close a placeholder. If the '{' was intended to be a liter
    | |_______________________________^
 
 error: missing '}' to close a placeholder. If the '{' was intended to be a literal, escape it with '{{':
-         --> tests/fail/stable/multiline_format_str.rs:43:41
+         --> tests/fail/stable/multiline_format_str.rs:43:40
           |
        43 | "This\nis a\n{fake\nmultiline string!"
           |              ^^^^^^^^^^^^^^^^^^^^^^^^
-  --> tests/fail/stable/multiline_format_str.rs:43:28
+  --> tests/fail/stable/multiline_format_str.rs:43:27
    |
-43 |     sscanf::sscanf!(input, "This\nis a\n{fake\nmultiline string!").unwrap();
-   |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+43 |     sscanf::sscanf!("Hi", "This\nis a\n{fake\nmultiline string!").unwrap();
+   |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

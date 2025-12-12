@@ -216,12 +216,7 @@ impl<'a> StrLitSlice<'a> {
         let column = column_offset + prefix_len;
 
         let suffix = suffix.lines().next().unwrap_or(""); // whatever part of the suffix is on the same line
-        let (suffix, suffix_len) = rust_compiler_replacements(suffix);
-        let suffix = if suffix_len > 12 {
-            suffix.chars().take(12).collect::<String>() + "..."
-        } else {
-            suffix.to_string()
-        };
+        let suffix = rust_compiler_replacements(suffix).0;
 
         const E: &str = ""; // empty string so that we can use the formatting width specifier to create repeated characters
 
