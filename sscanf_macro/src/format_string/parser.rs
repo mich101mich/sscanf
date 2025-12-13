@@ -87,6 +87,10 @@ impl<'a> FormatStringParser<'a> {
         Some((next_pos, *self.chars.get(next_pos)?))
     }
 
+    pub fn parse<T: FromFormatString<'a>>(&mut self) -> Result<T> {
+        T::parse(self)
+    }
+
     pub fn slice(&self, start: usize, end: usize) -> StrLitSlice<'a> {
         let start = self.char_indices[start];
         if let Some(end) = self.char_indices.get(end) {
@@ -104,5 +108,135 @@ impl<'a> FormatStringParser<'a> {
     }
     pub fn err_at<T>(&self, pos: usize, message: impl Display) -> Result<T> {
         self.slice(pos, pos + 1).err(message)
+    }
+}
+
+/// Trait to parse a type using a `FormatStringParser`.
+pub trait FromFormatString<'a>: Sized {
+    fn parse(parser: &mut FormatStringParser<'a>) -> Result<Self>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn basic_test() {
+        let src = str_lit! { "Hello1" };
+        let mut parser = FormatStringParser::new(src.to_slice());
+
+        // "Hello1"
+        assert_eq!(parser.get_pos(), 0);
+        assert_eq!(parser.peek(), Some((0, 'H')));
+        assert_eq!(parser.take().ok(), Some((0, 'H')));
+        assert_eq!(parser.get_pos(), 1);
+
+        // "ello1"
+        assert_eq!(parser.peek(), Some((1, 'e')));
+        assert_eq!(parser.take_if_eq('e'), Some((1, 'e')));
+
+        // "llo1"
+        assert_eq!(parser.peek(), Some((2, 'l')));
+        assert_eq!(parser.take_if(|c| c == 'l'), Some((2, 'l')));
+
+        // "lo1"
+        assert_eq!(parser.peek(), Some((3, 'l')));
+        assert_eq!(parser.take_if(|c| c == 'x'), None);
+        assert_eq!(parser.peek(), Some((3, 'l')));
+        assert_eq!(parser.take().ok(), Some((3, 'l')));
+
+        // "o1"
+        assert_eq!(parser.map_take_if(|c| c.to_digit(10)), None);
+        assert_eq!(parser.peek2(), Some((5, '1')));
+        assert_eq!(parser.peek_required().ok(), Some((4, 'o')));
+        assert_eq!(parser.take().ok(), Some((4, 'o')));
+        assert_eq!(parser.get_pos(), 5);
+
+        // "1"
+        assert_eq!(parser.slice_since(1).text(), "ello");
+        assert_eq!(parser.map_take_if(|c| c.to_digit(10)), Some((5, 1)));
+
+        // ""
+        assert_eq!(parser.peek(), None);
+        assert!(parser.peek_required().is_err());
+    }
+
+    #[test]
+    fn multibyte_test() {
+        let src = str_lit! { "y̆😛y̆" };
+        let mut parser = FormatStringParser::new(src.to_slice());
+
+        assert_eq!(parser.slice(0, 1).text(), "y");
+        assert_eq!(parser.slice(1, 2).text(), "̆"); // notice the practically invisible modifier char on top of the quote
+        assert_eq!(parser.slice(2, 3).text(), "😛");
+        assert_eq!(parser.slice(0, 2).text(), "y̆");
+        assert_eq!(parser.slice(0, 5).text(), "y̆😛y̆");
+        // Note: this is actually terrible behavior. Visually (and usually also when typing), the 'y̆' is a single
+        // character, but Rust counts it as two separate chars.
+        // The rest of the code only checks for ascii characters like '{', '}', ':', etc., so emoji and other utf-8
+        // multibyte characters are completely fine, but I can't rule out that there won't be a modifier for one
+        // of the chars that I'm looking for that breaks this.
+        // However, fixing this is also way too complicated for now.
+
+        // "y̆😛y̆"
+        assert_eq!(parser.get_pos(), 0);
+        assert_eq!(parser.peek(), Some((0, 'y')));
+        assert_eq!(parser.take().ok(), Some((0, 'y')));
+        assert_eq!(parser.get_pos(), 1);
+
+        // "̆😛y̆"
+        assert_eq!(parser.slice_since(0).text(), "y");
+        assert_eq!(parser.peek(), Some((1, '̆'))); // again, on top of the quote
+        assert_eq!(parser.take().ok(), Some((1, '̆')));
+        assert_eq!(parser.get_pos(), 2);
+
+        // "😛y̆"
+        assert_eq!(parser.slice_since(0).text(), "y̆");
+        assert_eq!(parser.peek(), Some((2, '😛')));
+        assert_eq!(parser.take().ok(), Some((2, '😛')));
+        assert_eq!(parser.get_pos(), 3);
+
+        // "y̆"
+        assert_eq!(parser.peek(), Some((3, 'y')));
+        assert_eq!(parser.take().ok(), Some((3, 'y')));
+        assert_eq!(parser.get_pos(), 4);
+
+        // "̆"
+        assert_eq!(parser.peek(), Some((4, '̆')));
+        assert_eq!(parser.take().ok(), Some((4, '̆')));
+        assert_eq!(parser.get_pos(), 5);
+
+        // ""
+        assert_eq!(parser.peek(), None);
+        assert!(parser.peek_required().is_err());
+    }
+
+    #[test]
+    fn test_parse_trait() {
+        struct Number(usize);
+        impl FromFormatString<'_> for Number {
+            fn parse(parser: &mut FormatStringParser) -> Result<Self> {
+                let Some((_, first_digit)) = parser.map_take_if(|c| c.to_digit(10)) else {
+                    return parser.err_at(
+                        parser.get_pos(),
+                        "expected a digit at the start of a number",
+                    );
+                };
+                let mut num = first_digit as usize;
+                while let Some((_, digit)) = parser.map_take_if(|c| c.to_digit(10)) {
+                    num = num * 10 + digit as usize;
+                }
+                Ok(Number(num))
+            }
+        }
+
+        let src = str_lit! { "123abc" };
+        let mut parser = FormatStringParser::new(src.to_slice());
+
+        let number: Number = parser.parse().unwrap();
+        assert_eq!(number.0, 123);
+        assert_eq!(parser.peek(), Some((3, 'a')));
+
+        assert!(parser.parse::<Number>().is_err()); // no digits at the start
     }
 }

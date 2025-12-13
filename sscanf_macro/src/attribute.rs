@@ -139,7 +139,7 @@ fn find_match<A: Attr>(s: &str, src: &TokenStream) -> Result<A> {
     }
 
     let context = A::context();
-    let valid = list_items(context.all_attr_names(), |s| format!("`{s}`"));
+    let valid = list_items_quoted(context.all_attr_names(), '`');
 
     let mut others = Context::ALL.to_vec();
     others.retain(|&other| other != context);
@@ -151,7 +151,7 @@ fn find_match<A: Attr>(s: &str, src: &TokenStream) -> Result<A> {
         }
     }
     if !found_others.is_empty() {
-        let others = list_items(&found_others, |other| other.to_string());
+        let others = list_items(&found_others);
         bail!(src => "attribute `{s}` can only be used on {others}.
 {context} can have the following attributes: {valid}"); // checked in tests/fail/derive_struct_attributes.rs
     }
@@ -204,7 +204,7 @@ impl<A: Attr> Attribute<A> {
                 .iter()
                 .filter(|c| c.all_attr_names().iter().any(|n| *n == name || *n == name2))
                 .collect::<Vec<_>>();
-            let valid = list_items(&valid, |c| c.to_string());
+            let valid = list_items(&valid);
 
             bail!(value.start_span() => "omitting the attribute name is only valid for the `{name}` attribute on {valid}"); // checked in tests/fail/derive_field_attributes.rs
         }
@@ -242,7 +242,7 @@ impl<A: Attr> Attribute<A> {
     }
 }
 
-impl<A: Attr> Sourced for Attribute<A> {
+impl<A: Attr> ErrorTarget for Attribute<A> {
     fn error(&self, message: impl Display) -> Error {
         self.src.error(message)
     }
@@ -311,7 +311,7 @@ fn expect_one<A: Attr>(attrs: HashMap<A, Attribute<A>>) -> Result<Option<Attribu
                 .build_err() // checked in tests/fail/derive_struct_attributes.rs
         }
         _ => {
-            let items = list_items(&attrs, |attr| format!("`{}`", attr.kind));
+            let items = list_items_with(&attrs, |attr| format!("`{}`", attr.kind));
             let msg = format!("only one of {items} is allowed");
             let mut error = ErrorBuilder::new();
             for attr in attrs {
@@ -372,7 +372,7 @@ where
     }
 }
 
-impl<A: Attr, Kind, Data> Sourced for SingleAttributeContainer<A, Kind, Data>
+impl<A: Attr, Kind, Data> ErrorTarget for SingleAttributeContainer<A, Kind, Data>
 where
     Kind: FromAttribute<A, Data>,
 {

@@ -20,7 +20,7 @@ macro_rules! declare_autogen {
             const AUTOGEN_KINDS: &'static [&'static str] = &[$($text,)+ $($special_text,)+];
 
             pub fn valid_hint() -> String {
-                list_items(Self::AUTOGEN_KINDS, |kind| format!(r#""{}""#, kind))
+                list_items_quoted(Self::AUTOGEN_KINDS, '"')
             }
 
             pub fn from_str(s: &str) -> Result<Self> {

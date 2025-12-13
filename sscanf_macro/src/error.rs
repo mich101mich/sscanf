@@ -7,6 +7,9 @@ use super::*;
 use proc_macro2::Span;
 pub use std::fmt::Display;
 
+/// Macro to create and return an error.
+///
+/// The `$span:expr` arguments can be any type that implements the `ErrorTarget` or `ToTokensErrorTarget` trait.
 macro_rules! bail {
     // macro arm for multiple spans with different messages
     // bail!(
@@ -39,6 +42,7 @@ macro_rules! bail {
         return Err($span.error(format_args!($format $(, $arg)*)));
     };
 }
+/// Macro to assert a condition or return an error.
 macro_rules! assert_or_bail {
     ( $condition:expr, $span:expr => $format:literal $(, $arg:expr)* ) => {
         if !$condition {
@@ -46,6 +50,7 @@ macro_rules! assert_or_bail {
         }
     };
 }
+/// Macro to add an error to an ErrorBuilder.
 macro_rules! add_error {
     ( $error:ident, $span:expr => $format:literal $(, $arg:expr)* ) => {
         $error.push($span.error(format_args!($format $(, $arg)*)));
@@ -99,30 +104,29 @@ impl ErrorBuilder {
     }
 }
 
-/// Extension trait for anything that can be converted to tokens to create errors
-pub trait ToTokensErrExt {
+/// Trait for types that can be used as the part that is underlined in an error message
+pub trait ErrorTarget {
+    /// Create an error from the source and message
+    fn error(&self, message: impl Display) -> Error;
+}
+
+impl ErrorTarget for Span {
+    fn error(&self, message: impl Display) -> Error {
+        Error::new(*self, message)
+    }
+}
+
+/// Like ErrorTarget, but for types that implement ToTokens
+///
+/// Note that we don't just implement ErrorTarget, because the compiler will complain an upstream crate might
+/// implement ToTokens for Span. (It won't, but the compiler can't know that.)
+pub trait ToTokensErrorTarget {
     /// Create an error from the given tokens and message
     fn error(&self, message: impl Display) -> Error;
 }
-impl<S: quote::ToTokens> ToTokensErrExt for S {
+
+impl<S: quote::ToTokens> ToTokensErrorTarget for S {
     fn error(&self, message: impl Display) -> Error {
         Error::new_spanned(self, message)
     }
-}
-
-/// Extension trait for spans to create errors
-pub trait SpanErrExt {
-    /// Create an error from the span and message
-    fn error(self, message: impl Display) -> Error;
-}
-impl SpanErrExt for Span {
-    fn error(self, message: impl Display) -> Error {
-        Error::new(self, message)
-    }
-}
-
-/// Trait for types that have a source, used for error reporting
-pub trait Sourced {
-    /// Create an error from the source and message
-    fn error(&self, message: impl Display) -> Error;
 }

@@ -74,19 +74,31 @@ pub fn take_closest<T: Display>(s: &str, compare: &mut Vec<T>) -> Option<T> {
 }
 
 /// Format a list of items as a comma-separated list, with "or" before the last item.
-pub fn list_items<T>(items: &[T], mut display: impl FnMut(&T) -> String) -> String {
+pub fn list_items<T: Display>(items: &[T]) -> String {
+    list_items_with(items, |x| x)
+}
+
+/// Format a list of items as a comma-separated list, with "or" before the last item.
+pub fn list_items_quoted<T: Display>(items: &[T], quote: char) -> String {
+    list_items_with(items, |x| format!("{quote}{x}{quote}"))
+}
+
+/// Format a list of items as a comma-separated list, with "or" before the last item.
+pub fn list_items_with<'a, T, D: Display + 'a>(
+    items: &'a [T],
+    mut display: impl FnMut(&'a T) -> D,
+) -> String {
     match items {
         [] => String::new(),
-        [x] => display(x),
+        [x] => display(x).to_string(),
         [a, b] => format!("{} or {}", display(a), display(b)),
         [start @ .., last] => {
+            use std::fmt::Write;
             let mut s = String::new();
             for item in start {
-                s += &display(item);
-                s += ", ";
+                write!(s, "{}, ", display(item)).unwrap();
             }
-            s += "or ";
-            s += &display(last);
+            write!(s, "or {}", display(last)).unwrap();
             s
         }
     }
@@ -125,6 +137,7 @@ pub trait SpanExt {
     fn stable_column(&self) -> usize;
     fn stable_file(&self) -> String;
 }
+#[cfg(not(test))]
 impl SpanExt for Span {
     fn stable_start(&self) -> Span {
         self.unwrap().start().into() // Span2 -> Span1 -> call start() -> Span2
@@ -140,6 +153,25 @@ impl SpanExt for Span {
     }
     fn stable_file(&self) -> String {
         self.unwrap().file()
+    }
+}
+#[cfg(test)]
+impl SpanExt for Span {
+    fn stable_start(&self) -> Span {
+        // Note: Span::unwrap() returns a proc_macro(1) Span, which is not available outside of procedural macros, aka when testing.
+        *self
+    }
+    fn stable_end(&self) -> Span {
+        *self
+    }
+    fn stable_line(&self) -> usize {
+        999
+    }
+    fn stable_column(&self) -> usize {
+        123
+    }
+    fn stable_file(&self) -> String {
+        "/inside/a/test.rs".to_string()
     }
 }
 
@@ -162,5 +194,65 @@ impl<T: ToTokens> ToTokensExt for T {
             .last()
             .map(|t| t.span().stable_end())
             .unwrap_or(Span::call_site())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn list_items_empty() {
+        let items: [&str; 0] = [];
+        assert_eq!(list_items(&items), "");
+        assert_eq!(list_items_quoted(&items, '"'), "");
+        assert_eq!(list_items_with(&items, |x| format!("{x} ^ {x}")), "");
+    }
+
+    #[test]
+    fn list_items_single() {
+        let items = ["apple"];
+        assert_eq!(list_items(&items), "apple");
+        assert_eq!(list_items_quoted(&items, '`'), "`apple`");
+        assert_eq!(
+            list_items_with(&items, |x| format!("{x} ^ {x}")),
+            "apple ^ apple"
+        );
+    }
+
+    #[test]
+    fn list_items_two() {
+        let items = ["apple", "banana"];
+        assert_eq!(list_items(&items), "apple or banana");
+        assert_eq!(list_items_quoted(&items, '\''), "'apple' or 'banana'");
+        assert_eq!(
+            list_items_with(&items, |x| format!("{x} ^ {x}")),
+            "apple ^ apple or banana ^ banana"
+        );
+    }
+
+    #[test]
+    fn list_items_many() {
+        let items = ["apple", "banana", "cherry"];
+        assert_eq!(list_items(&items), "apple, banana, or cherry");
+        assert_eq!(
+            list_items_quoted(&items, '"'),
+            "\"apple\", \"banana\", or \"cherry\""
+        );
+        assert_eq!(
+            list_items_with(&items, |x| format!("{x} ^ {x}")),
+            "apple ^ apple, banana ^ banana, or cherry ^ cherry"
+        );
+
+        let items = ["apple", "banana", "cherry", "date"];
+        assert_eq!(list_items(&items), "apple, banana, cherry, or date");
+        assert_eq!(
+            list_items_quoted(&items, '`'),
+            "`apple`, `banana`, `cherry`, or `date`"
+        );
+        assert_eq!(
+            list_items_with(&items, |x| format!("{x} ^ {x}")),
+            "apple ^ apple, banana ^ banana, cherry ^ cherry, or date ^ date"
+        );
     }
 }

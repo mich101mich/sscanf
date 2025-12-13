@@ -376,10 +376,16 @@ fn rust_compiler_replacements(input: &str) -> (String, usize) {
 mod tests {
     use super::*;
 
+    #[macro_export]
+    macro_rules! str_lit {
+        ( $input:literal ) => {
+            syn::parse2::<StrLit>(quote::quote! { $input }).unwrap()
+        };
+    }
+
     #[test]
     fn str_lit_slice_basic() {
-        let tokens = quote! { "Hello, world!" };
-        let str_lit: StrLit = syn::parse2(tokens).unwrap();
+        let str_lit = str_lit! { "Hello, world!" };
 
         assert_eq!(str_lit.text, "\"Hello, world!\""); // syn adds the quotes back in.
         assert!(!str_lit.is_raw());
@@ -397,8 +403,7 @@ mod tests {
 
     #[test]
     fn str_lit_slice_raw() {
-        let tokens = quote! { r"Raw string" };
-        let str_lit: StrLit = syn::parse2(tokens).unwrap();
+        let str_lit = str_lit! { r"Raw string" };
 
         assert_eq!(str_lit.text, "r\"Raw string\"");
         assert!(str_lit.is_raw());
@@ -411,8 +416,7 @@ mod tests {
 
     #[test]
     fn str_lit_slice_raw_extended() {
-        let tokens = quote! { r#"Raw string with "quotes" and \backslashes\"# };
-        let str_lit: StrLit = syn::parse2(tokens).unwrap();
+        let str_lit = str_lit! { r#"Raw string with "quotes" and \backslashes\"# };
 
         assert_eq!(
             str_lit.text,
@@ -431,8 +435,7 @@ mod tests {
 
     #[test]
     fn advanced_unicode_support() {
-        let tokens = quote! { "y̆😛y̆{Ay̆y̆y̆:😛}y̆😛y̆" };
-        let str_lit: StrLit = syn::parse2(tokens).unwrap();
+        let str_lit = str_lit! { "y̆😛y̆{Ay̆y̆y̆:😛}y̆😛y̆" };
 
         let (converted, full_length) = rust_compiler_replacements(&str_lit.text);
         assert_eq!(

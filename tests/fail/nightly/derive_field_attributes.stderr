@@ -212,11 +212,17 @@ error[E0277]: the trait bound `u8: From<f32>` is not satisfied
 help: the following other types implement trait `From<T>`
    --> $RUST/core/src/ascii/ascii_char.rs
     |
+    |             impl const From<AsciiChar> for $ty {
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `u8` implements `From<Char>`
+...
     | into_int_impl!(u8 u16 u32 u64 u128 char);
-    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `u8` implements `From<Char>`
+    | ---------------------------------------- in this macro invocation
     |
    ::: $RUST/core/src/convert/num.rs
     |
+    |         impl const From<$Small> for $Large {
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `u8` implements `From<bool>`
+...
     | impl_from!(bool => u8);
-    | ^^^^^^^^^^^^^^^^^^^^^^ `u8` implements `From<bool>`
+    | ---------------------- in this macro invocation
     = note: this error originates in the macro `into_int_impl` which comes from the expansion of the macro `impl_from` (in Nightly builds, run with -Z macro-backtrace for more info)

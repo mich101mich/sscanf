@@ -27,7 +27,7 @@ impl<'a> FormatString<'a> {
                 } else {
                     parts.push(std::mem::take(&mut current_part));
                     parser.mark_open_bracket(pos);
-                    placeholders.push(Placeholder::parse(&mut parser)?);
+                    placeholders.push(parser.parse()?);
                     continue;
                 }
             } else if c == '}' {

@@ -14,12 +14,12 @@ pub struct Placeholder<'a> {
     pub config: FormatOptions<'a>,
 }
 
-impl<'a> Placeholder<'a> {
+impl<'a> FromFormatString<'a> for Placeholder<'a> {
     /// Parse a placeholder from the given parser
     ///
     /// "...{<ident>:<config>}..."
     ///      ^parser          ^parser when done
-    pub fn parse(parser: &mut FormatStringParser<'a>) -> Result<Self> {
+    fn parse(parser: &mut FormatStringParser<'a>) -> Result<Self> {
         let (first, first_char) = parser.take()?;
         let mut ident = None;
         let mut config = None;
@@ -29,7 +29,7 @@ impl<'a> Placeholder<'a> {
             }
             ':' if !matches!(parser.peek(), Some((_, ':'))) => {
                 // single ':' => no ident, but config
-                config = Some(FormatOptions::parse(parser)?);
+                config = Some(parser.parse()?);
             }
             _ => {
                 // ident (any other char or "::")
@@ -46,7 +46,7 @@ impl<'a> Placeholder<'a> {
                     } else {
                         // single ':' => ident ends, config follows
                         ident = Some(parser.slice(first, pos));
-                        config = Some(FormatOptions::parse(parser)?);
+                        config = Some(parser.parse()?);
                         break;
                     }
                 }
@@ -68,7 +68,7 @@ impl<'a> Placeholder<'a> {
     }
 }
 
-impl Sourced for Placeholder<'_> {
+impl ErrorTarget for Placeholder<'_> {
     fn error(&self, message: impl Display) -> Error {
         self.src.error(message)
     }
