@@ -14,32 +14,47 @@ impl<'a> FromFormatString<'a> for RegexOverride<'a> {
         assert_eq!(start_slash, '/');
 
         let mut regex = String::new();
-        let mut escape = None; // index of the last '\\', if any
+        let mut was_escape = false;
+        let mut had_escaped_slash = false;
         loop {
-            let Ok((i, c)) = parser.take() else {
-                return parser.err_since(start, "missing '/' to close the regex option");
+            let Ok((_, c)) = parser.take() else {
+                let msg = if had_escaped_slash {
+                    "missing unescaped '/' to close the regex option"
+                } else {
+                    "missing '/' to close the regex option"
+                };
+                return parser.err_since(start, msg);
             };
             if c == '/' {
-                if escape.take().is_some() {
-                    regex.push('/');
+                if was_escape {
+                    regex.push('/'); // escaped slash => keep the slash
+                    had_escaped_slash = true;
+                    was_escape = false;
                 } else {
                     break;
                 }
             } else if c == '\\' {
-                if escape.take().is_some() {
+                if was_escape {
+                    regex.push('\\'); // escaped backslash => keep both, because regex will escape it again
                     regex.push('\\');
-                    regex.push('\\');
+                    was_escape = false;
                 } else {
-                    escape = Some(i);
+                    was_escape = true;
                 }
             } else {
-                if escape.take().is_some() {
-                    regex.push('\\');
+                if was_escape {
+                    regex.push('\\'); // some other escaped char => keep the backslash and the char
+                    was_escape = false;
                 }
                 regex.push(c);
             }
         }
         let src = parser.slice_since(start);
+
+        if let Err(err) = regex_syntax::Parser::new().parse(&regex) {
+            bail!(src => "invalid regex override: {}", err);
+        }
+
         Ok(Self { src, regex })
     }
 }

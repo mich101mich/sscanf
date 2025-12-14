@@ -19,7 +19,11 @@ pub struct FormatStringParser<'a> {
 
 impl<'a> FormatStringParser<'a> {
     pub fn new(src: StrLitSlice<'a>) -> Self {
-        let (char_indices, chars) = src.text().char_indices().unzip();
+        let (char_indices, chars) = if src.is_raw() {
+            src.text().char_indices().unzip()
+        } else {
+            unescape_regular_string(src.text())
+        };
         Self {
             src,
             chars,
@@ -109,6 +113,68 @@ impl<'a> FormatStringParser<'a> {
     pub fn err_at<T>(&self, pos: usize, message: impl Display) -> Result<T> {
         self.slice(pos, pos + 1).err(message)
     }
+}
+
+/// non-raw strings still contain escapes, which would be double escaped and misinterpreted if we kept them.
+/// So we need to unescape them first.
+fn unescape_regular_string(src: &str) -> (Vec<usize>, Vec<char>) {
+    let mut char_indices = vec![];
+    let mut chars = vec![];
+    let mut iter = src.char_indices();
+    const ERROR: &str =
+        "sscanf: invalid escape sequence. This should have been caught by the Rust compiler";
+    while let Some((i, c)) = iter.next() {
+        if c != '\\' {
+            char_indices.push(i);
+            chars.push(c);
+            continue;
+        }
+        let (_, next_c) = iter.next().expect(ERROR);
+        // Source: <https://doc.rust-lang.org/reference/tokens.html#literals>
+        // Regular strings can contain Quote, ASCII and Unicode escapes
+        match next_c {
+            // Quote escapes
+            '"' => chars.push('"'),
+            '\'' => chars.push('\''),
+
+            // ASCII escapes
+            'x' => {
+                // hex escape: \xNN (always has exactly two hex digits)
+                let mut hex = String::new();
+                hex.push(iter.next().expect(ERROR).1);
+                hex.push(iter.next().expect(ERROR).1);
+                let byte = u8::from_str_radix(&hex, 16).expect(ERROR);
+                chars.push(byte as char);
+            }
+            'n' => chars.push('\n'),
+            'r' => chars.push('\r'),
+            't' => chars.push('\t'),
+            '\\' => chars.push('\\'),
+            '0' => chars.push('\0'),
+
+            // Unicode escapes
+            'u' => {
+                // Unicode escape: \u{NNNN...} (1-6 hex digits inside braces)
+                let brace_open = iter.next().expect(ERROR).1;
+                assert_eq!(brace_open, '{', "{ERROR}");
+                let hex = iter
+                    .by_ref()
+                    .map(|(_, c)| c)
+                    .take_while(|c| *c != '}')
+                    .collect::<String>();
+                let codepoint = u32::from_str_radix(&hex, 16).expect(ERROR);
+                let character = std::char::from_u32(codepoint).expect(ERROR);
+                chars.push(character);
+            }
+
+            _ => panic!(
+                "sscanf: Unexpected escape sequence. If Rust has new syntax for string escapes, sscanf needs to be updated to match it, so please open an issue."
+            ),
+        }
+        char_indices.push(i); // index of the '\'
+    }
+
+    (char_indices, chars)
 }
 
 /// Trait to parse a type using a `FormatStringParser`.
@@ -238,5 +304,30 @@ mod tests {
         assert_eq!(parser.peek(), Some((3, 'a')));
 
         assert!(parser.parse::<Number>().is_err()); // no digits at the start
+    }
+
+    #[test]
+    fn test_unescape() {
+        let src = str_lit! { "\n \\n \\ \0 \x41 \u{0041} " };
+        let (indices, chars) = unescape_regular_string(src.to_slice().text());
+        let char_indices = indices.into_iter().zip(chars).collect::<Vec<_>>();
+        assert_eq!(
+            char_indices,
+            vec![
+                (0, '\n'),
+                (2, ' '),
+                (3, '\\'),
+                (5, 'n'),
+                (6, ' '),
+                (7, '\\'),
+                (9, ' '),
+                (10, '\0'),
+                (12, ' '),
+                (13, 'A'),
+                (17, ' '),
+                (18, 'A'),
+                (26, ' '),
+            ]
+        );
     }
 }

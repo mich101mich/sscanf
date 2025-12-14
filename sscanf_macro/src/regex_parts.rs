@@ -83,6 +83,23 @@ impl Parser {
             Self(quote! { src.parse_at::<#ty>(#index, &#format_options)? })
         }
     }
+
+    pub fn from_custom_regex(index: usize, ty: &Type<'_>, format_options: &FormatOptions) -> Self {
+        if let Some(name) = &ty.field_name {
+            // See above for explanation
+            let span = ty.full_span();
+            let call = span.apply(
+                quote! {::sscanf::advanced::SeqMatch::parse_field_from_custom_regex},
+                quote! {(&src, #name, #index, &#format_options)},
+            );
+            Self(quote! {{
+                let ret: #ty = #call?;
+                ret
+            }})
+        } else {
+            Self(quote! { src.parse_at_from_custom_regex::<#ty>(#index, &#format_options)? })
+        }
+    }
 }
 
 impl ToTokens for Parser {
@@ -122,14 +139,15 @@ impl SequenceMatcher {
 
             let match_index = ret.match_parts.len(); // the index of the matcher to be added now
 
-            let match_part = if let Some(custom) = &ph.config.regex {
-                MatchPart::from_custom_regex(&custom.regex)
+            let (match_part, parser);
+            if let Some(custom) = &ph.config.regex {
+                match_part = MatchPart::from_custom_regex(&custom.regex);
+                parser = Parser::from_custom_regex(match_index, ty, &ph.config);
             } else {
-                MatchPart::from_type(ty, &ph.config)
+                match_part = MatchPart::from_type(ty, &ph.config);
+                parser = Parser::from_type(match_index, ty, &ph.config);
             };
             ret.match_parts.push(match_part);
-
-            let parser = Parser::from_type(match_index, ty, &ph.config);
             ret.parsers.push(parser);
         }
 

@@ -7,4 +7,8 @@ fn main() {
     sscanf::sscanf!("", "{:/\\", str);
     sscanf::sscanf!("", r"{:/\/", str);
     sscanf::sscanf!("", "{:/\\/", str);
+
+    sscanf::sscanf!("", r"{:/abc[def/}", str);
+    sscanf::sscanf!("", r"{:/{/}", str);
+    sscanf::sscanf!("", r"{:/{\}/}", str);
 }

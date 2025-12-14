@@ -7,6 +7,13 @@ pub use format_options::*;
 pub use parser::*;
 pub use placeholder::*;
 
+/// A parsed format string, consisting of literal parts and placeholders.
+///
+/// Structure:
+///     "..........{some_type:some-config}..........{some_type:some-config}.........."
+///      \________/\_____________________/\________/\_____________________/\________/
+///       parts[0]     placeholders[0]     parts[1]     placeholders[1]     parts[2]
+///                                  
 pub struct FormatString<'a> {
     pub placeholders: Vec<Placeholder<'a>>,
     pub parts: Vec<String>, // contains placeholders.len() + 1 parts

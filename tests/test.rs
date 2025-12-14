@@ -185,6 +185,20 @@ fn string_lifetime() {
 }
 
 #[test]
+fn respects_raw_strings() {
+    let input = "0  \\  \"  \n  \x41  \u{0041}";
+    let parsed = sscanf!(input, "{usize}  \\  \"  \n  \x41  \u{0041}");
+    assert_eq!(parsed.unwrap(), 0);
+
+    let parsed = sscanf!(
+        input,
+        r#"{usize}  \  "  
+  A  A"#
+    );
+    assert_eq!(parsed.unwrap(), 0);
+}
+
+#[test]
 #[ignore]
 fn error_message_tests() {
     let root = std::path::PathBuf::from("tests/fail");

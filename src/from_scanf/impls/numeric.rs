@@ -13,8 +13,10 @@ use crate::{
 // Sign   ::= [+-]
 // Digit  ::= [0-9]
 // Float  ::= Sign? ( 'inf' | 'infinity' | 'nan' | Number )
-const FLOAT: &str =
-    r"[+-]?(?i:inf|infinity|nan|(?:[0-9]+|[0-9]+\.[0-9]*|[0-9]*\.[0-9]+)(?:e[+-]?[0-9]+)?)";
+#[rustfmt::skip]
+const FLOAT: &str = r"[+-]?(?i:inf|infinity|nan|(?:[0-9]+|[0-9]+\.[0-9]*|[0-9]*\.[0-9]+)(?:e[+-]?[0-9]+)?)";
+//                    \__/                                                              \______________/ Exp
+//                    Sign                       \______________________________________________________/ Number
 
 macro_rules! doc_concat {
     ($target: item, $($doc: expr),+) => {
@@ -139,38 +141,12 @@ fn primitive_get_matcher<T: PrimitiveNumber>(format: &FormatOptions) -> Matcher 
     Matcher::from_raw(Hir::concat(regex))
 }
 
-fn primitive_from_match_tree<T: PrimitiveNumber>(
-    matches: MatchTree<'_, '_>,
+fn generic_number_parse<T: PrimitiveNumber>(
     format: &FormatOptions,
+    is_negative: bool,
+    number: &str,
 ) -> Option<T> {
-    let mut number = matches.text();
-
-    let negative = number.starts_with('-');
-    number = number.strip_prefix(['+', '-']).unwrap_or(number);
-
-    if let Some(prefix) = format.number.prefix() {
-        let prefix_upper = prefix.to_ascii_uppercase();
-        if format.number.prefix_policy() == NumberPrefixPolicy::Required {
-            number = number
-                .strip_prefix(prefix)
-                .or_else(|| number.strip_prefix(&prefix_upper))
-                .unwrap_or_else(|| {
-                    panic!(
-                        "sscanf: Expected required prefix '{}' but not found in input '{}'",
-                        prefix,
-                        matches.text()
-                    )
-                });
-        } else {
-            // optional
-            number = number
-                .strip_prefix(prefix)
-                .or_else(|| number.strip_prefix(&prefix_upper))
-                .unwrap_or(number);
-        }
-    }
-
-    if negative {
+    if is_negative {
         // negative numbers have a different range from positive numbers (e.g. i8::MIN is -128 while i8::MAX is 127).
         // in order to avoid an overflow when trying to parse number like -128i8, we need to parse the number as its
         // unsigned counterpart, e.g. u8::parse_radix("128", 10). This is better than having to manually check for
@@ -180,6 +156,45 @@ fn primitive_from_match_tree<T: PrimitiveNumber>(
     } else {
         T::parse_radix(number, format.number.to_number())
     }
+}
+
+fn primitive_from_match_tree<T: PrimitiveNumber>(
+    matches: MatchTree<'_, '_>,
+    format: &FormatOptions,
+) -> Option<T> {
+    let is_negative = matches.text().starts_with('-');
+    let matches = matches.as_regex_matches();
+    let number = matches[0].unwrap(); // We created a capture in primitive_get_matcher
+    generic_number_parse(format, is_negative, number)
+}
+
+fn primitive_from_regex_override<T: PrimitiveNumber>(
+    input: &str,
+    format: &FormatOptions,
+) -> Option<T> {
+    let mut rest = input;
+    let is_negative = rest.starts_with('-');
+    rest = rest.strip_prefix(['+', '-']).unwrap_or(rest);
+
+    if let Some(prefix) = format.number.prefix() {
+        let prefix_upper = prefix.to_ascii_uppercase();
+        if format.number.prefix_policy() == NumberPrefixPolicy::Required {
+            rest = rest
+                .strip_prefix(prefix)
+                .or_else(|| rest.strip_prefix(&prefix_upper))
+                .unwrap_or_else(|| {
+                    panic!("sscanf: Expected required prefix '{prefix}' but not found in input '{input}'")
+                });
+        } else {
+            // optional
+            rest = rest
+                .strip_prefix(prefix)
+                .or_else(|| rest.strip_prefix(&prefix_upper))
+                .unwrap_or(rest);
+        }
+    }
+
+    generic_number_parse::<T>(format, is_negative, rest)
 }
 
 macro_rules! impl_int {
@@ -198,25 +213,36 @@ macro_rules! impl_int {
                 }
             }
 
-            impl FromScanf<'_> for $unsigned {
-                fn get_matcher(format: &FormatOptions) -> Matcher {
-                    primitive_get_matcher::<$unsigned>(format)
-                }
-                doc_concat!{
+            doc_concat! {
+                impl FromScanf<'_> for $unsigned {
+                    fn get_matcher(format: &FormatOptions) -> Matcher {
+                        primitive_get_matcher::<$unsigned>(format)
+                    }
+
                     fn from_match_tree(matches: MatchTree<'_, '_>, format: &FormatOptions) -> Option<Self> {
                         primitive_from_match_tree::<$unsigned>(matches, format)
-                    },
-                    concat!("Matches an unsigned number with ", $digits_2, " bits in the respective radix."),
-                    "",
-                    "```",
-                    "# use sscanf::*; use sscanf::advanced::*;",
-                    concat!("let re = ", stringify!($unsigned), "::get_matcher(&Default::default()).to_regex();"),
-                    concat!(r#"assert_eq!(re, r"((?:\+?([0-9]{1,"#, $digits_10, r#"})))");"#),
-                    "",
-                    "let hex_options = FormatOptions::builder().hex().with_prefix().build();",
-                    concat!("let re = ", stringify!($unsigned), "::get_matcher(&hex_options).to_regex();"),
-                    concat!(r#"assert_eq!(re, r"((?:\+?0[Xx]([0-9A-Fa-f]{1,"#, $digits_16, r#"})))");"#),
-                    "```"
+                    }
+                },
+                "Matches an unsigned integer type with ", stringify!($bits), " bits.",
+                "",
+                "Note that this matches purely based on the number of digits in the given radix, so larger numbers",
+                "will still be matched, but parsing them will fail.",
+                "",
+                "# Example",
+                "```rust",
+                "# use sscanf::{*, advanced::*};",
+                concat!("let re = ", stringify!($signed), "::get_matcher(&Default::default()).to_regex();"),
+                concat!(r#"assert_eq!(re, r"((?:[\+\-]?([0-9]{1,"#, $digits_10, r#"})))");"#),
+                "",
+                "let hex_options = FormatOptions::builder().hex().with_prefix().build();",
+                concat!("let re = ", stringify!($unsigned), "::get_matcher(&hex_options).to_regex();"),
+                concat!(r#"assert_eq!(re, r"((?:\+?0[Xx]([0-9A-Fa-f]{1,"#, $digits_16, r#"})))");"#),
+                "```"
+            }
+
+            impl AcceptsRegexOverride<'_> for $unsigned {
+                fn from_regex_match(input: &str, format: &FormatOptions) -> Option<Self> {
+                    primitive_from_regex_override::<$unsigned>(input, format)
                 }
             }
 
@@ -235,26 +261,32 @@ macro_rules! impl_int {
                 }
             }
 
-            impl FromScanf<'_> for $signed {
-                fn get_matcher(format: &FormatOptions) -> Matcher {
-                    primitive_get_matcher::<$signed>(format)
-                }
+            doc_concat! {
+                impl FromScanf<'_> for $signed {
+                    fn get_matcher(format: &FormatOptions) -> Matcher {
+                        primitive_get_matcher::<$signed>(format)
+                    }
 
-                doc_concat!{
                     fn from_match_tree(matches: MatchTree<'_, '_>, format: &FormatOptions) -> Option<Self> {
                         primitive_from_match_tree::<$signed>(matches, format)
-                    },
-                    concat!("Matches a signed number with ", $digits_2, " bits in the respective radix."),
-                    "",
-                    "```",
-                    "# use sscanf::*; use sscanf::advanced::*;",
-                    concat!("let re = ", stringify!($signed), "::get_matcher(&Default::default()).to_regex();"),
-                    concat!(r#"assert_eq!(re, r"((?:[\+\-]?([0-9]{1,"#, $digits_10, r#"})))");"#),
-                    "",
-                    "let hex_options = FormatOptions::builder().hex().with_prefix().build();",
-                    concat!("let re = ", stringify!($signed), "::get_matcher(&hex_options).to_regex();"),
-                    concat!(r#"assert_eq!(re, r"((?:[\+\-]?0[Xx]([0-9A-Fa-f]{1,"#, $digits_16, r#"})))");"#),
-                    "```"
+                    }
+                },
+                concat!("Matches a signed number with ", $digits_2, " bits in the respective radix."),
+                "",
+                "```",
+                "# use sscanf::*; use sscanf::advanced::*;",
+                concat!("let re = ", stringify!($signed), "::get_matcher(&Default::default()).to_regex();"),
+                concat!(r#"assert_eq!(re, r"((?:[\+\-]?([0-9]{1,"#, $digits_10, r#"})))");"#),
+                "",
+                "let hex_options = FormatOptions::builder().hex().with_prefix().build();",
+                concat!("let re = ", stringify!($signed), "::get_matcher(&hex_options).to_regex();"),
+                concat!(r#"assert_eq!(re, r"((?:[\+\-]?0[Xx]([0-9A-Fa-f]{1,"#, $digits_16, r#"})))");"#),
+                "```"
+            }
+
+            impl AcceptsRegexOverride<'_> for $signed {
+                fn from_regex_match(input: &str, format: &FormatOptions) -> Option<Self> {
+                    primitive_from_regex_override::<$signed>(input, format)
                 }
             }
         )+
@@ -275,36 +307,42 @@ impl PrimitiveNumber for usize {
     }
 }
 
+/// Matches an unsigned number with a platform-specific number of bits in the respective radix.
+///
+/// ```
+/// # use sscanf::*; use sscanf::advanced::*;
+/// #[cfg(target_pointer_width = "64")]
+/// {
+///     let re = usize::get_matcher(&Default::default()).to_regex();
+///     assert_eq!(re, r"((?:\+?([0-9]{1,20})))");
+///
+///     let hex_options = FormatOptions::builder().hex().with_prefix().build();
+///     let re = usize::get_matcher(&hex_options).to_regex();
+///     assert_eq!(re, r"((?:\+?0[Xx]([0-9A-Fa-f]{1,16})))");
+/// }
+/// #[cfg(target_pointer_width = "32")]
+/// {
+///     let re = usize::get_matcher(&Default::default()).to_regex();
+///     assert_eq!(re, r"((?:\+?([0-9]{1,10})))");
+///
+///     let hex_options = FormatOptions::builder().hex().with_prefix().build();
+///     let re = usize::get_matcher(&hex_options).to_regex();
+///     assert_eq!(re, r"((?:\+?0[Xx]([0-9A-Fa-f]{1,8})))");
+/// }
+/// ```
 impl FromScanf<'_> for usize {
     fn get_matcher(format: &FormatOptions) -> Matcher {
         primitive_get_matcher::<usize>(format)
     }
 
-    /// Matches an unsigned number with a platform-specific number of bits in the respective radix.
-    ///
-    /// ```
-    /// # use sscanf::*; use sscanf::advanced::*;
-    /// #[cfg(target_pointer_width = "64")]
-    /// {
-    ///     let re = usize::get_matcher(&Default::default()).to_regex();
-    ///     assert_eq!(re, r"((?:\+?([0-9]{1,20})))");
-    ///
-    ///     let hex_options = FormatOptions::builder().hex().with_prefix().build();
-    ///     let re = usize::get_matcher(&hex_options).to_regex();
-    ///     assert_eq!(re, r"((?:\+?0[Xx]([0-9A-Fa-f]{1,16})))");
-    /// }
-    /// #[cfg(target_pointer_width = "32")]
-    /// {
-    ///     let re = usize::get_matcher(&Default::default()).to_regex();
-    ///     assert_eq!(re, r"((?:\+?([0-9]{1,10})))");
-    ///
-    ///     let hex_options = FormatOptions::builder().hex().with_prefix().build();
-    ///     let re = usize::get_matcher(&hex_options).to_regex();
-    ///     assert_eq!(re, r"((?:\+?0[Xx]([0-9A-Fa-f]{1,8})))");
-    /// }
-    /// ```
     fn from_match_tree(matches: MatchTree<'_, '_>, format: &FormatOptions) -> Option<Self> {
         primitive_from_match_tree::<usize>(matches, format)
+    }
+}
+
+impl AcceptsRegexOverride<'_> for usize {
+    fn from_regex_match(input: &str, format: &FormatOptions) -> Option<Self> {
+        primitive_from_regex_override::<usize>(input, format)
     }
 }
 
@@ -323,36 +361,42 @@ impl PrimitiveNumber for isize {
     }
 }
 
+/// Matches a signed number with a platform-specific number of bits in the respective radix.
+///
+/// ```
+/// # use sscanf::*; use sscanf::advanced::*;
+/// #[cfg(target_pointer_width = "64")]
+/// {
+///     let re = isize::get_matcher(&Default::default()).to_regex();
+///     assert_eq!(re, r"((?:[\+\-]?([0-9]{1,20})))");
+///
+///     let hex_options = FormatOptions::builder().hex().with_prefix().build();
+///     let re = isize::get_matcher(&hex_options).to_regex();
+///     assert_eq!(re, r"((?:[\+\-]?0[Xx]([0-9A-Fa-f]{1,16})))");
+/// }
+/// #[cfg(target_pointer_width = "32")]
+/// {
+///     let re = isize::get_matcher(&Default::default()).to_regex();
+///     assert_eq!(re, r"((?:[\+\-]?([0-9]{1,10})))");
+///
+///     let hex_options = FormatOptions::builder().hex().with_prefix().build();
+///     let re = isize::get_matcher(&hex_options).to_regex();
+///     assert_eq!(re, r"((?:[\+\-]?0[Xx]([0-9A-Fa-f]{1,8})))");
+/// }
+/// ```
 impl FromScanf<'_> for isize {
     fn get_matcher(format: &FormatOptions) -> Matcher {
         primitive_get_matcher::<isize>(format)
     }
 
-    /// Matches a signed number with a platform-specific number of bits in the respective radix.
-    ///
-    /// ```
-    /// # use sscanf::*; use sscanf::advanced::*;
-    /// #[cfg(target_pointer_width = "64")]
-    /// {
-    ///     let re = isize::get_matcher(&Default::default()).to_regex();
-    ///     assert_eq!(re, r"((?:[\+\-]?([0-9]{1,20})))");
-    ///
-    ///     let hex_options = FormatOptions::builder().hex().with_prefix().build();
-    ///     let re = isize::get_matcher(&hex_options).to_regex();
-    ///     assert_eq!(re, r"((?:[\+\-]?0[Xx]([0-9A-Fa-f]{1,16})))");
-    /// }
-    /// #[cfg(target_pointer_width = "32")]
-    /// {
-    ///     let re = isize::get_matcher(&Default::default()).to_regex();
-    ///     assert_eq!(re, r"((?:[\+\-]?([0-9]{1,10})))");
-    ///
-    ///     let hex_options = FormatOptions::builder().hex().with_prefix().build();
-    ///     let re = isize::get_matcher(&hex_options).to_regex();
-    ///     assert_eq!(re, r"((?:[\+\-]?0[Xx]([0-9A-Fa-f]{1,8})))");
-    /// }
-    /// ```
     fn from_match_tree(matches: MatchTree<'_, '_>, format: &FormatOptions) -> Option<Self> {
         primitive_from_match_tree::<isize>(matches, format)
+    }
+}
+
+impl AcceptsRegexOverride<'_> for isize {
+    fn from_regex_match(input: &str, format: &FormatOptions) -> Option<Self> {
+        primitive_from_regex_override::<isize>(input, format)
     }
 }
 
@@ -372,15 +416,22 @@ macro_rules! impl_non_zero {
                 }
             }
 
-            impl FromScanf<'_> for $ty {
-                fn get_matcher(format: &FormatOptions) -> Matcher {
-                    primitive_get_matcher::<$base>(format)
-                }
-                doc_concat!{
+            doc_concat! {
+                impl FromScanf<'_> for $ty {
+                    fn get_matcher(format: &FormatOptions) -> Matcher {
+                        primitive_get_matcher::<$base>(format)
+                    }
+
                     fn from_match_tree(matches: MatchTree<'_, '_>, format: &FormatOptions) -> Option<Self> {
                         primitive_from_match_tree::<$base>(matches, format).and_then(Self::new)
-                    },
-                    concat!("Matches a non-zero [", stringify!($base), "](trait.FromScanf.html#impl-FromScanf<'_>-for-", stringify!($base), ").")
+                    }
+                },
+                concat!("Matches a non-zero [", stringify!($base), "](trait.FromScanf.html#impl-FromScanf<'_>-for-", stringify!($base), ").")
+            }
+
+            impl AcceptsRegexOverride<'_> for $ty {
+                fn from_regex_match(input: &str, format: &FormatOptions) -> Option<Self> {
+                    primitive_from_regex_override::<$base>(input, format).and_then(Self::new)
                 }
             }
         )+
@@ -390,25 +441,26 @@ impl_non_zero!(NonZeroU8:u8, NonZeroU16:u16, NonZeroU32:u32, NonZeroU64:u64, Non
 impl_non_zero!(NonZeroI8:i8, NonZeroI16:i16, NonZeroI32:i32, NonZeroI64:i64, NonZeroI128:i128, NonZeroIsize:isize);
 
 macro_rules! impl_float {
-    ($($ty: ty),+) => {
-        $(impl FromScanfSimple<'_> for $ty {
-            const REGEX: &'static str = FLOAT;
-
-            doc_concat!{
-                fn from_match(input: &str) -> Option<Self> {
-                    input.parse().ok()
-                },
-                "Matches any floating point number",
-                "",
-                concat!("See [FromStr on ", stringify!($ty), "](https://doc.rust-lang.org/std/primitive.", stringify!($ty), ".html#method.from_str) for details"),
-                "```",
-                "# use sscanf::FromScanfSimple;",
-                concat!("let re = ", stringify!($ty), "::REGEX;"),
-                r#"assert_eq!(re, r"[+-]?(?i:inf|infinity|nan|(?:[0-9]+|[0-9]+\.[0-9]*|[0-9]*\.[0-9]+)(?:e[+-]?[0-9]+)?)");"#,
-                "```"
+    ($($ty: ty),+) => {$(
+        /// Matches a floating point number.
+        ///
+        /// See <https://doc.rust-lang.org/std/primitive.f32.html#grammar> for the syntax.
+        impl FromScanf<'_> for $ty {
+            fn get_matcher(_: &FormatOptions) -> Matcher {
+                Matcher::from_regex(FLOAT).unwrap()
             }
-        })+
-    };
+
+            fn from_match_tree(matches: MatchTree<'_, '_>, _: &FormatOptions) -> Option<Self> {
+                matches.text().parse().ok()
+            }
+        }
+
+        impl AcceptsRegexOverride<'_> for $ty {
+            fn from_regex_match(input: &str, _: &FormatOptions) -> Option<Self> {
+                input.parse().ok()
+            }
+        }
+    )+};
 }
 impl_float!(f32, f64);
 

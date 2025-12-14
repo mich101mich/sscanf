@@ -12,14 +12,14 @@ help: the trait `FromScanf<'_>` is not implemented for `NoFromScanf`
   = note: derive or implement `FromScanf` for `NoFromScanf` to use it with `sscanf!`
   = note: see the `FromScanf` documentation for details: <https://docs.rs/sscanf/latest/sscanf/trait.FromScanf.html>
   = help: the following other types implement trait `FromScanf<'input>`:
-            NonZero<i128>
-            NonZero<i16>
-            NonZero<i32>
-            NonZero<i64>
-            NonZero<i8>
-            NonZero<isize>
-            NonZero<u128>
-            NonZero<u16>
+            `&'input str` implements `FromScanf<'input>`
+            `Cow<'input, str>` implements `FromScanf<'input>`
+            `NonZero<i128>` implements `FromScanf<'_>`
+            `NonZero<i16>` implements `FromScanf<'_>`
+            `NonZero<i32>` implements `FromScanf<'_>`
+            `NonZero<i64>` implements `FromScanf<'_>`
+            `NonZero<i8>` implements `FromScanf<'_>`
+            `NonZero<isize>` implements `FromScanf<'_>`
           and $N others
 
 error[E0277]: type `NoFromScanf` can't be parsed by sscanf because it does not implement `FromScanf`
@@ -36,14 +36,14 @@ help: the trait `FromScanf<'_>` is not implemented for `NoFromScanf`
   = note: derive or implement `FromScanf` for `NoFromScanf` to use it with `sscanf!`
   = note: see the `FromScanf` documentation for details: <https://docs.rs/sscanf/latest/sscanf/trait.FromScanf.html>
   = help: the following other types implement trait `FromScanf<'input>`:
-            NonZero<i128>
-            NonZero<i16>
-            NonZero<i32>
-            NonZero<i64>
-            NonZero<i8>
-            NonZero<isize>
-            NonZero<u128>
-            NonZero<u16>
+            `&'input str` implements `FromScanf<'input>`
+            `Cow<'input, str>` implements `FromScanf<'input>`
+            `NonZero<i128>` implements `FromScanf<'_>`
+            `NonZero<i16>` implements `FromScanf<'_>`
+            `NonZero<i32>` implements `FromScanf<'_>`
+            `NonZero<i64>` implements `FromScanf<'_>`
+            `NonZero<i8>` implements `FromScanf<'_>`
+            `NonZero<isize>` implements `FromScanf<'_>`
           and $N others
 
 error[E0277]: type `NoFromScanf` can't be parsed by sscanf because it does not implement `FromScanf`
@@ -60,14 +60,14 @@ help: the trait `FromScanf<'_>` is not implemented for `NoFromScanf`
   = note: derive or implement `FromScanf` for `NoFromScanf` to use it with `sscanf!`
   = note: see the `FromScanf` documentation for details: <https://docs.rs/sscanf/latest/sscanf/trait.FromScanf.html>
   = help: the following other types implement trait `FromScanf<'input>`:
-            NonZero<i128>
-            NonZero<i16>
-            NonZero<i32>
-            NonZero<i64>
-            NonZero<i8>
-            NonZero<isize>
-            NonZero<u128>
-            NonZero<u16>
+            `&'input str` implements `FromScanf<'input>`
+            `Cow<'input, str>` implements `FromScanf<'input>`
+            `NonZero<i128>` implements `FromScanf<'_>`
+            `NonZero<i16>` implements `FromScanf<'_>`
+            `NonZero<i32>` implements `FromScanf<'_>`
+            `NonZero<i64>` implements `FromScanf<'_>`
+            `NonZero<i8>` implements `FromScanf<'_>`
+            `NonZero<isize>` implements `FromScanf<'_>`
           and $N others
 
 error[E0277]: type `NoFromScanf` can't be parsed by sscanf because it does not implement `FromScanf`
@@ -84,12 +84,12 @@ help: the trait `FromScanf<'_>` is not implemented for `NoFromScanf`
    = note: derive or implement `FromScanf` for `NoFromScanf` to use it with `sscanf!`
    = note: see the `FromScanf` documentation for details: <https://docs.rs/sscanf/latest/sscanf/trait.FromScanf.html>
    = help: the following other types implement trait `FromScanf<'input>`:
-             NonZero<i128>
-             NonZero<i16>
-             NonZero<i32>
-             NonZero<i64>
-             NonZero<i8>
-             NonZero<isize>
-             NonZero<u128>
-             NonZero<u16>
+             `&'input str` implements `FromScanf<'input>`
+             `Cow<'input, str>` implements `FromScanf<'input>`
+             `NonZero<i128>` implements `FromScanf<'_>`
+             `NonZero<i16>` implements `FromScanf<'_>`
+             `NonZero<i32>` implements `FromScanf<'_>`
+             `NonZero<i64>` implements `FromScanf<'_>`
+             `NonZero<i8>` implements `FromScanf<'_>`
+             `NonZero<isize>` implements `FromScanf<'_>`
            and $N others

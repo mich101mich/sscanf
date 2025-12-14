@@ -20,13 +20,12 @@ error: unknown format option starting with '😛'.
 4 |     sscanf::sscanf!("Hi", r##"y̆👨👩👧👦y̆{Ay̆y̆y̆:😛}y̆😛y̆"##);
   |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-error: escaped '}}' after an unescaped '{'.
-       If you didn't mean to create a placeholder, escape the '{' as '{{'
-       If you did, either remove the second '}' or escape it with another '}':
-        --> tests/fail/stable/non_ascii.rs:5:91
+error: unknown format option starting with '😛'.
+       Use 'b', 'o', 'x' or 'r' for number format options, '/' for regex, or '[' for custom format options:
+        --> tests/fail/stable/non_ascii.rs:5:82
          |
        5 | "y\u{306}\u{1f61b}😛y\u{306}{Ay\u{306}y\u{306}y\u{306}:\u{1f61b}}y\u{306}\u{1f61b}y\u{306}"
-         |                                                                 ^
+         |                                                        ^^^^^^^^^
  --> tests/fail/stable/non_ascii.rs:5:27
   |
 5 |     sscanf::sscanf!("Hi", "y\u{306}\u{1f61b}😛y\u{306}{Ay\u{306}y\u{306}y\u{306}:\u{1f61b}}y\u{306}\u{1f61b}y\u{306}");

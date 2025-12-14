@@ -29,14 +29,41 @@ error: missing '/' to close the regex option
 7 |     sscanf::sscanf!("", "{:/\\", str);
   |                            ^^^
 
-error: missing '/' to close the regex option
+error: missing unescaped '/' to close the regex option
  --> tests/fail/nightly/invalid_custom_regex.rs:8:29
   |
 8 |     sscanf::sscanf!("", r"{:/\/", str);
   |                             ^^^
 
-error: missing '}' to close a placeholder. If the '{' was intended to be a literal, escape it with '{{'
- --> tests/fail/nightly/invalid_custom_regex.rs:9:26
+error: missing unescaped '/' to close the regex option
+ --> tests/fail/nightly/invalid_custom_regex.rs:9:28
   |
 9 |     sscanf::sscanf!("", "{:/\\/", str);
-  |                          ^^^^^^
+  |                            ^^^^
+
+error: invalid regex override: regex parse error:
+           abc[def
+              ^
+       error: unclosed character class
+  --> tests/fail/nightly/invalid_custom_regex.rs:11:29
+   |
+11 |     sscanf::sscanf!("", r"{:/abc[def/}", str);
+   |                             ^^^^^^^^^
+
+error: invalid regex override: regex parse error:
+           {
+           ^
+       error: repetition operator missing expression
+  --> tests/fail/nightly/invalid_custom_regex.rs:12:29
+   |
+12 |     sscanf::sscanf!("", r"{:/{/}", str);
+   |                             ^^^
+
+error: invalid regex override: regex parse error:
+           {\}
+           ^
+       error: repetition operator missing expression
+  --> tests/fail/nightly/invalid_custom_regex.rs:13:29
+   |
+13 |     sscanf::sscanf!("", r"{:/{\}/}", str);
+   |                             ^^^^^

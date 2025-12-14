@@ -1,4 +1,5 @@
 use super::*;
+use crate::advanced::AcceptsRegexOverride;
 
 /// A match generated from a [`Matcher::Seq`].
 pub struct SeqMatch<'t, 'input> {
@@ -42,6 +43,16 @@ impl<'t, 'input> SeqMatch<'t, 'input> {
         T::from_match_tree(self.inner_at(index, context), format)
     }
 
+    #[doc(hidden)] // hidden to avoid cluttering docs even more
+    #[track_caller]
+    pub fn parse_at_from_custom_regex<T: AcceptsRegexOverride<'input>>(
+        &self,
+        index: usize,
+        format: &FormatOptions,
+    ) -> Option<T> {
+        let context = Context::ParseAt(std::any::type_name::<T>(), index);
+        AcceptsRegexOverride::from_regex_match(self.inner_at(index, context).text(), format)
+    }
     /// Same as [`parse_at`](Self::parse_at) but allows specifying a name for better error messages.
     ///
     /// Intended for use when parsing fields of structs.
@@ -57,6 +68,18 @@ impl<'t, 'input> SeqMatch<'t, 'input> {
     ) -> Option<T> {
         let context = Context::ParseField(name, index, std::any::type_name::<T>());
         T::from_match_tree(self.inner_at(index, context), format)
+    }
+
+    #[doc(hidden)] // hidden to avoid cluttering docs even more
+    #[track_caller]
+    pub fn parse_field_from_custom_regex<T: AcceptsRegexOverride<'input>>(
+        &self,
+        name: &'static str,
+        index: usize,
+        format: &FormatOptions,
+    ) -> Option<T> {
+        let context = Context::ParseField(name, index, std::any::type_name::<T>());
+        AcceptsRegexOverride::from_regex_match(self.inner_at(index, context).text(), format)
     }
 
     /// Returns the sub-match at the given index, asserting that the slot contained a [`MatchPart::Matcher`].

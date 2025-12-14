@@ -1,4 +1,4 @@
-use sscanf::*;
+use sscanf::{advanced::AcceptsRegexOverride, *};
 
 static CORRECT_INPUT: &str = "Testing with (3.4,1,-2,0)!";
 macro_rules! correct_result {
@@ -217,7 +217,7 @@ fn generic_from_scanf() {
     #[sscanf(format = "({name},{age},{data:/[a-z]+/})")]
     struct Person<T = usize>
     where
-        T: for<'a> FromScanfSimple<'a>,
+        T: for<'a> FromScanf<'a> + for<'a> AcceptsRegexOverride<'a>,
     {
         name: String,
         age: u8,

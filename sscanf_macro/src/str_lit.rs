@@ -117,7 +117,6 @@ impl<'a> StrLitSlice<'a> {
     pub fn text(&self) -> &str {
         &self.src.text[self.start..self.end]
     }
-    #[expect(unused, reason = "TODO: used once other todos are done")]
     pub fn is_raw(&self) -> bool {
         self.src.is_raw()
     }
@@ -380,6 +379,9 @@ mod tests {
     macro_rules! str_lit {
         ( $input:literal ) => {
             syn::parse2::<StrLit>(quote::quote! { $input }).unwrap()
+        };
+        ( # $input:ident ) => {
+            syn::parse2::<StrLit>(quote::quote! { # $input }).unwrap()
         };
     }
 
