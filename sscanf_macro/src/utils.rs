@@ -201,6 +201,26 @@ impl<T: ToTokens> ToTokensExt for T {
 mod tests {
     use super::*;
 
+    /// Utility macro for other tests: Asserts that the given block or statement throws a panic with the given message.
+    #[macro_export]
+    macro_rules! assert_panic_message_eq {
+        ( $block:block, $message:literal $(,)? ) => {
+            let Err(error) = std::panic::catch_unwind(move || $block) else {
+                panic!("code {} did not panic", stringify!($block));
+            };
+            if let Some(s) = error.downcast_ref::<&'static str>() {
+                assert_eq!(*s, $message);
+            } else if let Some(s) = error.downcast_ref::<String>() {
+                assert_eq!(s, $message);
+            } else {
+                panic!("unexpected panic payload: {:?}", error);
+            }
+        };
+        ( $statement:stmt, $message:literal $(,)? ) => {
+            assert_panic_message_eq!({ $statement }, $message);
+        };
+    }
+
     #[test]
     fn list_items_empty() {
         let items: [&str; 0] = [];

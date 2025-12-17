@@ -135,25 +135,69 @@ impl<'a> StrLitSlice<'a> {
             Excluded(_) => unimplemented!("StrLitSlice::slice: excluded start"),
             Unbounded => 0,
         };
+
+        if start > self.text().len() {
+            panic!(
+                "StrLitSlice::slice: invalid range {range:?} for {:?}: start index out of bounds of {} bytes",
+                self.text(),
+                self.text().len()
+            );
+        }
+        if self.text().get(start..).is_none() {
+            panic!(
+                "StrLitSlice::slice: invalid range {range:?} for {:?}: start index not at char boundary",
+                self.text()
+            );
+        }
+
         let end = match range.end_bound() {
             Included(&end) => {
-                let Some(next_char) = self.text()[end..].chars().next() else {
+                if end >= self.text().len() {
                     panic!(
-                        "StrLitSlice::slice: invalid range {range:?} for {:?}",
+                        "StrLitSlice::slice: invalid range {range:?} for {:?}: end index out of bounds of {} bytes",
+                        self.text(),
+                        self.text().len()
+                    );
+                }
+                let Some(after) = self.text().get(end..) else {
+                    panic!(
+                        "StrLitSlice::slice: invalid range {range:?} for {:?}: end index not at char boundary",
                         self.text()
                     );
                 };
+                let next_char = after.chars().next().unwrap(); // safe: we already checked end < len
                 end + next_char.len_utf8()
             }
             Excluded(&end) => end,
             Unbounded => self.end - self.start,
         };
 
+        if start > end {
+            panic!(
+                "StrLitSlice::slice: invalid range {range:?} for {:?}: start > end",
+                self.text()
+            );
+        }
+
+        if end > self.text().len() {
+            panic!(
+                "StrLitSlice::slice: invalid range {range:?} for {:?}: end index out of bounds of {} bytes",
+                self.text(),
+                self.text().len()
+            );
+        }
+        if self.text().get(..end).is_none() {
+            panic!(
+                "StrLitSlice::slice: invalid range {range:?} for {:?}: end index not at char boundary",
+                self.text()
+            );
+        }
+
         assert!(
             self.text().get(start..end).is_some(),
             "StrLitSlice::slice: invalid range {range:?} for {:?}",
             self.text()
-        );
+        ); // should be unreachable due to the checks above
 
         let mut ret = *self;
         ret.start += start;
@@ -215,6 +259,7 @@ impl<'a> StrLitSlice<'a> {
         let column = column_offset + prefix_len;
 
         let suffix = suffix.lines().next().unwrap_or(""); // whatever part of the suffix is on the same line
+
         let suffix = rust_compiler_replacements(suffix).0;
 
         const E: &str = ""; // empty string so that we can use the formatting width specifier to create repeated characters
@@ -227,7 +272,11 @@ impl<'a> StrLitSlice<'a> {
         if self_lines.len() <= 1 {
             let line = self_lines.first().copied().unwrap_or("");
             let (line, line_len) = rust_compiler_replacements(line);
-            writeln!(m, "{start_line: >ln_length$} | {prefix}{line}{suffix}").unwrap();
+            if line.ends_with('\n') {
+                write!(m, "{start_line: >ln_length$} | {prefix}{line}").unwrap();
+            } else {
+                writeln!(m, "{start_line: >ln_length$} | {prefix}{line}{suffix}").unwrap();
+            }
             writeln!(m, "{ln_blank} | {E: <prefix_len$}{E:^<line_len$}").unwrap(); // spaces for prefix, then '^' for the string part
         } else {
             //   --> tests/fail/nightly/multiline_format_str.rs:12:10
@@ -266,7 +315,11 @@ impl<'a> StrLitSlice<'a> {
             }
 
             let (last_line, last_line_len) = rust_compiler_replacements(last_line);
-            writeln!(m, "{end_line: >ln_length$} | | {last_line}{suffix}").unwrap();
+            if last_line.ends_with('\n') {
+                write!(m, "{end_line: >ln_length$} | | {last_line}").unwrap();
+            } else {
+                writeln!(m, "{end_line: >ln_length$} | | {last_line}{suffix}").unwrap();
+            }
             writeln!(m, "{ln_blank} | |{E:_<last_line_len$}^").unwrap();
         }
 
@@ -298,9 +351,19 @@ impl Display for StrLit {
         write!(f, "{}", self.text)
     }
 }
+impl std::fmt::Debug for StrLit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "StrLit({})", self.text)
+    }
+}
 impl Display for StrLitSlice<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.text())
+    }
+}
+impl std::fmt::Debug for StrLitSlice<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "StrLitSlice({})", self.text())
     }
 }
 
@@ -387,13 +450,13 @@ mod tests {
 
     #[test]
     fn str_lit_slice_basic() {
-        let str_lit = str_lit! { "Hello, world!" };
+        let str_lit = str_lit! { "Hello, world! 😄" };
 
-        assert_eq!(str_lit.text, "\"Hello, world!\""); // syn adds the quotes back in.
+        assert_eq!(str_lit.text, "\"Hello, world! 😄\""); // syn adds the quotes back in.
         assert!(!str_lit.is_raw());
 
         let slice = str_lit.to_slice();
-        assert_eq!(slice.text(), "Hello, world!");
+        assert_eq!(slice.text(), "Hello, world! 😄");
         assert_eq!(slice.start, 1); // skip opening "
         assert_eq!(slice.end, str_lit.text.len() - 1); // skip closing "
 
@@ -401,6 +464,32 @@ mod tests {
         assert_eq!(sub_slice.text(), "world");
         assert_eq!(sub_slice.start, 8); // +1 for opening "
         assert_eq!(sub_slice.end, 13);
+
+        let sub_slice_inclusive = slice.slice(7..=11);
+        assert_eq!(sub_slice_inclusive.text(), "world");
+        assert_eq!(sub_slice_inclusive.start, 8); // +1 for opening "
+        assert_eq!(sub_slice_inclusive.end, 13);
+
+        let sub_slice_unbounded_start = slice.slice(..5);
+        assert_eq!(sub_slice_unbounded_start.text(), "Hello");
+        assert_eq!(sub_slice_unbounded_start.start, 1); // +1 for opening "
+        assert_eq!(sub_slice_unbounded_start.end, 6);
+
+        let sub_slice_unbounded_end = slice.slice(7..);
+        assert_eq!(sub_slice_unbounded_end.text(), "world! 😄");
+        assert_eq!(sub_slice_unbounded_end.start, 8); // +1 for opening "
+        assert_eq!(sub_slice_unbounded_end.end, str_lit.text.len() - 1);
+
+        let sub_slice_fully_unbounded = slice.slice(..);
+        assert_eq!(sub_slice_fully_unbounded.text(), slice.text());
+        assert_eq!(sub_slice_fully_unbounded.start, slice.start);
+        assert_eq!(sub_slice_fully_unbounded.end, slice.end);
+
+        let sub_slice_multibyte = slice.slice(7..18); // emoji is at 14..18
+        assert_eq!(sub_slice_multibyte.text(), "world! 😄");
+
+        let sub_slice_inclusive_multibyte = slice.slice(7..=14);
+        assert_eq!(sub_slice_inclusive_multibyte.text(), "world! 😄");
     }
 
     #[test]
@@ -455,5 +544,220 @@ mod tests {
             "r##\"y\u{306}👨👩👧👦y\u{306}{Ay\u{306}y\u{306}y\u{306}:😛}y\u{306}😛y\u{306}\"##"
         );
         assert_eq!(full_length, 33);
+    }
+
+    #[test]
+    fn str_lit_slice_invalid_range() {
+        let str_lit = str_lit! { "Hello, world! 😄" };
+        let slice = str_lit.to_slice();
+
+        assert_panic_message_eq!(
+            slice.slice(7..20),
+            "StrLitSlice::slice: invalid range 7..20 for \"Hello, world! 😄\": end index out of bounds of 18 bytes"
+        );
+        assert_panic_message_eq!(
+            slice.slice(7..=20),
+            "StrLitSlice::slice: invalid range 7..=20 for \"Hello, world! 😄\": end index out of bounds of 18 bytes"
+        );
+
+        assert_panic_message_eq!(
+            slice.slice(20..25),
+            "StrLitSlice::slice: invalid range 20..25 for \"Hello, world! 😄\": start index out of bounds of 18 bytes"
+        );
+
+        assert_panic_message_eq!(
+            #[allow(clippy::reversed_empty_ranges)] // yes clippy, I know. Good catch though!
+            slice.slice(12..10),
+            "StrLitSlice::slice: invalid range 12..10 for \"Hello, world! 😄\": start > end"
+        );
+
+        assert_panic_message_eq!(
+            slice.slice(7..15),
+            "StrLitSlice::slice: invalid range 7..15 for \"Hello, world! 😄\": end index not at char boundary"
+        );
+
+        assert_panic_message_eq!(
+            slice.slice(8..=15),
+            "StrLitSlice::slice: invalid range 8..=15 for \"Hello, world! 😄\": end index not at char boundary"
+        );
+
+        assert_panic_message_eq!(
+            slice.slice(15..),
+            "StrLitSlice::slice: invalid range 15.. for \"Hello, world! 😄\": start index not at char boundary"
+        );
+    }
+
+    #[test]
+    fn test_error_fallback() {
+        let str_lit = str_lit! { "Hello, world! 😄" };
+        let sub_slice = str_lit.to_slice().slice(7..12);
+
+        let err = sub_slice.error("Test error message").to_string();
+        assert_eq!(
+            err,
+            r#"Test error message:
+   --> /inside/a/test.rs:999:131
+    |
+999 | "Hello, world! 😄"
+    |         ^^^^^
+"#
+        );
+    }
+
+    #[test]
+    fn test_error_fallback_multiline() {
+        let multiline_str_lit = str_lit! { r#"Line 1
+Line 2
+Line 3
+Line 4
+Line 5"# };
+
+        let on_first_line = multiline_str_lit.to_slice().slice(2..4);
+        assert_eq!(on_first_line.text(), "ne");
+        let err = on_first_line.error("Test error message").to_string();
+        assert_eq!(
+            err,
+            r###"Test error message:
+   --> /inside/a/test.rs:999:128
+    |
+999 | r#"Line 1
+    |      ^^
+"###
+        );
+
+        let on_middle_line = multiline_str_lit.to_slice().slice(9..=15);
+        assert_eq!(on_middle_line.text(), "ne 2\nLi");
+        let err = on_middle_line.error("Test error message").to_string();
+        assert_eq!(
+            err,
+            r###"Test error message:
+    --> /inside/a/test.rs:1000:3
+     |
+1000 |   Line 2
+     |  ___^
+1001 | | Line 3
+     | |__^
+"###
+        );
+
+        let on_middle_line = multiline_str_lit.to_slice().slice(9..=25);
+        assert_eq!(on_middle_line.text(), "ne 2\nLine 3\nLine ");
+        let err = on_middle_line.error("Test error message").to_string();
+        assert_eq!(
+            err,
+            r###"Test error message:
+    --> /inside/a/test.rs:1000:3
+     |
+1000 |   Line 2
+     |  ___^
+1001 | | Line 3
+1002 | | Line 4
+     | |_____^
+"###
+        );
+
+        let on_last_line = multiline_str_lit.to_slice().slice(30..34);
+        assert_eq!(on_last_line.text(), "ne 5");
+        let err = on_last_line.error("Test error message").to_string();
+        assert_eq!(
+            err,
+            r###"Test error message:
+    --> /inside/a/test.rs:1003:3
+     |
+1003 | Line 5"#
+     |   ^^^^
+"###
+        );
+
+        let ends_on_line_break = multiline_str_lit.to_slice().slice(25..28);
+        assert_eq!(ends_on_line_break.text(), " 4\n");
+        let err = ends_on_line_break.error("Test error message").to_string();
+        assert_eq!(
+            err,
+            r###"Test error message:
+    --> /inside/a/test.rs:1002:5
+     |
+1002 | Line 4
+     |     ^^^
+"###
+        );
+
+        let ends_on_line_break_multi = multiline_str_lit.to_slice().slice(18..28);
+        assert_eq!(ends_on_line_break_multi.text(), " 3\nLine 4\n");
+        let err = ends_on_line_break_multi
+            .error("Test error message")
+            .to_string();
+        assert_eq!(
+            err,
+            r###"Test error message:
+    --> /inside/a/test.rs:1001:5
+     |
+1001 |   Line 3
+     |  _____^
+1002 | | Line 4
+     | |_______^
+"###
+        );
+    }
+
+    #[test]
+    fn test_error_fallback_truncated_multiline() {
+        let multiline_str_lit = str_lit! { r#"Line 1
+Line 2
+Line 3
+Line 4
+Line 5
+Line 6
+Line 7
+Line 8
+Line 9"# };
+
+        let on_first_line = multiline_str_lit.to_slice().slice(2..4);
+        assert_eq!(on_first_line.text(), "ne");
+        let err = on_first_line.error("Test error message").to_string();
+        assert_eq!(
+            err,
+            r###"Test error message:
+   --> /inside/a/test.rs:999:128
+    |
+999 | r#"Line 1
+    |      ^^
+"###
+        );
+
+        let on_middle_line = multiline_str_lit.to_slice().slice(9..=55);
+        assert_eq!(
+            on_middle_line.text(),
+            "ne 2\nLine 3\nLine 4\nLine 5\nLine 6\nLine 7\nLine 8\n"
+        );
+        let err = on_middle_line.error("Test error message").to_string();
+        assert_eq!(
+            err,
+            r###"Test error message:
+    --> /inside/a/test.rs:1000:3
+     |
+1000 |   Line 2
+     |  ___^
+1001 | | Line 3
+1002 | | Line 4
+     | | ...
+1005 | | Line 7
+1006 | | Line 8
+     | |_______^
+"###
+        );
+
+        let on_last_line = multiline_str_lit.to_slice().slice(58..);
+        assert_eq!(on_last_line.text(), "ne 9");
+        let err = on_last_line.error("Test error message").to_string();
+        assert_eq!(
+            err,
+            r###"Test error message:
+    --> /inside/a/test.rs:1007:3
+     |
+1007 | Line 9"#
+     |   ^^^^
+"###
+        );
     }
 }
