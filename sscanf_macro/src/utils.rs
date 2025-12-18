@@ -222,6 +222,46 @@ mod tests {
     }
 
     #[test]
+    fn find_closest_basic() {
+        let options = ["apple", "banana", "cherry", "date"];
+
+        assert_eq!(find_closest("appl", &options), Some("apple"));
+        assert_eq!(find_closest("bannana", &options), Some("banana"));
+        assert_eq!(find_closest("cheri", &options), Some("cherry"));
+        assert_eq!(find_closest("dat", &options), Some("date"));
+
+        assert_eq!(find_closest("xyz", &options), None);
+    }
+
+    #[test]
+    fn take_closest_basic() {
+        let mut options = vec![
+            "apple".to_string(),
+            "banana".to_string(),
+            "cherry".to_string(),
+            "date".to_string(),
+        ];
+
+        assert_eq!(
+            take_closest("appl", &mut options),
+            Some("apple".to_string())
+        );
+        assert_eq!(take_closest("appl", &mut options), None); // already taken
+
+        assert_eq!(
+            take_closest("bannana", &mut options),
+            Some("banana".to_string())
+        );
+        assert_eq!(
+            take_closest("cheri", &mut options),
+            Some("cherry".to_string())
+        );
+        assert_eq!(take_closest("dat", &mut options), Some("date".to_string()));
+
+        assert_eq!(take_closest("xyz", &mut options), None);
+    }
+
+    #[test]
     fn list_items_empty() {
         let items: [&str; 0] = [];
         assert_eq!(list_items(&items), "");
