@@ -153,21 +153,21 @@ fn find_match<A: Attr>(s: &str, src: &TokenStream) -> Result<A> {
     if !found_others.is_empty() {
         let others = list_items(&found_others);
         bail!(src => "attribute `{s}` can only be used on {others}.
-{context} can have the following attributes: {valid}"); // checked in tests/fail/derive_struct_attributes.rs
+{context} can have the following attributes: {valid}");
     }
 
     if let Some(similar) = find_closest(s, context.all_attr_names()) {
-        bail!(src => "unknown attribute `{s}`. Did you mean `{similar}`?"); // checked in tests/fail/derive_struct_attributes.rs
+        bail!(src => "unknown attribute `{s}`. Did you mean `{similar}`?");
     }
 
     for other in &others {
         if let Some(similar) = find_closest(s, other.all_attr_names()) {
             bail!(src => "unknown attribute `{s}` is similar to `{similar}`, which can only be used on {other}.
-{context} can have the following attributes: {valid}"); // checked in tests/fail/derive_struct_attributes.rs
+{context} can have the following attributes: {valid}");
         }
     }
 
-    bail!(src => "unknown attribute `{s}`. Valid attributes are: {valid}"); // checked in tests/fail/derive_struct_attributes.rs
+    bail!(src => "unknown attribute `{s}`. Valid attributes are: {valid}");
 }
 
 pub struct Attribute<A: Attr> {
@@ -206,7 +206,7 @@ impl<A: Attr> Attribute<A> {
                 .collect::<Vec<_>>();
             let valid = list_items(&valid);
 
-            bail!(value.start_span() => "omitting the attribute name is only valid for the `{name}` attribute on {valid}"); // checked in tests/fail/derive_field_attributes.rs
+            bail!(value.start_span() => "omitting the attribute name is only valid for the `{name}` attribute on {valid}");
         }
 
         let attr = input.parse::<syn::Ident>()?;
@@ -217,11 +217,11 @@ impl<A: Attr> Attribute<A> {
         let peek = input.lookahead1();
         if !input.is_empty() && !peek.peek(Token![,]) {
             if !peek.peek(Token![=]) {
-                return Err(peek.error()); // checked in tests/fail/derive_struct_attributes.rs
+                return Err(peek.error());
             }
             let eq_sign = input.parse::<Token![=]>()?;
 
-            assert_or_bail!(!input.is_empty(), eq_sign.end_span() => "expected an expression after `=`"); // checked in tests/fail/derive_struct_attributes.rs
+            assert_or_bail!(!input.is_empty(), eq_sign.end_span() => "expected an expression after `=`");
 
             let expr = input.parse::<syn::Expr>()?;
             src.extend(quote! { #eq_sign #expr });
@@ -260,10 +260,10 @@ fn find_attrs<A: Attr>(attrs: Vec<syn::Attribute>) -> Result<HashMap<A, Attribut
             // message in the `NameValue` case would just be "expected a '('" with a span
             // underlining the '=' sign, which is not very helpful
             syn::Meta::Path(p) => {
-                bail!(p => "expected attribute arguments in parentheses: `sscanf(...)`"); // checked in tests/fail/derive_struct_attributes.rs
+                bail!(p => "expected attribute arguments in parentheses: `sscanf(...)`");
             }
             syn::Meta::NameValue(nv) => {
-                bail!(nv => "attribute arguments must be in parentheses: `sscanf({})`", nv.value.to_token_stream()); // checked in tests/fail/derive_struct_attributes.rs
+                bail!(nv => "attribute arguments must be in parentheses: `sscanf({})`", nv.value.to_token_stream());
             }
         };
 
@@ -282,7 +282,7 @@ fn find_attrs<A: Attr>(attrs: Vec<syn::Attribute>) -> Result<HashMap<A, Attribut
                     bail!(
                         {attr => "attribute `{}` is specified multiple times", attr.kind},
                         {entry.get() => "previous use here"},
-                    ); // checked in tests/fail/derive_struct_attributes.rs
+                    );
                 }
                 Entry::Vacant(entry) => {
                     entry.insert(attr);
@@ -308,7 +308,7 @@ fn expect_one<A: Attr>(attrs: HashMap<A, Attribute<A>>) -> Result<Option<Attribu
             ErrorBuilder::new()
                 .with_spanned(&attrs[0].src, &msg)
                 .with_spanned(&attrs[1].src, &msg)
-                .build_err() // checked in tests/fail/derive_struct_attributes.rs
+                .build_err()
         }
         _ => {
             let items = list_items_with(&attrs, |attr| format!("`{}`", attr.kind));
@@ -317,7 +317,7 @@ fn expect_one<A: Attr>(attrs: HashMap<A, Attribute<A>>) -> Result<Option<Attribu
             for attr in attrs {
                 error.with_spanned(attr.src, &msg);
             }
-            error.build_err() // checked in tests/fail/derive_struct_attributes.rs
+            error.build_err()
         }
     }
 }

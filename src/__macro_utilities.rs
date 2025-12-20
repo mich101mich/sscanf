@@ -37,10 +37,7 @@ impl Parser {
             // should start at 1. However, since our outermost Matcher is itself the whole match, we assign it
             // to group 0 but then remove it again after compilation.
             let mut capture_index = 0;
-            let (hir, match_tree_template) = match matcher.compile(&mut capture_index) {
-                Ok(hir) => hir,
-                Err(err) => panic!("{err}"),
-            };
+            let (hir, match_tree_template) = matcher.compile(&mut capture_index);
 
             // Remove the outermost capture group since it is identical to the whole match.
             let hir = match hir.into_kind() {

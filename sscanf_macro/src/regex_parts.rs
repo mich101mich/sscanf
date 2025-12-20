@@ -8,7 +8,7 @@ impl MatchPart {
         let tokens = if escape {
             quote! { ::sscanf::advanced::MatchPart::literal(#text) }
         } else {
-            quote! { ::sscanf::advanced::MatchPart::regex(#text) }
+            quote! { ::sscanf::advanced::MatchPart::regex(#text).unwrap() } // unwrap: regex was already checked during parsing
         };
         Self(tokens)
     }

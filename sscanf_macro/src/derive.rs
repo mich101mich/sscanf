@@ -165,13 +165,12 @@ fn parse_format(
         StructAttributeKind::Format { value, escape } => (value, escape),
         StructAttributeKind::Transparent => {
             assert_or_bail!(struct_fields.len() == 1, attr => "structs or variants marked as `{}` must have exactly one field", attr::Struct::Transparent);
-            // checked in tests/fail/derive_struct_attributes.rs
 
             let lit = syn::LitStr::new("{}", attr.src.span());
             (StrLit::new(lit), true)
         }
     };
-    let format = FormatString::new(value.to_slice())?;
+    let format = FormatString::new(value.to_slice(), escape)?;
 
     // Map from the ident (field name or index) used in a placeholder to its index in the format string
     let mut explicit_ph_identifiers = HashMap::new();
@@ -182,7 +181,7 @@ fn parse_format(
             let name = ident.text();
             if let Some(prev_entry) = explicit_ph_identifiers.insert(name, i) {
                 let prev = &format.placeholders[prev_entry];
-                bail!({ph, prev} => "placeholder `{name}` is used multiple times in the format string"); // TODO: check
+                bail!({ph, prev} => "placeholder `{name}` is used multiple times in the format string");
             }
         } else {
             unused_ph_indices.push(i);
@@ -213,7 +212,7 @@ fn parse_format(
             if let Some(prev_index) = ph_index {
                 let prev = &format.placeholders[prev_index];
                 let ph = &format.placeholders[index];
-                bail!({ph, prev} => "field `{ident}` is used in multiple placeholders"); // TODO: check
+                bail!({ph, prev} => "field `{ident}` is used in multiple placeholders");
             }
             ph_index = Some(index);
         }
@@ -398,7 +397,7 @@ Alternatively, you can use #[sscanf(transparent)] to derive FromScanf for a sing
         }
 
         bail!(name => r#"FromScanf: structs must have a format string as an attribute.
-Please add either of #[sscanf(format = "...")], #[sscanf(format_unescaped = "...")] or #[sscanf("...")]{hint}"#); // checked in tests/fail/derive_struct_attributes.rs
+Please add either of #[sscanf(format = "...")], #[sscanf(format_unescaped = "...")] or #[sscanf("...")]{hint}"#);
     };
 
     let (regex_parts, from_matches, str_lifetimes) = parse_format(attr, data.fields)?;
@@ -444,7 +443,7 @@ pub fn parse_enum(
         _ => None,
     });
 
-    assert_or_bail!(!data.variants.is_empty(), name => "FromScanf: enums must have at least one variant"); // checked in tests/fail/derive_enum_attributes.rs
+    assert_or_bail!(!data.variants.is_empty(), name => "FromScanf: enums must have at least one variant");
 
     let mut variant_matchers = vec![];
     let mut variant_parsers = vec![];
@@ -465,7 +464,6 @@ pub fn parse_enum(
         } else if let Some((autogen, src)) = autogen.as_ref() {
             assert_or_bail!(variant.fields.is_empty(), variant.fields => r#"FromScanf: autogen only works if the variants have no fields.
 Use `#[sscanf(format = "...")]` to specify a format for a variant with fields or `#[sscanf(skip)]` to skip a variant"#);
-            // checked in tests/fail/derive_enum_attributes.rs
 
             autogen.create_struct_attr(&variant.ident.to_string(), src.clone())
         } else {
@@ -496,10 +494,9 @@ Use `#[sscanf(format = "...")]` to specify a format for a variant with fields or
     if variant_parsers.is_empty() {
         if autogen.is_some() {
             bail!(name => "at least one variant has to be constructable from sscanf and not skipped.");
-        // checked in tests/fail/derive_enum_attributes.rs
         } else {
             bail!(name => "at least one variant has to be constructable from sscanf.
-To do this, add #[sscanf(format = \"...\")] to a variant"); // checked in tests/fail/derive_enum_attributes.rs
+To do this, add #[sscanf(format = \"...\")] to a variant");
         }
     }
 

@@ -215,9 +215,9 @@ use std::str::FromStr;
     note = "see the `FromScanf` documentation for details: <https://docs.rs/sscanf/latest/sscanf/trait.FromScanf.html>"
 )]
 pub trait FromScanf<'input>: Sized {
-    /// A regular expression that exactly matches any string representation of the implementing type
+    /// Create a matcher to find and capture the string representation of the implementing type.
     ///
-    /// TODO: give hints on how to create this regex
+    /// TODO: give hints on how to create matchers
     fn get_matcher(format: &FormatOptions) -> Matcher;
 
     /// Callback to parse the input string from a match tree.

@@ -58,7 +58,7 @@ impl<'a> FromFormatString<'a> for Placeholder<'a> {
             && ident.text().ends_with('/')
         {
             // types/fields cannot start with a slash
-            bail!(ident => "missing `:` in front of custom regex. Write `{{:{ident}}}` instead"); // checked in tests/fail/<channel>/invalid_placeholder.rs
+            bail!(ident => "missing `:` in front of custom regex. Write `{{:{ident}}}` instead");
         }
 
         let src = parser.slice_since(parser.get_open_bracket_pos());

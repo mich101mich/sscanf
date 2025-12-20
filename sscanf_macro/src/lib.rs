@@ -50,16 +50,16 @@ impl Parse for Scanf {
         // macro expected a comma, and it would point to the end of the input where the comma
         // was expected, but since there is nothing there it has no span to point to so it
         // just points at the entire thing."
-        assert_or_bail!(!input.is_empty(), Span::call_site() => "sscanf: at least 2 Parameters required: Input and format string"); // checked in tests/fail/missing_params.rs
+        assert_or_bail!(!input.is_empty(), Span::call_site() => "sscanf: at least 2 Parameters required: Input and format string");
 
         let parse_input: syn::Expr = input.parse()?;
-        assert_or_bail!(!input.is_empty(), parse_input.end_span() => "sscanf: at least 2 Parameters required: Missing format string"); // checked in tests/fail/missing_params.rs
+        assert_or_bail!(!input.is_empty(), parse_input.end_span() => "sscanf: at least 2 Parameters required: Missing format string");
 
         let comma = input.parse::<Token![,]>()?;
         // Addition to the comment above: here we actually have a comma to point to to say:
         // "Hey, you put a comma here, put something after it". syn doesn't do this
         // because it cannot rewind the input stream to check this.
-        assert_or_bail!(!input.is_empty(), comma.end_span() => "at least 2 Parameters required: Missing format string"); // checked in tests/fail/missing_params.rs
+        assert_or_bail!(!input.is_empty(), comma.end_span() => "at least 2 Parameters required: Missing format string");
 
         let fmt = input.parse::<StrLit>()?;
 
@@ -149,7 +149,7 @@ fn sscanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
 }
 
 fn generate_matcher(input: &Scanf, escape_input: bool) -> Result<(TokenStream, Vec<Parser>)> {
-    let format = FormatString::new(input.fmt.to_slice())?;
+    let format = FormatString::new(input.fmt.to_slice(), escape_input)?;
 
     // inner function to use early return. This should be a closure, but those can't have lifetimes
     fn find_ph_type<'a>(
@@ -160,20 +160,20 @@ fn generate_matcher(input: &Scanf, escape_input: bool) -> Result<(TokenStream, V
     ) -> Result<Type<'a>> {
         let n = if let Some(name) = ph.ident.as_ref() {
             if let Ok(n) = name.text().parse::<usize>() {
-                assert_or_bail!(n < visited.len(), name => "type index {} out of range of {} types", n, visited.len()); // checked in tests/fail/<channel>/invalid_type_in_placeholder.rs
+                assert_or_bail!(n < visited.len(), name => "type index {} out of range of {} types", n, visited.len());
                 n
             } else {
                 return Type::from_str(*name).map_err(|err| {
                     let hint =  "The syntax for placeholders is {<type>} or {<type>:<config>}. Make sure <type> is a valid type or index.";
                     let hint2 = "If you want syntax highlighting and better errors, place the type in the arguments after the format string while debugging";
                     let msg = format!("invalid type in placeholder: {err}.\nHint: {hint}\n{hint2}");
-                    name.error(msg) // checked in tests/fail/<channel>/invalid_type_in_placeholder.rs
+                    name.error(msg)
                 });
             }
         } else {
             let n = *ph_index;
             *ph_index += 1;
-            assert_or_bail!(n < visited.len(), ph => "more placeholders than types provided"); // checked in tests/fail/<channel>/missing_type.rs
+            assert_or_bail!(n < visited.len(), ph => "more placeholders than types provided");
             n
         };
         visited[n] = true;
@@ -194,7 +194,7 @@ fn generate_matcher(input: &Scanf, escape_input: bool) -> Result<(TokenStream, V
 
     for (visited, ty) in visited.iter().zip(&input.type_tokens) {
         if !*visited {
-            error.with_spanned(ty, "unused type"); // checked in tests/fail/missing_placeholder.rs
+            error.with_spanned(ty, "unused type");
         }
     }
 

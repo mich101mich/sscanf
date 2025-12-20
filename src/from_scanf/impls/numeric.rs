@@ -231,11 +231,11 @@ macro_rules! impl_int {
                 "# Example",
                 "```rust",
                 "# use sscanf::{*, advanced::*};",
-                concat!("let re = ", stringify!($signed), "::get_matcher(&Default::default()).to_regex();"),
+                concat!("let re = ", stringify!($signed), "::get_matcher(&Default::default()).debug_to_regex();"),
                 concat!(r#"assert_eq!(re, r"((?:[\+\-]?([0-9]{1,"#, $digits_10, r#"})))");"#),
                 "",
                 "let hex_options = FormatOptions::builder().hex().with_prefix().build();",
-                concat!("let re = ", stringify!($unsigned), "::get_matcher(&hex_options).to_regex();"),
+                concat!("let re = ", stringify!($unsigned), "::get_matcher(&hex_options).debug_to_regex();"),
                 concat!(r#"assert_eq!(re, r"((?:\+?0[Xx]([0-9A-Fa-f]{1,"#, $digits_16, r#"})))");"#),
                 "```"
             }
@@ -275,11 +275,11 @@ macro_rules! impl_int {
                 "",
                 "```",
                 "# use sscanf::*; use sscanf::advanced::*;",
-                concat!("let re = ", stringify!($signed), "::get_matcher(&Default::default()).to_regex();"),
+                concat!("let re = ", stringify!($signed), "::get_matcher(&Default::default()).debug_to_regex();"),
                 concat!(r#"assert_eq!(re, r"((?:[\+\-]?([0-9]{1,"#, $digits_10, r#"})))");"#),
                 "",
                 "let hex_options = FormatOptions::builder().hex().with_prefix().build();",
-                concat!("let re = ", stringify!($signed), "::get_matcher(&hex_options).to_regex();"),
+                concat!("let re = ", stringify!($signed), "::get_matcher(&hex_options).debug_to_regex();"),
                 concat!(r#"assert_eq!(re, r"((?:[\+\-]?0[Xx]([0-9A-Fa-f]{1,"#, $digits_16, r#"})))");"#),
                 "```"
             }
@@ -313,20 +313,20 @@ impl PrimitiveNumber for usize {
 /// # use sscanf::*; use sscanf::advanced::*;
 /// #[cfg(target_pointer_width = "64")]
 /// {
-///     let re = usize::get_matcher(&Default::default()).to_regex();
+///     let re = usize::get_matcher(&Default::default()).debug_to_regex();
 ///     assert_eq!(re, r"((?:\+?([0-9]{1,20})))");
 ///
 ///     let hex_options = FormatOptions::builder().hex().with_prefix().build();
-///     let re = usize::get_matcher(&hex_options).to_regex();
+///     let re = usize::get_matcher(&hex_options).debug_to_regex();
 ///     assert_eq!(re, r"((?:\+?0[Xx]([0-9A-Fa-f]{1,16})))");
 /// }
 /// #[cfg(target_pointer_width = "32")]
 /// {
-///     let re = usize::get_matcher(&Default::default()).to_regex();
+///     let re = usize::get_matcher(&Default::default()).debug_to_regex();
 ///     assert_eq!(re, r"((?:\+?([0-9]{1,10})))");
 ///
 ///     let hex_options = FormatOptions::builder().hex().with_prefix().build();
-///     let re = usize::get_matcher(&hex_options).to_regex();
+///     let re = usize::get_matcher(&hex_options).debug_to_regex();
 ///     assert_eq!(re, r"((?:\+?0[Xx]([0-9A-Fa-f]{1,8})))");
 /// }
 /// ```
@@ -367,20 +367,20 @@ impl PrimitiveNumber for isize {
 /// # use sscanf::*; use sscanf::advanced::*;
 /// #[cfg(target_pointer_width = "64")]
 /// {
-///     let re = isize::get_matcher(&Default::default()).to_regex();
+///     let re = isize::get_matcher(&Default::default()).debug_to_regex();
 ///     assert_eq!(re, r"((?:[\+\-]?([0-9]{1,20})))");
 ///
 ///     let hex_options = FormatOptions::builder().hex().with_prefix().build();
-///     let re = isize::get_matcher(&hex_options).to_regex();
+///     let re = isize::get_matcher(&hex_options).debug_to_regex();
 ///     assert_eq!(re, r"((?:[\+\-]?0[Xx]([0-9A-Fa-f]{1,16})))");
 /// }
 /// #[cfg(target_pointer_width = "32")]
 /// {
-///     let re = isize::get_matcher(&Default::default()).to_regex();
+///     let re = isize::get_matcher(&Default::default()).debug_to_regex();
 ///     assert_eq!(re, r"((?:[\+\-]?([0-9]{1,10})))");
 ///
 ///     let hex_options = FormatOptions::builder().hex().with_prefix().build();
-///     let re = isize::get_matcher(&hex_options).to_regex();
+///     let re = isize::get_matcher(&hex_options).debug_to_regex();
 ///     assert_eq!(re, r"((?:[\+\-]?0[Xx]([0-9A-Fa-f]{1,8})))");
 /// }
 /// ```

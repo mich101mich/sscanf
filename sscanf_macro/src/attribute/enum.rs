@@ -29,9 +29,9 @@ macro_rules! declare_autogen {
                     $(s if $matching(s) => Ok(Self::$special_ident),)+
                     _ => {
                         if let Some(closest) = find_closest(s, Self::AUTOGEN_KINDS) {
-                            bail!(s => r#"invalid value for autogen: "{s}". Did you mean "{closest}"?"#); // checked in tests/fail/derive_enum_attributes.rs
+                            bail!(s => r#"invalid value for autogen: "{s}". Did you mean "{closest}"?"#);
                         } else {
-                            bail!(s => r#"invalid value for autogen: "{s}". valid values are: {}"#, Self::valid_hint()); // checked in tests/fail/derive_enum_attributes.rs
+                            bail!(s => r#"invalid value for autogen: "{s}". valid values are: {}"#, Self::valid_hint());
                         }
                     }
                 }
@@ -103,7 +103,7 @@ impl AutoGenKind {
 
         let casing_hint = format!("where `<casing>` is one of {}", AutoGenKind::valid_hint());
 
-        let value = attr.value_as::<syn::LitStr>("\"<casing>\"", Some(&casing_hint))?; // checked in tests/fail/derive_enum_attributes.rs
+        let value = attr.value_as::<syn::LitStr>("\"<casing>\"", Some(&casing_hint))?;
         Self::from_str(&value.value())
     }
 }

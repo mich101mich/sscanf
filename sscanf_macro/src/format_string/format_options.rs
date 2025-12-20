@@ -67,7 +67,7 @@ impl<'a> FromFormatString<'a> for FormatOptions<'a> {
                 // regex option
                 if ret.regex.is_some() {
                     let msg = "multiple regex options are not allowed";
-                    return parser.err_at(start, msg); // TODO: check
+                    return parser.err_at(start, msg);
                 }
                 ret.regex = Some(parser.parse()?);
                 most_recent = OneOption::Regex;
@@ -75,7 +75,7 @@ impl<'a> FromFormatString<'a> for FormatOptions<'a> {
                 // custom format option
                 if ret.custom.is_some() {
                     let msg = "multiple custom format options are not allowed";
-                    return parser.err_at(start, msg); // TODO: check
+                    return parser.err_at(start, msg);
                 }
                 let custom: CustomFormatOption = parser.parse()?;
                 most_recent = OneOption::Custom(custom.clone());
@@ -87,7 +87,7 @@ impl<'a> FromFormatString<'a> for FormatOptions<'a> {
                 let new_number: NumberFormatOption = parser.parse()?; // parse first to see if our assumption is correct
                 if ret.number.is_some() {
                     let msg = "multiple number format options are not allowed";
-                    return parser.err_at(start, msg); // TODO: check
+                    return parser.err_at(start, msg);
                 }
                 most_recent = OneOption::Number(new_number);
                 ret.number = Some(new_number);
@@ -100,7 +100,7 @@ impl<'a> FromFormatString<'a> for FormatOptions<'a> {
                     "unknown format option starting with '{c}'.
 Use 'b', 'o', 'x' or 'r' for number format options, '/' for regex, or '[' for custom format options"
                 );
-                return parser.err_at(start, msg); // TODO: check
+                return parser.err_at(start, msg);
             }
         }
         Ok(ret)
@@ -145,23 +145,23 @@ fn report_unexpected_hashtag<'a>(
             OneOption::None => {
                 // just `{#}`
                 let msg = "hashtag '#' has to be followed by 'b', 'o', 'x' for a number format option, or '#' or '[' for a custom format option";
-                parser.err_at(hashtag_pos, msg) // TODO: check
+                parser.err_at(hashtag_pos, msg)
             }
             OneOption::Regex => {
                 // {/regex/#}
                 let msg = "hashtag '#' has to be followed by a number format option or a custom format option";
-                parser.err_at(hashtag_pos, msg) // TODO: check
+                parser.err_at(hashtag_pos, msg)
             }
             OneOption::Custom(custom_format_option) => {
                 if custom_format_option.num_escapes > 0 {
                     // {#custom##}
                     let msg = "Unbalanced hashtags '#' around custom format option";
-                    parser.err_at(hashtag_pos, msg) // TODO: check
+                    parser.err_at(hashtag_pos, msg)
                 } else {
                     // {custom#}
                     let msg = "unexpected hashtag '#' after custom format option.
 If you meant to add an escape, add another hashtag before the '['. If you meant to start a number format option, continue typing";
-                    parser.err_at(hashtag_pos, msg) // TODO: check
+                    parser.err_at(hashtag_pos, msg)
                 }
             }
             OneOption::Number(number_format_option) => {
@@ -173,18 +173,18 @@ If you meant to add an escape, add another hashtag before the '['. If you meant 
                 ) {
                     // {#b#}, {#o#}, {#x#}
                     let msg = "unexpected hashtag '#' after number format option";
-                    parser.err_at(hashtag_pos, msg) // TODO: check
+                    parser.err_at(hashtag_pos, msg)
                 } else if matches!(
                     number_format_option,
                     Binary(Optional) | Octal(Optional) | Hexadecimal(Optional)
                 ) {
                     // {b#}, {o#}, {x#}
                     let msg = "hashtag '#' has to be placed before the number format option, not after it";
-                    parser.err_at(hashtag_pos, msg) // TODO: check
+                    parser.err_at(hashtag_pos, msg)
                 } else {
                     // {r<n>#}
                     let msg = "unexpected hashtag '#' after number format option";
-                    parser.err_at(hashtag_pos, msg) // TODO: check
+                    parser.err_at(hashtag_pos, msg)
                 }
             }
         }
@@ -194,6 +194,6 @@ If you meant to add an escape, add another hashtag before the '['. If you meant 
         "unexpected '{next}' after hashtag '#'.
 Hashtag '#' has to be followed by 'b', 'o', 'x' for a number format option, or '#' or '[' for a custom format option",
     );
-        parser.err_at(next_pos, msg) // TODO: check
+        parser.err_at(next_pos, msg)
     }
 }

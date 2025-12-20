@@ -12,6 +12,9 @@ keywords = ["parsing", "regex", "text", "string", "scanf"]
 categories = ["parsing"]
 exclude = ["/.vscode", "/.gitignore", "/.github", "/*.bat", "/*.sh", "/todo.md", "/submodules", "/.gitmodules"]
 
+[workspace]
+members = ["sscanf_macro"]
+
 [dependencies]
 sscanf_macro = { path = "sscanf_macro", version = "=0.5.0" }
 regex-automata = "0.4.0" # Note when updating: regex-automata depends on regex-syntax, and the versions have to match

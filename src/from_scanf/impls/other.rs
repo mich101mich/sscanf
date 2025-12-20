@@ -145,7 +145,7 @@ mod tests {
             Matcher::Seq(vec![
                 MatchPart::literal("("),
                 A::get_matcher(format).into(),
-                MatchPart::regex(r",\s*"),
+                MatchPart::regex(r",\s*").unwrap(),
                 B::get_matcher(format).into(),
                 MatchPart::literal(")"),
             ])

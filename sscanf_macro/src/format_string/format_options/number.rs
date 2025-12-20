@@ -44,7 +44,7 @@ impl FromFormatString<'_> for NumberFormatOption {
                 let (_pos2, d1) = parser.take()?;
                 let Some(d1) = d1.to_digit(10) else {
                     let msg = "radix option 'r' has to be followed by a number";
-                    return parser.err_at(pos1, msg); // TODO: check
+                    return parser.err_at(pos1, msg);
                 };
                 let d2 = parser.map_take_if(|c| c.to_digit(10)).map(|(_, d2)| d2);
 
@@ -53,7 +53,7 @@ impl FromFormatString<'_> for NumberFormatOption {
                 if !(2..=36).contains(&radix) {
                     // Range taken from: https://doc.rust-lang.org/std/primitive.usize.html#panics
                     let msg = "radix has to be a number between 2 and 36";
-                    return parser.err_since(start, msg); // TODO: check
+                    return parser.err_since(start, msg);
                 }
 
                 if let Some(hashtag_pos) = hashtag_pos {
