@@ -240,6 +240,25 @@ pub trait FromScanf<'input>: Sized {
     ///     }
     /// }
     /// ```
+    ///
+    /// ## Guide to `panic!` vs `return None`
+    ///
+    /// Assuming the following regex:
+    /// ```text
+    /// (\d+) item(s)?
+    /// ```
+    /// This regex has two capture groups, the first one is required, the second one is optional.
+    ///
+    /// | Problem Description | Example | Action | Explanation |
+    /// |---------------------|---------|--------|-------------|
+    /// | The regex is too broad | The first capture group can match 100+ digits, but our final data type might not store that many | return&nbsp;`None` | This case should have been filtered by the regex, but wasn't. <br/>Note that this might be unavoidable. For example `u8`'s regex matches only three digits, but 999 is not a valid `u8` and has to be filtered during the parsing process |
+    /// | The `MatchTree` has fewer children than there are direct capture groups in the regex | The `MatchTree` only has 0 or 1 child | `panic!()` | This is a programming error in the calling code |
+    /// | You tried to access a capture group that does not exist | Attempting to access a third capture group | `panic!()` | This is a programming error in your code |
+    /// | An optional capture group did not match | the second group did not match an `s` | continue parsing | This is a valid case, so the parsing should be able to handle it. Otherwise, the group should be made non-optional |
+    /// | A non-optional capture group did not match | The first capture group is `None` | `panic!()` | This is a programming error in the calling code |
+    ///
+    /// If a programming error occurs and you are certain that it is not your fault, please open an issue on GitHub.
+    ///
     fn from_match_tree(matches: MatchTree<'_, 'input>, format: &FormatOptions) -> Option<Self>;
 }
 

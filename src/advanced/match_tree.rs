@@ -25,76 +25,6 @@ pub(crate) use template::*;
 ///
 /// There are also convenience methods for parsing, like [`parse()`](Self::parse) for this match tree.
 ///
-/// ## Guide to `panic!` vs `return None`
-///
-/// Assuming the following regex:
-/// ```text
-/// (\d+) item(s)?
-/// ```
-/// This regex has two capture groups, the first one is required, the second one is optional.
-///
-/// | Problem Description | Example | Action | Explanation |
-/// |---------------------|---------|--------|-------------|
-/// | The regex is too broad | The first capture group can match 100+ digits, but our final data type might not store that many | return&nbsp;`None` | This case should have been filtered by the regex, but wasn't. <br/>Note that this might be unavoidable. For example `u8`'s regex matches only three digits, but 999 is not a valid `u8` and has to be filtered during the parsing process |
-/// | The `MatchTree` has fewer children than there are direct capture groups in the regex | The `MatchTree` only has 0 or 1 child | `panic!()` | This is a programming error in the calling code |
-/// | You tried to access a capture group that does not exist | Attempting to access a third capture group | `panic!()` | This is a programming error in your code |
-/// | An optional capture group did not match | the second group did not match an `s` | continue parsing | This is a valid case, so the parsing should be able to handle it. Otherwise, the group should be made non-optional |
-/// | A non-optional capture group did not match | The first capture group is `None` | `panic!()` | This is a programming error in the calling code |
-///
-/// If a programming error occurs and you are certain that it is not your fault, please open an issue on GitHub.
-///
-/// ## Example structure
-/// ```
-/// # use sscanf::advanced::{Matcher, MatchTree, FormatOptions};
-/// # struct MyType;
-/// impl sscanf::FromScanf<'_> for MyType {
-///     fn get_matcher(_: &FormatOptions) -> Matcher {
-///         Matcher::from_regex(r"a(b)c(x)?d(ef(ghi)j(k))lm").unwrap()
-///     }
-///
-///     fn from_match_tree(matches: MatchTree<'_, '_>, _: &FormatOptions) -> Option<Self> {
-///         // This is what the complete match tree looks like:
-///         // TODO: reimplement
-///
-/// //         assert_eq!(matches.text(), "abcdefghijklm");
-/// //         assert_eq!(matches.num_children(), 3); // (b) (x) (ef..)
-/// //
-/// //         { // the "(b)" group
-/// //             let b = matches.at(0);
-/// //             assert_eq!(b.text(), "b");
-/// //             assert_eq!(b.num_children(), 0); // no more capture groups within this group
-/// //         }
-/// //
-/// //         { // the "(x)?" group (did not match)
-/// //             let x = matches.get(1);
-/// //             assert!(x.is_none());
-/// //         }
-/// //
-/// //         { // the "(ef(ghi)j(k))" group
-/// //             let efghijk = matches.at(2);
-/// //             assert_eq!(efghijk.text(), "efghijk");
-/// //             assert_eq!(efghijk.num_children(), 2); // (ghi) (k)
-/// //
-/// //             { // the "(ghi)" group
-/// //                 let ghi = efghijk.at(0);
-/// //                 assert_eq!(ghi.text(), "ghi");
-/// //                 assert_eq!(ghi.num_children(), 0);
-/// //             }
-/// //
-/// //             { // the "(k)" group
-/// //                 let k = efghijk.at(1);
-/// //                 assert_eq!(k.text(), "k");
-/// //                 assert_eq!(k.num_children(), 0);
-/// //             }
-/// //         }
-///
-///         // ... do something with the matches ...
-///         # Some(MyType)
-///     }
-/// }
-/// sscanf::sscanf!("abcdefghijklm", "{MyType}").unwrap();
-/// ```
-///
 /// ## On Optional Capture Groups
 ///
 /// There are a lot of mentions of "optional capture groups" or "capture groups that did not match" (or as the regex
@@ -176,7 +106,7 @@ pub struct MatchTree<'t, 'input> {
     template: &'t MatchTreeTemplate,
     captures: &'t Captures,
     input: &'input str,
-    full: &'input str,
+    full_text: &'input str,
     context: ContextChain<'t>,
 }
 
@@ -194,14 +124,14 @@ impl<'t, 'input> MatchTree<'t, 'input> {
             template,
             captures,
             input,
-            full: &input[current],
+            full_text: &input[current],
             context,
         }
     }
 
     /// Returns the entire matched text for this match tree.
     pub fn text(&self) -> &'input str {
-        self.full
+        self.full_text
     }
 
     /// Convenience method to call [`FromScanf::from_match_tree`] with this match tree.
@@ -250,7 +180,7 @@ impl<'t, 'input> MatchTree<'t, 'input> {
             children,
             captures: self.captures,
             input: self.input,
-            full: self.full,
+            full_text: self.full_text,
             context: self.context.and(Context::AsSeq),
         }
     }
@@ -288,7 +218,7 @@ impl<'t, 'input> MatchTree<'t, 'input> {
         AltMatch {
             matched_index,
             child,
-            full: self.full,
+            full_text: self.full_text,
         }
     }
 
@@ -334,7 +264,7 @@ impl<'t, 'input> MatchTree<'t, 'input> {
         AltMatch {
             matched_index,
             child,
-            full: self.full,
+            full_text: self.full_text,
         }
     }
 
@@ -364,10 +294,22 @@ impl<'t, 'input> MatchTree<'t, 'input> {
 impl std::fmt::Debug for MatchTree<'_, '_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.template.kind {
-            MatchTreeKind::Regex(_) => self.as_regex_matches().fmt(f),
+            MatchTreeKind::Regex(_) => {
+                let captures = self.as_regex_matches();
+                f.debug_struct("RegexMatch")
+                    .field("full_text", &self.text())
+                    .field("captures", &captures)
+                    .finish()
+            }
             MatchTreeKind::Seq(_) => self.as_seq().fmt(f),
             MatchTreeKind::Alt(_) => self.as_alt().fmt(f),
-            MatchTreeKind::Optional(_) => self.as_opt().fmt(f),
+            MatchTreeKind::Optional(_) => {
+                let opt = self.as_opt();
+                f.debug_struct("OptionalMatch")
+                    .field("full_text", &self.text())
+                    .field("child", &opt)
+                    .finish()
+            }
         }
     }
 }
@@ -375,5 +317,181 @@ impl std::fmt::Debug for MatchTree<'_, '_> {
 impl std::fmt::Display for MatchTree<'_, '_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.text().fmt(f)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::assert_panic_message_eq;
+
+    #[test]
+    fn has_correct_panics() {
+        let parsed = regex_automata::meta::Regex::new("(a)(b)(c)(d)").unwrap();
+        let captures = parsed.create_captures();
+
+        let input = "abcd";
+
+        let current = Span { start: 0, end: 4 };
+
+        let context: ContextChain = Context::Root.into();
+
+        let template_seq = MatchTreeTemplate {
+            index: 0,
+            kind: MatchTreeKind::Seq(vec![]),
+        };
+        let template_regex = MatchTreeTemplate {
+            index: 0,
+            kind: MatchTreeKind::Regex(1..2),
+        };
+        let template_alt = MatchTreeTemplate {
+            index: 0,
+            kind: MatchTreeKind::Alt(vec![]),
+        };
+        let template_opt = MatchTreeTemplate {
+            index: 0,
+            kind: MatchTreeKind::Optional(Box::new(MatchTreeTemplate {
+                index: 1,
+                kind: MatchTreeKind::Regex(2..3),
+            })),
+        };
+
+        let match_tree_seq = MatchTree::new(&template_seq, &captures, input, current, context);
+        assert_panic_message_eq!(
+            match_tree_seq.as_regex_matches(),
+            r#"sscanf: MatchTree::as_regex_matches called on a Sequence Match.
+Context: sscanf"#
+        );
+
+        let context = context.and(Context::AsSeq);
+        let match_tree_regex = MatchTree::new(&template_regex, &captures, input, current, context);
+        assert_panic_message_eq!(
+            match_tree_regex.as_seq(),
+            r#"sscanf: MatchTree::as_seq called on a Regex Match.
+Context: sscanf -> as_seq()"#
+        );
+
+        let context = context.and(Context::AsAltEnum("hi"));
+        let match_tree_alt = MatchTree::new(&template_alt, &captures, input, current, context);
+        assert_panic_message_eq!(
+            match_tree_alt.as_opt(),
+            r#"sscanf: MatchTree::as_opt called on a Alt Match.
+Context: sscanf -> as_seq() -> as_alt(hi matched)"#
+        );
+
+        let context = context.and(Context::Parse("MyType"));
+        let match_tree_opt = MatchTree::new(&template_opt, &captures, input, current, context);
+        assert_panic_message_eq!(
+            match_tree_opt.as_alt(),
+            r#"sscanf: MatchTree::as_alt called on a Optional Match.
+Context: sscanf -> as_seq() -> as_alt(hi matched) -> parse as MyType"#
+        );
+    }
+
+    #[test]
+    fn test_match_tree_debug() {
+        let parsed =
+            regex_automata::meta::Regex::new("([a-b]{2})((cd)|(ef))gh((i)?)((j)?)").unwrap();
+        let mut captures = parsed.create_captures();
+
+        let input = "abcdghj";
+
+        parsed.captures(input, &mut captures);
+
+        let current = Span {
+            start: 0,
+            end: input.len(),
+        };
+
+        let context: ContextChain = Context::Root.into();
+
+        let template_regex = MatchTreeTemplate {
+            index: 0,
+            kind: MatchTreeKind::Seq(vec![
+                Some(MatchTreeTemplate {
+                    index: 1,
+                    kind: MatchTreeKind::Regex(1..2),
+                }),
+                Some(MatchTreeTemplate {
+                    index: 2,
+                    kind: MatchTreeKind::Alt(vec![
+                        MatchTreeTemplate {
+                            index: 3,
+                            kind: MatchTreeKind::Regex(3..4),
+                        },
+                        MatchTreeTemplate {
+                            index: 4,
+                            kind: MatchTreeKind::Regex(5..6),
+                        },
+                    ]),
+                }),
+                Some(MatchTreeTemplate {
+                    index: 5,
+                    kind: MatchTreeKind::Optional(Box::new(MatchTreeTemplate {
+                        index: 6,
+                        kind: MatchTreeKind::Regex(7..7),
+                    })),
+                }),
+                Some(MatchTreeTemplate {
+                    index: 7,
+                    kind: MatchTreeKind::Optional(Box::new(MatchTreeTemplate {
+                        index: 8,
+                        kind: MatchTreeKind::Regex(9..9),
+                    })),
+                }),
+            ]),
+        };
+
+        let match_tree_regex = MatchTree::new(&template_regex, &captures, input, current, context);
+        assert_eq!(
+            format!("{:#?}", match_tree_regex),
+            r#"MatchTree::Seq {
+    full_text: "abcdghj",
+    children: [
+        Some(
+            RegexMatch {
+                full_text: "ab",
+                captures: [
+                    Some(
+                        "ab",
+                    ),
+                ],
+            },
+        ),
+        Some(
+            AltMatch {
+                full_text: "cd",
+                matched_index: 0,
+                child: RegexMatch {
+                    full_text: "cd",
+                    captures: [
+                        Some(
+                            "cd",
+                        ),
+                    ],
+                },
+            },
+        ),
+        Some(
+            OptionalMatch {
+                full_text: "",
+                child: None,
+            },
+        ),
+        Some(
+            OptionalMatch {
+                full_text: "j",
+                child: Some(
+                    RegexMatch {
+                        full_text: "j",
+                        captures: [],
+                    },
+                ),
+            },
+        ),
+    ],
+    ..
+}"#
+        );
     }
 }

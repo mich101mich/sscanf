@@ -216,6 +216,14 @@ mod tests {
                 panic!("unexpected panic payload: {:?}", error);
             }
         };
+        ( $expression:expr, $message:literal $(,)? ) => {
+            assert_panic_message_eq!(
+                {
+                    $expression; // avoid problems with lifetimes by not returning the value
+                },
+                $message
+            );
+        };
         ( $statement:stmt, $message:literal $(,)? ) => {
             assert_panic_message_eq!({ $statement }, $message);
         };

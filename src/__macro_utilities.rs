@@ -104,3 +104,34 @@ impl std::fmt::Debug for Parser {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    /// Utility macro for other tests: Asserts that the given block or statement throws a panic with the given message.
+    #[macro_export]
+    macro_rules! assert_panic_message_eq {
+        ( $block:block, $message:literal $(,)? ) => {
+            let Err(error) = std::panic::catch_unwind(move || $block) else {
+                panic!("code {} did not panic", stringify!($block));
+            };
+            if let Some(s) = error.downcast_ref::<&'static str>() {
+                assert_eq!(*s, $message);
+            } else if let Some(s) = error.downcast_ref::<String>() {
+                assert_eq!(s, $message);
+            } else {
+                panic!("unexpected panic payload: {:?}", error);
+            }
+        };
+        ( $expression:expr, $message:literal $(,)? ) => {
+            assert_panic_message_eq!(
+                {
+                    $expression; // avoid problems with lifetimes by not returning the value
+                },
+                $message
+            );
+        };
+        ( $statement:stmt, $message:literal $(,)? ) => {
+            assert_panic_message_eq!({ $statement }, $message);
+        };
+    }
+}

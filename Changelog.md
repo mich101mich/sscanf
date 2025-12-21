@@ -15,17 +15,13 @@ as neither works without the other and versions are always released in parallel.
 
 ### Changed
 - Bumped MSRV to 1.88.0 (**BREAKING**)
-  - This allows updating several outdated dependencies
+  - This allows updating all outdated dependencies
   - This adds several improvements to error messages, like [Span methods] or
     [diagnostic::on_unimplemented][on_unimplemented]
 - Changed `sscanf!` return type back to `Option` (**BREAKING**) (sorry)
   - This change was originally made to allow debugging custom types, but the returned error was never really useful,
     and the addition of the derive macro made it useless in not just 99% of use cases like before, but 99,99%.  
     Having a `Result` that should have been an `Option` was adding far too much complexity and multiple pitfalls.
-- Changed custom Regex string escaping (**BREAKING**)
-  - instead of using `'\'` to escape the closing `'/'`-character, it now uses the same `#`-padding as raw strings
-    - Example: a format string like `"{String:/\\d+\\/\\d+/}"` (which matches `"<number>/<number>"`) now becomes
-      `"{String:#/\\d+/\\d+/#}"`
 - Completely redesigned the `FromScanf` trait (NOTE: The derive macro still works as before!)
 
 ### Removed

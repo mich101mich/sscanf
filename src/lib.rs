@@ -68,5 +68,4 @@ pub mod advanced;
 pub mod changelog {}
 
 #[doc(hidden)]
-#[macro_use]
 pub mod __macro_utilities;

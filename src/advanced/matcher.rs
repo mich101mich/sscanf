@@ -96,8 +96,8 @@ impl Matcher {
                             hirs.push(hir);
                             children.push(Some(child_index));
                         }
-                        MatchPart::Regex(hir) => {
-                            hirs.push(hir.hir.as_ref().clone());
+                        MatchPart::Regex(regex_part) => {
+                            hirs.push(regex_part.hir);
                             children.push(None);
                         }
                         MatchPart::Literal(Cow::Owned(s)) => {
@@ -170,7 +170,7 @@ pub enum MatchPart {
 /// Internal representation of [`MatchPart::Regex`].
 #[derive(Debug, Clone)]
 pub struct RegexPart {
-    hir: std::sync::Arc<Hir>,
+    hir: Hir,
 }
 
 impl MatchPart {
@@ -182,7 +182,6 @@ impl MatchPart {
         regex_syntax::parse(s.as_ref())
             .map(|mut hir| {
                 strip_captures(&mut hir);
-                let hir = std::sync::Arc::new(hir);
                 MatchPart::Regex(RegexPart { hir })
             })
             .map_err(|err| format!("sscanf: Invalid regex segment: {err}"))
@@ -291,5 +290,48 @@ Please report this as a bug.
 Offender: {kind:?}"#,
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_strip_captures() {
+        let regex = "(a)|([b-d](e\\.f)?)";
+        let mut hir = regex_syntax::parse(regex).unwrap();
+        strip_captures(&mut hir);
+        assert_eq!(hir.properties().explicit_captures_len(), 0);
+        let hir_str = hir.to_string();
+        assert_eq!(hir_str, "(?:a|(?:[b-d](?:e\\.f)?))");
+
+        strip_captures(&mut hir); // Stripping again should do nothing
+        assert_eq!(hir.properties().explicit_captures_len(), 0);
+        assert_eq!(hir.to_string(), hir_str);
+    }
+
+    #[test]
+    fn test_debug_to_regex() {
+        let part_1 = "Value: ";
+        let part_2 = r"([0-9]{1,3})";
+        let part_3 = ", Flag: ";
+        let part_4 = r"true|false";
+        let matcher = Matcher::Seq(vec![
+            MatchPart::literal(part_1),
+            MatchPart::Matcher(Matcher::from_regex(part_2).unwrap()),
+            MatchPart::literal(String::from(part_3)),
+            MatchPart::Matcher(Matcher::from_regex(part_4).unwrap()),
+        ]);
+
+        let regex_str = matcher.debug_to_regex();
+        assert_eq!(
+            regex_str,
+            "((?:(?:Value: )(([0-9]{1,3}))(?:, Flag: )((?:(?:true)|(?:false)))))"
+        );
+
+        let combined = format!("({part_1}({part_2}){part_3}({part_4}))"); // Any "Matcher" is wrapped in a capture group
+        let direct = regex_syntax::parse(&combined).unwrap();
+        assert_eq!(regex_str, direct.to_string());
     }
 }

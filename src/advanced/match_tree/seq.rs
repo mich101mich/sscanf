@@ -2,18 +2,19 @@ use super::*;
 use crate::advanced::AcceptsRegexOverride;
 
 /// A match generated from a [`Matcher::Seq`].
+#[derive(Clone, Copy)]
 pub struct SeqMatch<'t, 'input> {
     pub(crate) children: &'t [Option<MatchTreeTemplate>],
     pub(crate) captures: &'t Captures,
     pub(crate) input: &'input str,
-    pub(crate) full: &'input str,
+    pub(crate) full_text: &'input str,
     pub(crate) context: ContextChain<'t>,
 }
 
 impl<'t, 'input> SeqMatch<'t, 'input> {
     /// Returns the entire matched text.
     pub fn text(&self) -> &'input str {
-        self.full
+        self.full_text
     }
 
     /// Returns the number of slots in this sequence.
@@ -143,7 +144,7 @@ impl std::fmt::Debug for SeqMatch<'_, '_> {
             .iter()
             .map(|match_tree| {
                 let match_tree = match_tree.as_ref()?;
-                let span = self.captures.get_group(match_tree.index)?;
+                let span = self.captures.get_group(match_tree.index).unwrap();
                 Some(MatchTree::new(
                     match_tree,
                     self.captures,
@@ -154,7 +155,7 @@ impl std::fmt::Debug for SeqMatch<'_, '_> {
             })
             .collect::<Vec<_>>();
         f.debug_struct("MatchTree::Seq")
-            .field("text", &self.text())
+            .field("full_text", &self.text())
             .field("children", &children.as_slice())
             .finish_non_exhaustive()
     }
