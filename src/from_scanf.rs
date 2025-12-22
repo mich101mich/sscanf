@@ -44,7 +44,7 @@ use std::str::FromStr;
 /// }
 ///
 /// impl sscanf::FromScanfSimple<'_> for Fraction {
-///     const REGEX: &'static str = r"[-+]?\d+/\d+"; // (sign) digits '/' digits
+///     const REGEX: &'static str = r"[-+]?[0-9]+/[0-9]+"; // (sign) digits '/' digits
 ///
 ///     fn from_match(input: &str) -> Option<Self> {
 ///         let (numerator, denominator) = input.split_once('/').unwrap(); // unwrap is safe here, since the regex guarantees the presence of '/'
@@ -71,16 +71,16 @@ use std::str::FromStr;
 ///     denominator: usize,
 /// }
 ///
-/// // existing FromStr implementation for Fraction
 /// impl std::str::FromStr for Fraction {
-///     type Err = &'static str; // simplified error type
-///     fn from_str(input: &str) -> Result<Self, Self::Err> {
-///         let (numerator, denominator) = input.split_once('/').ok_or("Missing '/'")?;
-///         Ok(Self {
-///             numerator: numerator.parse().map_err(|_| "Invalid numerator")?,
-///             denominator: denominator.parse().map_err(|_| "Invalid denominator")?,
-///         })
-///     }
+///     // existing FromStr implementation for Fraction
+/// #   type Err = &'static str; // simplified error type
+/// #   fn from_str(input: &str) -> Result<Self, Self::Err> {
+/// #       let (numerator, denominator) = input.split_once('/').ok_or("Missing '/'")?;
+/// #       Ok(Self {
+/// #           numerator: numerator.parse().map_err(|_| "Invalid numerator")?,
+/// #           denominator: denominator.parse().map_err(|_| "Invalid denominator")?,
+/// #       })
+/// #   }
 /// }
 ///
 /// impl sscanf::FromScanfSimple<'_> for Fraction {
@@ -217,7 +217,12 @@ use std::str::FromStr;
 pub trait FromScanf<'input>: Sized {
     /// Create a matcher to find and capture the string representation of the implementing type.
     ///
-    /// TODO: give hints on how to create matchers
+    /// See the documentation of [`Matcher`] for details on how to create matchers.
+    ///
+    /// The `format` parameter contains customizations from the format string, lik `{:x}` for hexadecimal number
+    /// parsing. If you want numbers within your type to be overridden by these options, you need to pass them
+    /// down to the matchers of the fields. Otherwise, you can use, ignore, customize, or override this parameter as
+    /// you see fit.
     fn get_matcher(format: &FormatOptions) -> Matcher;
 
     /// Callback to parse the input string from a match tree.
@@ -273,18 +278,35 @@ pub trait FromScanfSimple<'input>
 where
     Self: Sized,
 {
-    /// A regular expression that exactly matches any string representation of the implementing type
+    /// A regular expression that exactly matches any string representation of the implementing type.
     ///
-    /// TODO: give hints on how to create this regex
+    /// The parts of the input string that is matched by this regex will be passed to the
+    /// [`from_match`](FromScanfSimple::from_match) function for parsing, so the main requirement for this regex
+    /// is that it matches exactly the characters that are relevant for parsing the type.\
+    /// For example, for an integer type, this would be a regex that matches digits, optional signs, etc., but
+    /// nothing extra.
+    ///
+    /// The regex doesn't strictly have to be a 1:1 match for any and all valid inputs, but it should be a best
+    /// effort match.\
+    /// Take for example number types. `i32` can represent numbers from `-2_147_483_648` to `2_147_483_647`, but a
+    /// regex that matches all of these values would be extremely complex. Instead, a simpler regex
+    /// that matches the correct number of digits is used. This means that inputs from `-9_999_999_999` to
+    /// `9_999_999_999` would match the regex, but fail during parsing.\
+    /// This is acceptable, as the regex is still a best effort match for valid inputs and also contains the correct
+    /// number of digits. If it just matched "any number of digits", there might be cases where the user wants to
+    /// parse consecutive hex numbers without separators (which is absolutely supported right now), which would then
+    /// fail because the regex for the first number would greedily match all digits just to fail during parsing.
+    ///
+    /// What exactly "best effort" means depends on the type being implemented.
     const REGEX: &'static str;
 
     /// The implementation of the parsing.
     ///
     /// For types implementing [`FromStr`], this can just be `input.parse().ok()`:
     /// ```
-    /// # struct MyType;
-    /// # impl std::str::FromStr for MyType { type Err = (); fn from_str(_: &str) -> Result<Self, Self::Err> { Ok(MyType) } }
-    /// impl sscanf::FromScanfSimple<'_> for MyType {
+    /// # struct MyFromStrType;
+    /// # impl std::str::FromStr for MyFromStrType { type Err = (); fn from_str(_: &str) -> Result<Self, Self::Err> { Ok(MyFromStrType) } }
+    /// impl sscanf::FromScanfSimple<'_> for MyFromStrType {
     ///     const REGEX: &'static str = // your regex here
     /// # "placeholder regex to make this compile";
     ///
@@ -293,6 +315,22 @@ where
     ///     }
     /// }
     /// ```
+    ///
+    /// # Guide to `panic!` vs `return None`
+    ///
+    /// As the example above shows, the `Result` returned by `FromStr::from_str` is converted to an `Option` by using
+    /// `ok()`, which returns `None` on error. This is the recommended way to handle parsing errors in this function
+    /// if the regex is not a strict 1:1 match for all valid inputs.
+    ///
+    /// The code in the [`FromScanf`](trait.FromScanf.html#option-2-manually-implement-fromscanfsimple) docs for
+    /// parsing a `Fraction` used `unwrap()` to assert the presence of the `/` character. This is acceptable there, since the regex
+    /// guarantees its presence.
+    ///
+    /// This is the rough guideline:
+    /// - The input passed to this function is **guaranteed** to match the regex in [`REGEX`](FromScanfSimple::REGEX).
+    ///   Any violation of this is a programming error in the calling code and should `panic!()`.
+    ///   - This also includes mistakes in the regex itself, since it is a compile time constant.
+    /// - If the regex matched something that the parser can't handle, return `None` for invalid inputs.
     fn from_match(input: &'input str) -> Option<Self>;
 }
 
