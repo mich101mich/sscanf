@@ -72,6 +72,7 @@ impl FromFormatString<'_> for NumberFormatOption {
                 }
             }
             _ => {
+                // technically unreachable, since this is already checked before calling this function
                 if let Some(hashtag_pos) = hashtag_pos {
                     // The hashtag might have belonged to the previous format option
                     return parser.err_at(

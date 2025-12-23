@@ -186,3 +186,25 @@ fn autogen_cases() {
 
     assert!(errors.is_empty(), "{}", errors);
 }
+
+#[test]
+fn variant_attributes() {
+    #[derive(FromScanf, Debug, PartialEq)]
+    enum Command {
+        #[sscanf(format = "SET {}")]
+        Set(String),
+        #[sscanf(r"SET_[0-9]+ {}")]
+        SetNumbered(String),
+        #[sscanf(skip)]
+        #[allow(dead_code)]
+        Unused(String),
+        #[sscanf(transparent)]
+        Verbatim(String),
+    }
+
+    let input = "SET foo SET_42 bar baz";
+    let (cmd1, cmd2, verbatim) = sscanf!(input, "{Command} {Command} {Command}").unwrap();
+    assert_eq!(cmd1, Command::Set("foo".to_string()));
+    assert_eq!(cmd2, Command::SetNumbered("bar".to_string()));
+    assert_eq!(verbatim, Command::Verbatim("baz".to_string()));
+}

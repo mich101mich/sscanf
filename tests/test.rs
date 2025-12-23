@@ -152,6 +152,54 @@ fn custom_regex() {
 }
 
 #[test]
+fn custom_format_option() {
+    #[derive(Debug, PartialEq)]
+    struct MyOption<T>(Option<T>);
+
+    impl<'input, T: FromScanf<'input>> FromScanf<'input> for MyOption<T> {
+        fn get_matcher(format: &advanced::FormatOptions) -> advanced::Matcher {
+            let mut format = format.clone();
+            let option = format.custom.take().unwrap();
+            let (prefix, suffix) = option.split_once("{}").unwrap();
+            advanced::Matcher::Seq(vec![
+                advanced::MatchPart::literal(prefix.to_string()),
+                T::get_matcher(&format).into(),
+                advanced::MatchPart::literal(suffix.to_string()),
+            ])
+            .optional()
+        }
+
+        fn from_match_tree(
+            matches: advanced::MatchTree<'_, 'input>,
+            format: &advanced::FormatOptions,
+        ) -> Option<Self> {
+            let inner = if let Some(m) = matches.as_opt() {
+                Some(m.as_seq().parse_field("0", 1, format)?)
+            } else {
+                None
+            };
+            Some(Self(inner))
+        }
+    }
+
+    let input = "Find the code '<12345>' in the text.";
+    let parsed = sscanf!(
+        input,
+        "Find the code '{MyOption<usize>:[<{}>]}' in the text."
+    )
+    .unwrap();
+    assert_eq!(parsed, MyOption(Some(12345)));
+
+    let input = "Find the code '' in the text.";
+    let parsed = sscanf!(
+        input,
+        "Find the code '{MyOption<usize>:[<{}>]}' in the text."
+    )
+    .unwrap();
+    assert_eq!(parsed, MyOption(None));
+}
+
+#[test]
 fn string_lifetime() {
     // compare with tests/fail/str_lifetime.rs
     let s;

@@ -13,11 +13,14 @@ macro_rules! declare_autogen {
     ) => {
         #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
         pub enum AutoGenKind {
-            $($special_ident,)+
             $($ident,)+
+            $($special_ident,)+
         }
         impl AutoGenKind {
-            const AUTOGEN_KINDS: &'static [&'static str] = &[$($text,)+ $($special_text,)+];
+            const AUTOGEN_KINDS: &[&str] = &[
+                $($text,)+
+                $($special_text,)+
+            ];
 
             pub fn valid_hint() -> String {
                 list_items_quoted(Self::AUTOGEN_KINDS, '"')
@@ -37,18 +40,14 @@ macro_rules! declare_autogen {
                 }
             }
 
-            pub fn create_struct_attr(&self, ident: &str, src: TokenStream) -> StructAttribute {
-                match *self {
-                    $(Self::$special_ident => {
-                        let kind = $conversion(ident, &src);
-                        StructAttribute::new(src, kind)
-                    },)+
-                    $(Self::$ident => {
-                        let lit = syn::LitStr::new(&ident.to_case(Case::$case), src.span());
-                        let kind = StructAttributeKind::Format { value: StrLit::new(lit), escape: true };
-                        StructAttribute::new(src, kind)
-                    },)+
-                }
+            pub fn create_struct_attr(&self, field_name: &str, src: TokenStream) -> StructAttribute {
+                let (matched_text, escape) = match *self {
+                    $(Self::$ident => (field_name.to_case(Case::$case), true),)+
+                    $(Self::$special_ident => $conversion(field_name),)+
+                };
+                let value = StrLit::new(syn::LitStr::new(&matched_text, src.span()));
+                let kind = StructAttributeKind::Format { value, escape };
+                StructAttribute::new(src, kind)
             }
         }
     };
@@ -57,21 +56,14 @@ macro_rules! declare_autogen {
 fn match_case_sensitive(s: &str) -> bool {
     s == "CaseSensitive"
 }
-fn convert_case_sensitive(ident: &str, src: &TokenStream) -> StructAttributeKind {
-    StructAttributeKind::Format {
-        value: StrLit::new(syn::LitStr::new(ident, src.span())),
-        escape: true,
-    }
+fn convert_case_sensitive(ident: &str) -> (String, bool) {
+    (ident.to_string(), true)
 }
 fn match_case_insensitive(s: &str) -> bool {
     s.to_case(Case::Flat) == "caseinsensitive"
 }
-fn convert_case_insensitive(ident: &str, src: &TokenStream) -> StructAttributeKind {
-    let text = format!("(?i:{ident})");
-    StructAttributeKind::Format {
-        value: StrLit::new(syn::LitStr::new(&text, src.span())),
-        escape: false,
-    }
+fn convert_case_insensitive(ident: &str) -> (String, bool) {
+    (format!("(?i:{ident})"), false) // don't escape, since we are adding regex syntax
 }
 
 declare_autogen!(
@@ -123,5 +115,46 @@ impl FromAttribute<attr::Enum> for EnumAttributeKind {
             }
         };
         Ok(ret)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use AutoGenKind::*;
+
+    #[track_caller]
+    fn parse(s: &str) -> AutoGenKind {
+        AutoGenKind::from_str(s).unwrap()
+    }
+
+    #[test]
+    fn autogen_from_str() {
+        assert_eq!(parse("lower case"), LowerCase);
+        assert_eq!(parse("UPPERCASE"), UpperFlatCase);
+        assert_eq!(parse("CaseSensitive"), CaseSensitive);
+        assert_eq!(parse("caseinsensitive"), CaseInsensitive);
+    }
+
+    #[test]
+    fn autogen_from_str_invalid() {
+        let err = AutoGenKind::from_str("unknown").unwrap_err();
+        let err_msg = format!("{}", err);
+        assert!(err_msg.contains("invalid value for autogen"));
+        assert!(err_msg.contains("valid values are"));
+
+        AutoGenKind::from_str("uppercase").unwrap_err(); // not UPPERCASE
+        AutoGenKind::from_str("camel_case").unwrap_err(); // not camelCase
+    }
+
+    #[test]
+    fn case_insensitive_matching() {
+        assert!(match_case_insensitive("CaseInsensitive"));
+        assert!(match_case_insensitive("caseinsensitive"));
+        assert!(match_case_insensitive("CASEINSENSITIVE"));
+        assert!(match_case_insensitive("Case Insensitive"));
+        assert!(match_case_insensitive("Case_Insensitive"));
+        assert!(match_case_insensitive("cAsEiNsEnSiTiVe"));
+        assert!(!match_case_insensitive("Case Sensitive"));
     }
 }
