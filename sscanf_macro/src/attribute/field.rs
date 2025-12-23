@@ -14,7 +14,6 @@ pub enum FieldAttributeKind {
         ty: syn::Type,
         tries: bool,
     },
-    // TODO: add 'Optional' attribute
 }
 
 impl FromAttribute<attr::Field, &'_ syn::Type> for FieldAttributeKind {

@@ -162,6 +162,10 @@ impl SequenceMatcher {
         Ok(ret)
     }
 
+    pub fn num_parts(&self) -> usize {
+        self.match_parts.len()
+    }
+
     pub fn get_matcher(&self) -> TokenStream {
         let match_parts = &self.match_parts;
         quote! { ::sscanf::advanced::Matcher::Seq(vec![ #(#match_parts),* ]) }

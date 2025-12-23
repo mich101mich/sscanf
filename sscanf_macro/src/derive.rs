@@ -354,33 +354,46 @@ Either specify it in a placeholder or provide a default value with `#[sscanf(def
     Ok((matcher, parser, lifetimes))
 }
 
-// TODO: depend on all the lifetimes
 fn merge_lifetimes(
-    str_lifetimes: HashSet<syn::Lifetime>,
+    mut lifetimes: HashSet<syn::Lifetime>,
     src_generics: &syn::Generics,
 ) -> (syn::Lifetime, syn::Generics) {
-    let mut lifetime = syn::Lifetime::new("'input", Span::call_site());
-    let mut is_static = false;
-    if let Some(lt) = str_lifetimes.iter().find(|lt| lt.ident == "static") {
-        lifetime = lt.clone();
-        is_static = true;
+    if let Some(lt) = lifetimes.iter().find(|lt| lt.ident == "static") {
+        return (lt.clone(), src_generics.clone());
     }
 
-    let mut lifetimed_generics = src_generics.clone();
-    if !is_static {
-        lifetimed_generics
+    let out_lifetime = syn::Lifetime::new("'input", Span::call_site());
+
+    let mut generics_with_lifetimes = src_generics.clone();
+
+    if !generics_with_lifetimes.params.iter().any(
+        |p| matches!(p, syn::GenericParam::Lifetime(lt) if lt.lifetime.ident == out_lifetime.ident),
+    ) {
+        generics_with_lifetimes
             .params
-            .push(syn::parse_quote! { #lifetime });
-
-        let where_clause = &mut lifetimed_generics.make_where_clause().predicates;
-        for lt in str_lifetimes {
-            if lt.ident != "static" && lt.ident != lifetime.ident {
-                where_clause.push(syn::parse_quote! { #lifetime: #lt });
-            }
-        }
+            .push(syn::GenericParam::Lifetime(syn::LifetimeParam {
+                attrs: vec![],
+                lifetime: out_lifetime.clone(),
+                colon_token: None,
+                bounds: syn::punctuated::Punctuated::new(),
+            }));
     }
 
-    (lifetime, lifetimed_generics)
+    lifetimes.retain(|lt| lt.ident != "static" && lt.ident != out_lifetime.ident);
+
+    if !lifetimes.is_empty() {
+        // make sure that the output lifetime outlives all other lifetimes
+        generics_with_lifetimes
+            .make_where_clause()
+            .predicates
+            .push(syn::WherePredicate::Lifetime(syn::PredicateLifetime {
+                lifetime: out_lifetime.clone(),
+                colon_token: syn::Token![:](Span::call_site()),
+                bounds: lifetimes.into_iter().collect(),
+            }));
+    }
+
+    (out_lifetime, generics_with_lifetimes)
 }
 
 pub fn parse_struct(
@@ -400,14 +413,15 @@ Alternatively, you can use #[sscanf(transparent)] to derive FromScanf for a sing
 Please add either of #[sscanf(format = "...")], #[sscanf(format_unescaped = "...")] or #[sscanf("...")]{hint}"#);
     };
 
-    let (regex_parts, from_matches, str_lifetimes) = parse_format(attr, data.fields)?;
+    let (regex_parts, from_matches, lifetimes) = parse_format(attr, data.fields)?;
 
     let ty_generics = generics.split_for_impl().1; // generics of the type have to be kept as-is from the struct definition
 
-    let (lifetime, lt_generics) = merge_lifetimes(str_lifetimes, generics);
+    let (lifetime, lt_generics) = merge_lifetimes(lifetimes, generics);
     let (impl_generics, _, where_clause) = lt_generics.split_for_impl();
 
     let matcher = regex_parts.get_matcher();
+    let expected_parts = regex_parts.num_parts();
     let from_sscanf_impl = quote! {
         #[automatically_derived]
         impl #impl_generics ::sscanf::FromScanf<#lifetime> for #name #ty_generics #where_clause {
@@ -417,7 +431,14 @@ Please add either of #[sscanf(format = "...")], #[sscanf(format_unescaped = "...
 
             fn from_match_tree(src: ::sscanf::advanced::MatchTree<'_, #lifetime>, _: &::sscanf::advanced::FormatOptions) -> ::std::option::Option<Self> {
                 let src = src.as_seq();
-                // TODO: add assertion for the number of matches
+
+                assert_eq!(
+                    src.num_children(),
+                    #expected_parts,
+                    "FromScanf: Internal error: unexpected number of matches when parsing struct {}",
+                    stringify!(#name)
+                );
+
                 struct __SscanfTokenExtensionWrapper<T>(T);
                 ::std::option::Option::Some(Self #from_matches)
             }
@@ -448,7 +469,7 @@ pub fn parse_enum(
     let mut variant_matchers = vec![];
     let mut variant_parsers = vec![];
     let mut variant_names = vec![];
-    let mut str_lifetimes = HashSet::new();
+    let mut lifetimes = HashSet::new();
 
     let mut match_index = 0usize;
     for variant in data.variants.into_iter() {
@@ -472,17 +493,26 @@ Use `#[sscanf(format = "...")]` to specify a format for a variant with fields or
 
         let ident = variant.ident;
 
-        let (variant_matcher, from_matches, variant_str_lifetimes) =
+        let (variant_matcher, from_matches, variant_lifetimes) =
             parse_format(variant_attr, variant.fields)?;
+
+        let expected_parts = variant_matcher.num_parts();
 
         variant_matchers.push(variant_matcher.get_matcher());
 
-        str_lifetimes.extend(variant_str_lifetimes);
+        lifetimes.extend(variant_lifetimes);
 
         variant_parsers.push(quote! {
             #match_index => {
                 let src = src.as_seq();
-                // TODO: add assertion for the number of matches
+
+                assert_eq!(
+                    src.num_children(),
+                    #expected_parts,
+                    "FromScanf: Internal error: unexpected number of matches when parsing struct {}",
+                    stringify!(#name)
+                );
+
                 return ::std::option::Option::Some(Self::#ident #from_matches);
             }
         });
@@ -502,7 +532,7 @@ To do this, add #[sscanf(format = \"...\")] to a variant");
 
     let ty_generics = generics.split_for_impl().1; // generics of the type have to be kept as-is from the enum definition
 
-    let (lifetime, lt_generics) = merge_lifetimes(str_lifetimes, generics);
+    let (lifetime, lt_generics) = merge_lifetimes(lifetimes, generics);
     let (impl_generics, _, where_clause) = lt_generics.split_for_impl();
 
     let from_sscanf_impl = quote! {
