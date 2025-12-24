@@ -46,8 +46,8 @@ impl FieldIdent {
 impl ToTokens for FieldIdent {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match self {
-            FieldIdent::Named(ident) => tokens.extend(quote! { #ident }),
-            FieldIdent::Index(index) => tokens.extend(quote! { #index }),
+            FieldIdent::Named(ident) => ident.to_tokens(tokens),
+            FieldIdent::Index(index) => index.to_tokens(tokens),
         }
     }
 }

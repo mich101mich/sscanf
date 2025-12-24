@@ -23,7 +23,8 @@ as neither works without the other and versions are always released in parallel.
     and the addition of the derive macro made it useless in not just 99% of use cases like before, but 99,99%.  
     Having a `Result` that should have been an `Option` was adding far too much complexity and multiple pitfalls.
 - Completely redesigned the `FromScanf` trait (NOTE: The derive macro still works as before!)
-- Renamed `sscanf_unescaped` and `format_unescaped` to `sscanf_regex` and `format_regex` to be more meaningful.
+- Renamed `sscanf_unescaped` and `format_unescaped` to `sscanf_regex` and `format_regex` to be more meaningful. (**BREAKING**)
+- `format_unescaped` can no longer be written as just a raw string. (**BREAKING**)
 
 ### Removed
 - Removed auto-implementation of `FromScanf` for types implementing `FromStr` (**BREAKING**)

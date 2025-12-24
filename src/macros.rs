@@ -141,10 +141,8 @@ pub use sscanf_macro::sscanf_regex;
 ///   is useful for newtype structs, where the struct is just a wrapper around another type. The field has to implement
 ///   [`FromScanf`](crate::FromScanf).
 ///
-/// Note that only one of the above attributes can be used on a struct. The `format = ` part can be omitted, so
-/// `#[sscanf("<format>")]` is also valid. In this case, the distinction between `format` and `format_regex` is
-/// made by using a regular string literal for `format` and a raw string literal (starting with `r#"` or `r#"`) for
-/// `format_regex`. TODO: remove the raw string literal distinction.
+/// Note that only one of the above attributes can be used on a struct at a time. The `format = ` part can be omitted,
+/// so `#[sscanf("<format>")]` is also valid.
 ///
 /// #### On the fields
 /// - `default` or `default = <expression>`: Marks the field to be set from a default value rather than the input string.

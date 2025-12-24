@@ -191,9 +191,9 @@ fn autogen_cases() {
 fn variant_attributes() {
     #[derive(FromScanf, Debug, PartialEq)]
     enum Command {
-        #[sscanf(format = "SET {}")]
+        #[sscanf("SET {}")]
         Set(String),
-        #[sscanf(r"SET_[0-9]+ {}")]
+        #[sscanf(format_regex = "SET_[0-9]+ {}")]
         SetNumbered(String),
         #[sscanf(skip)]
         #[allow(dead_code)]

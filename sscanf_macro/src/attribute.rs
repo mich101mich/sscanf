@@ -18,7 +18,7 @@ pub use r#variant::*;
 pub trait Attr: Debug + Display + Copy + Ord + Hash + 'static {
     fn all() -> &'static [Self];
     fn context() -> Context;
-
+    fn find_equivalent(other: attr::All) -> Option<Self>;
     fn as_str(&self) -> &'static str;
 }
 
@@ -47,6 +47,16 @@ macro_rules! declare_attr {
                     $(Self::$context => attr::$context::ALL_NAMES),+
                 }
             }
+            pub const fn has_attr(&self, attr: $attr_mod::$attr_enum) -> bool {
+                match self {
+                    $(Self::$context => {
+                        match attr {
+                            $(attr::$attr_enum::$context_attr => true,)+
+                            _ => false,
+                        }
+                    }),+
+                }
+            }
         }
         impl std::fmt::Display for $context_enum {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -55,6 +65,7 @@ macro_rules! declare_attr {
         }
 
         pub mod $attr_mod {
+            #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
             pub enum $attr_enum {
                 $($attr_ident),+
             }
@@ -92,6 +103,12 @@ macro_rules! declare_attr {
                     }
                     fn context() -> super::$context_enum {
                         super::$context_enum::$context
+                    }
+                    fn find_equivalent(other: $attr_enum) -> Option<Self> {
+                        match other {
+                            $($attr_enum::$context_attr => Some(Self::$context_attr),)+
+                            _ => None,
+                        }
                     }
                     fn as_str(&self) -> &'static str {
                         self.as_str()
@@ -135,7 +152,8 @@ declare_attr!(
     }
 );
 
-fn find_match<A: Attr>(s: &str, src: &TokenStream) -> Result<A> {
+fn find_match<A: Attr>(src: &syn::Ident) -> Result<A> {
+    let s = src.to_string();
     if let Some(attr) = A::all().iter().find(|attr| attr.as_str() == s) {
         return Ok(*attr);
     }
@@ -148,7 +166,7 @@ fn find_match<A: Attr>(s: &str, src: &TokenStream) -> Result<A> {
 
     let mut found_others = vec![];
     for other in &others {
-        if other.all_attr_names().contains(&s) {
+        if other.all_attr_names().contains(&s.as_str()) {
             found_others.push(other);
         }
     }
@@ -158,12 +176,12 @@ fn find_match<A: Attr>(s: &str, src: &TokenStream) -> Result<A> {
 {context} can have the following attributes: {valid}");
     }
 
-    if let Some(similar) = find_closest(s, context.all_attr_names()) {
+    if let Some(similar) = find_closest(&s, context.all_attr_names()) {
         bail!(src => "unknown attribute `{s}`. Did you mean `{similar}`?");
     }
 
     for other in &others {
-        if let Some(similar) = find_closest(s, other.all_attr_names()) {
+        if let Some(similar) = find_closest(&s, other.all_attr_names()) {
             bail!(src => "unknown attribute `{s}` is similar to `{similar}`, which can only be used on {other}.
 {context} can have the following attributes: {valid}");
         }
@@ -180,55 +198,48 @@ pub struct Attribute<A: Attr> {
 
 impl<A: Attr> Attribute<A> {
     fn parse(input: ParseStream) -> Result<Self> {
-        let mut src = TokenStream::new();
-
         if input.peek(syn::LitStr) {
             let lit = input.parse::<syn::LitStr>()?;
-            let value = syn::parse2::<syn::Expr>(quote! { #lit }).unwrap(); // safe because lit is a LitStr, which is a valid Expr
-            src.extend(quote! { #value });
 
-            let kind_name = if StrLit::new(&lit).is_raw() {
-                attr::All::FormatRegex.as_str()
-            } else {
-                attr::All::Format.as_str()
-            };
-            if let Some(&kind) = A::all().iter().find(|attr| attr.as_str() == kind_name) {
-                return Ok(Self {
-                    kind,
-                    value: Some(value),
-                    src,
-                });
+            let expected = attr::All::Format;
+            if let Some(kind) = A::find_equivalent(expected) {
+                let src = lit.to_token_stream();
+                let lit = syn::Lit::Str(lit);
+                let value = Some(syn::Expr::Lit(syn::ExprLit { attrs: vec![], lit }));
+                return Ok(Self { kind, value, src });
             }
-            let name = attr::All::Format.as_str();
-            let name2 = attr::All::FormatRegex.as_str();
 
             let valid = Context::ALL
                 .iter()
-                .filter(|c| c.all_attr_names().iter().any(|n| *n == name || *n == name2))
+                .filter(|c| c.has_attr(expected))
                 .collect::<Vec<_>>();
             let valid = list_items(&valid);
 
-            bail!(value.start_span() => "omitting the attribute name is only valid for the `{name}` attribute on {valid}");
+            let name = expected.as_str();
+            bail!(lit.start_span() => "omitting the attribute name is only valid for the `{name}` attribute on {valid}");
         }
 
         let attr = input.parse::<syn::Ident>()?;
-        src.extend(quote! { #attr });
-        let kind = find_match(&attr.to_string(), &src)?;
+        let kind = find_match(&attr)?;
 
-        let mut value = None;
         let peek = input.lookahead1();
-        if !input.is_empty() && !peek.peek(Token![,]) {
-            if !peek.peek(Token![=]) {
-                return Err(peek.error());
-            }
-            let eq_sign = input.parse::<Token![=]>()?;
-
-            assert_or_bail!(!input.is_empty(), eq_sign.end_span() => "expected an expression after `=`");
-
-            let expr = input.parse::<syn::Expr>()?;
-            src.extend(quote! { #eq_sign #expr });
-            value = Some(expr);
+        if input.is_empty() || peek.peek(Token![,]) {
+            return Ok(Self {
+                kind,
+                value: None,
+                src: attr.to_token_stream(),
+            });
         }
+
+        if !peek.peek(Token![=]) {
+            return Err(peek.error());
+        }
+        let eq_sign = input.parse::<Token![=]>()?;
+
+        assert_or_bail!(!input.is_empty(), eq_sign.end_span() => "expected an expression after `=`");
+
+        let value = Some(input.parse::<syn::Expr>()?);
+        let src = quote! { #attr #eq_sign #value };
 
         Ok(Self { kind, value, src })
     }
@@ -237,9 +248,9 @@ impl<A: Attr> Attribute<A> {
         if let Some(value) = &self.value {
             Ok(syn::parse2(quote! { #value })?)
         } else if let Some(addition) = addition {
-            bail!(self => "attribute `{0}` has the format: `#[sscanf({0} = {description})]`\n{addition}", self.kind); // checked by the caller
+            bail!(self => "attribute `{0}` has the format: `#[sscanf({0} = {description})]`\n{addition}", self.kind);
         } else {
-            bail!(self => "attribute `{0}` has the format: `#[sscanf({0} = {description})]`", self.kind); // checked by the caller
+            bail!(self => "attribute `{0}` has the format: `#[sscanf({0} = {description})]`", self.kind);
         }
     }
 }

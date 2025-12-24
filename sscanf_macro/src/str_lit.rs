@@ -12,18 +12,9 @@ pub struct StrLit {
 
 impl StrLit {
     pub fn new(input: &syn::LitStr) -> Self {
-        // the full string with any ", r", r#", ... prefix and suffix
-        let text = input.to_token_stream().to_string();
-
-        // input has to be parsed as `syn::LitStr` to access the content as a string. But in order to
-        // call subspan, we need it as a `proc_macro2::Literal`. So: parse it as `LitStr` first and
-        // convert that to a `Literal` with the same content and span.
-        let mut span_provider = Literal::string(&text);
-        span_provider.set_span(input.span()); // input is a single Token so span() works even on stable
-
         Self {
-            text,
-            span_provider,
+            text: input.to_token_stream().to_string(), // the full string with any ", r", r#", ... prefix and suffix
+            span_provider: input.token(),
         }
     }
     pub fn from_parts(inner_text: &str, span: Span) -> Self {
