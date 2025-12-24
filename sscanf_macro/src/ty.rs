@@ -98,7 +98,7 @@ impl Parse for Type<'_> {
     }
 }
 
-impl quote::ToTokens for Type<'_> {
+impl ToTokens for Type<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         self.ty.to_tokens(tokens);
     }

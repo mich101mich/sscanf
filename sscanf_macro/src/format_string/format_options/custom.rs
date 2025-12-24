@@ -28,7 +28,7 @@ impl<'a> FromFormatString<'a> for CustomFormatOption<'a> {
         }
 
         let mut content = String::new();
-        let mut ending_escapes = -1;
+        let mut ending_escapes = None;
         loop {
             let Ok((_, c)) = parser.take() else {
                 let sequence = "#".repeat(num_escapes);
@@ -41,15 +41,15 @@ impl<'a> FromFormatString<'a> for CustomFormatOption<'a> {
                 if num_escapes == 0 {
                     break; // finished parsing
                 }
-                ending_escapes = num_escapes as isize;
+                ending_escapes = Some(num_escapes);
             } else if c == '#' {
                 match ending_escapes {
-                    -1 => {}    // no ']' found yet
-                    1 => break, // this was the last one => finished parsing
-                    _ => ending_escapes -= 1,
+                    None => {}        // no ']' found yet
+                    Some(1) => break, // this was the last one => finished parsing
+                    Some(ref mut v) => *v -= 1,
                 }
             } else {
-                ending_escapes = -1; // reset because we found a non-`#` character
+                ending_escapes = None; // reset because we found a non-`#` character
             }
             content.push(c);
         }

@@ -11,7 +11,7 @@ pub struct StrLit {
 }
 
 impl StrLit {
-    pub fn new(input: syn::LitStr) -> Self {
+    pub fn new(input: &syn::LitStr) -> Self {
         // the full string with any ", r", r#", ... prefix and suffix
         let text = input.to_token_stream().to_string();
 
@@ -26,12 +26,21 @@ impl StrLit {
             span_provider,
         }
     }
+    pub fn from_parts(inner_text: &str, span: Span) -> Self {
+        let text = format!("\"{inner_text}\""); // add quotes around the inner text
+        let mut span_provider = Literal::string(&text);
+        span_provider.set_span(span);
+        Self {
+            text,
+            span_provider,
+        }
+    }
 
     pub fn is_raw(&self) -> bool {
         self.text.starts_with('r')
     }
 
-    pub fn to_slice<'a>(&'a self) -> StrLitSlice<'a> {
+    pub fn to_slice(&self) -> StrLitSlice<'_> {
         // find the position of the opening quote. raw strings may have a prefix of any length,
         // which needs to be skipped. This information used to be provided by syn, but was removed
         // at some point. This approach is a dirty hack, which relies on the
@@ -69,18 +78,18 @@ If Rust added something like this since the last update of sscanf, please open a
             let prefix_hashtags = &self.text[R_LEN..][..num_hashtags];
             assert!(
                 prefix_hashtags.chars().all(|c| c == '#'),
-                r#"{INVALID_RAW_MSG}
+                r"{INVALID_RAW_MSG}
 Found invalid characters in raw string prefix of offending string: {prefix_hashtags}
-Offending string: {}"#,
+Offending string: {}",
                 self.text
             );
 
             let suffix_hashtags = &self.text[self.text.len() - num_hashtags..];
             assert!(
                 suffix_hashtags.chars().all(|c| c == '#'),
-                r#"{INVALID_RAW_MSG}
+                r"{INVALID_RAW_MSG}
 Found invalid characters in raw string suffix of offending string: {suffix_hashtags}
-Offending string: {}"#,
+Offending string: {}",
                 self.text
             );
 
@@ -89,8 +98,8 @@ Offending string: {}"#,
 
         assert!(
             self.text.len() >= prefix_length + suffix_length,
-            r#"sscanf: Unsupported string literal.
-Offending string: {}"#,
+            r"sscanf: Unsupported string literal.
+Offending string: {}",
             self.text
         );
 
@@ -329,7 +338,7 @@ impl<'a> StrLitSlice<'a> {
 
 impl Parse for StrLit {
     fn parse(input: ParseStream) -> Result<Self> {
-        input.parse().map(Self::new)
+        input.parse().map(|input| Self::new(&input))
     }
 }
 
@@ -412,15 +421,8 @@ fn rust_compiler_replacements(input: &str) -> (String, usize) {
             '\u{001f}' => ("␟", 1),
             '\u{007f}' => ("␡", 1),
             '\u{200d}' => ("", 1),
-            '\u{202a}' => ("�", 1),
-            '\u{202b}' => ("�", 1),
-            '\u{202c}' => ("�", 1),
-            '\u{202d}' => ("�", 1),
-            '\u{202e}' => ("�", 1),
-            '\u{2066}' => ("�", 1),
-            '\u{2067}' => ("�", 1),
-            '\u{2068}' => ("�", 1),
-            '\u{2069}' => ("�", 1),
+            '\u{202a}' | '\u{202b}' | '\u{202c}' | '\u{202d}' | '\u{202e}' | '\u{2066}'
+            | '\u{2067}' | '\u{2068}' | '\u{2069}' => ("�", 1),
             _ => {
                 output.push(c);
                 length += unicode_width::UnicodeWidthChar::width(c).unwrap_or(1);

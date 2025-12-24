@@ -11,7 +11,7 @@ pub struct FormatStringParser<'a> {
     chars: Vec<char>,
     /// The byte indices of the characters in the source string. Same length as `chars`.
     char_indices: Vec<usize>,
-    /// Index into chars/char_indices of the next character to take
+    /// Index into `chars`/`char_indices` of the next character to take
     pos: usize,
     /// Index of the most recent open curly bracket
     open_bracket_pos: usize,

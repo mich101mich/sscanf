@@ -1,6 +1,8 @@
-use std::collections::HashMap;
-use std::fmt::{Debug, Display};
-use std::hash::Hash;
+use std::{
+    collections::HashMap,
+    fmt::{Debug, Display},
+    hash::Hash,
+};
 
 use crate::*;
 
@@ -185,7 +187,7 @@ impl<A: Attr> Attribute<A> {
             let value = syn::parse2::<syn::Expr>(quote! { #lit }).unwrap(); // safe because lit is a LitStr, which is a valid Expr
             src.extend(quote! { #value });
 
-            let kind_name = if StrLit::new(lit).is_raw() {
+            let kind_name = if StrLit::new(&lit).is_raw() {
                 attr::All::FormatRegex.as_str()
             } else {
                 attr::All::Format.as_str()
@@ -360,9 +362,8 @@ where
     pub fn from_attrs_with(attrs: Vec<syn::Attribute>, data: Data) -> Result<Option<Self>> {
         let attrs = find_attrs::<A>(attrs)?;
 
-        let attr = match expect_one(attrs)? {
-            Some(attr) => attr,
-            None => return Ok(None),
+        let Some(attr) = expect_one(attrs)? else {
+            return Ok(None);
         };
 
         let src = attr.src.clone();

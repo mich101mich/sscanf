@@ -14,6 +14,15 @@
     rustdoc::invalid_codeblock_attributes,
     rustdoc::bare_urls
 )]
+//
+// set of clippy pedantic lints that I disagree with
+#![allow(
+    clippy::wildcard_imports,
+    clippy::enum_glob_use,
+    clippy::manual_assert, // I don't want the "assertion failed" text in the panic message
+    clippy::items_after_statements // if an item is only used locally, define it where it is needed
+)]
+//
 #![doc = include_str!("../Readme.md")]
 //! # A Note on Compiler Errors
 //!

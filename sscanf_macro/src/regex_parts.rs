@@ -1,6 +1,6 @@
 use crate::*;
 
-/// A pre-packaged TokenStream that will produce a sscanf::advanced::MatchPart
+/// A pre-packaged `TokenStream` that will produce a `sscanf::advanced::MatchPart`
 pub struct MatchPart(TokenStream);
 
 impl MatchPart {
@@ -121,7 +121,7 @@ impl SequenceMatcher {
         }
     }
 
-    pub fn new(format: &FormatString, type_sources: &[Type], escape_input: bool) -> Result<Self> {
+    pub fn new(format: &FormatString, type_sources: &[Type], escape_input: bool) -> Self {
         let mut ret = Self::empty();
 
         // if there are n types, there are n+1 regex_parts, so add the first n during this loop and
@@ -146,7 +146,7 @@ impl SequenceMatcher {
             } else {
                 match_part = MatchPart::from_type(ty, &ph.config);
                 parser = Parser::from_type(match_index, ty, &ph.config);
-            };
+            }
             ret.match_parts.push(match_part);
             ret.parsers.push(parser);
         }
@@ -159,7 +159,7 @@ impl SequenceMatcher {
                 .push(MatchPart::from_text(last_part, escape_input));
         }
 
-        Ok(ret)
+        ret
     }
 
     pub fn num_parts(&self) -> usize {

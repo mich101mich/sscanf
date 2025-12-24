@@ -1,3 +1,21 @@
+#![deny(
+    missing_debug_implementations,
+    trivial_casts,
+    trivial_numeric_casts,
+    unsafe_code,
+    unstable_features,
+    unused_import_braces,
+    unused_qualifications
+)]
+//
+// set of clippy pedantic lints that I disagree with
+#![allow(
+    clippy::wildcard_imports,
+    clippy::enum_glob_use,
+    clippy::manual_assert, // I don't want the "assertion failed" text in the panic message
+    clippy::items_after_statements // if an item is only used locally, define it where it is needed
+)]
+//
 //! Procedural macros for the [`sscanf`](https://crates.io/crates/sscanf) crate. Not usable as a standalone crate.
 
 use proc_macro::TokenStream as TokenStream1;
@@ -212,5 +230,5 @@ fn generate_matcher(input: &Sscanf, escape_input: bool) -> Result<SequenceMatche
 
     error.ok_or_build()?;
 
-    SequenceMatcher::new(&format, &types, escape_input)
+    Ok(SequenceMatcher::new(&format, &types, escape_input))
 }

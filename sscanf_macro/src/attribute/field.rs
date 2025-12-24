@@ -1,5 +1,7 @@
 use super::*;
 
+use std::fmt::Write;
+
 pub type FieldAttribute<'a> =
     SingleAttributeContainer<attr::Field, FieldAttributeKind, &'a syn::Type>;
 
@@ -28,16 +30,14 @@ impl FromAttribute<attr::Field, &'_ syn::Type> for FieldAttributeKind {
                     "where `<type>` is the type that should be matched against and `<conversion>` converts from `<type>` to `",
                 );
                 if filters {
-                    closure_hint.push_str(&format!("Option<{}>", ty.to_token_stream()));
+                    write!(closure_hint, "Option<{}>", ty.to_token_stream()).unwrap();
                 } else {
-                    closure_hint.push_str(&ty.to_token_stream().to_string());
+                    write!(closure_hint, "{}", ty.to_token_stream()).unwrap();
                 }
                 closure_hint.push('`');
 
                 let mapper = attr.value_as::<syn::Expr>(closure_format, Some(&closure_hint))?;
-                let mapper = if let syn::Expr::Closure(closure) = mapper {
-                    closure
-                } else {
+                let syn::Expr::Closure(mapper) = mapper else {
                     bail!(mapper => "attribute `{}` requires a closure like: `{closure_format}`\n{closure_hint}", attr.kind);
                 };
 

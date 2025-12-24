@@ -9,7 +9,7 @@ pub use custom::*;
 pub use number::*;
 pub use regex::*;
 
-/// Replica of sscanf::advanced::FormatOptions, but with an additional `regex` field
+/// Replica of `sscanf::advanced::FormatOptions`, but with an additional `regex` field
 #[derive(Clone)]
 pub struct FormatOptions<'a> {
     pub src: StrLitSlice<'a>,
@@ -62,7 +62,6 @@ impl<'a> FromFormatString<'a> for FormatOptions<'a> {
                 // whitespace is allowed between options
                 parser.take()?;
                 most_recent = OneOption::None; // most recent is no longer directly adjacent to the next option
-                continue;
             } else if c == '/' {
                 // regex option
                 if ret.regex.is_some() {
@@ -107,7 +106,7 @@ Use 'b', 'o', 'x' or 'r' for number format options, '/' for regex, or '[' for cu
     }
 }
 
-impl<'a> ToTokens for FormatOptions<'a> {
+impl ToTokens for FormatOptions<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let mut modifiers = TokenStream::new();
 

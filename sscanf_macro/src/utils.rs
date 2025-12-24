@@ -185,15 +185,13 @@ impl<T: ToTokens> ToTokensExt for T {
         self.to_token_stream()
             .into_iter()
             .next()
-            .map(|t| t.span().stable_start())
-            .unwrap_or(Span::call_site())
+            .map_or_else(Span::call_site, |t| t.span().stable_start())
     }
     fn end_span(&self) -> Span {
         self.to_token_stream()
             .into_iter()
             .last()
-            .map(|t| t.span().stable_end())
-            .unwrap_or(Span::call_site())
+            .map_or_else(Span::call_site, |t| t.span().stable_end())
     }
 }
 

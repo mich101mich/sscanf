@@ -75,16 +75,11 @@ impl FromFormatString<'_> for NumberFormatOption {
                 // technically unreachable, since this is already checked before calling this function
                 if let Some(hashtag_pos) = hashtag_pos {
                     // The hashtag might have belonged to the previous format option
-                    return parser.err_at(
-                        hashtag_pos,
-                        "This hashtag was interpreted as the start of a number format option, which has to be followed by 'b', 'o', 'x' or 'r<n>'",
-                    );
-                } else {
-                    return parser.err_at(
-                        pos1,
-                        "number format option has to start with 'b', 'o', 'x' or 'r<n>'",
-                    );
+                    let msg = "This hashtag was interpreted as the start of a number format option, which has to be followed by 'b', 'o', 'x' or 'r<n>'";
+                    return parser.err_at(hashtag_pos, msg);
                 }
+                let msg = "number format option has to start with 'b', 'o', 'x' or 'r<n>'";
+                return parser.err_at(pos1, msg);
             }
         };
 

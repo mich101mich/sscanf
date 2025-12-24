@@ -8,7 +8,7 @@ pub enum VariantAttributeKind {
 }
 
 impl FromAttribute<attr::Variant> for VariantAttributeKind {
-    fn from_attribute(attr: Attribute<attr::Variant>, _: ()) -> Result<Self> {
+    fn from_attribute(attr: Attribute<attr::Variant>, (): ()) -> Result<Self> {
         let struct_kind = match attr.kind {
             attr::Variant::Skip => return Ok(Self::Skip),
             attr::Variant::Format => attr::Struct::Format,

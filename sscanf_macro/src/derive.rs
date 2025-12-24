@@ -72,7 +72,7 @@ enum ValueSource<'a> {
 
     /// Field is set to a default value
     Default {
-        /// The default value expression, if any. Default::default() is used if this is None
+        /// The default value expression, if any. `Default::default()` is used if this is None
         def: Option<syn::Expr>,
         /// The source of the default value, used for error reporting
         src: TokenStream,
@@ -166,8 +166,7 @@ fn parse_format(
         StructAttributeKind::Transparent => {
             assert_or_bail!(struct_fields.len() == 1, attr => "structs or variants marked as `{}` must have exactly one field", attr::Struct::Transparent);
 
-            let lit = syn::LitStr::new("{}", attr.src.span());
-            (StrLit::new(lit), true)
+            (StrLit::from_parts("{}", attr.src.span()), true)
         }
     };
     let format = FormatString::new(value.to_slice(), escape)?;
@@ -336,7 +335,7 @@ Either specify it in a placeholder or provide a default value with `#[sscanf(def
         bail!(attr.src => "sscanf: Internal error: A placeholder was not assigned a type");
     };
 
-    let matcher = SequenceMatcher::new(&format, &types_by_placeholder, escape)?;
+    let matcher = SequenceMatcher::new(&format, &types_by_placeholder, escape);
 
     let from_matches = fields.iter().map(|field| field.to_parser(&matcher.parsers));
 
@@ -406,7 +405,7 @@ pub fn parse_struct(
         let mut hint = "";
         if data.fields.len() == 1 {
             hint = ".
-Alternatively, you can use #[sscanf(transparent)] to derive FromScanf for a single-field struct"
+Alternatively, you can use #[sscanf(transparent)] to derive FromScanf for a single-field struct";
         }
 
         bail!(name => r#"FromScanf: structs must have a format string as an attribute.
@@ -472,7 +471,7 @@ pub fn parse_enum(
     let mut lifetimes = HashSet::new();
 
     let mut match_index = 0usize;
-    for variant in data.variants.into_iter() {
+    for variant in data.variants {
         let variant_attr = VariantAttribute::from_attrs(variant.attrs)?;
 
         let variant_attr = if let Some(variant_attr) = variant_attr {

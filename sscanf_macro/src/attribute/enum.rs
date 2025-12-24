@@ -45,7 +45,7 @@ macro_rules! declare_autogen {
                     $(Self::$ident => (field_name.to_case(Case::$case), true),)+
                     $(Self::$special_ident => $conversion(field_name),)+
                 };
-                let value = StrLit::new(syn::LitStr::new(&matched_text, src.span()));
+                let value = StrLit::from_parts(&matched_text, src.span());
                 let kind = StructAttributeKind::Format { value, escape };
                 StructAttribute::new(src, kind)
             }
@@ -107,7 +107,7 @@ pub enum EnumAttributeKind {
 }
 
 impl FromAttribute<attr::Enum> for EnumAttributeKind {
-    fn from_attribute(attr: Attribute<attr::Enum>, _: ()) -> Result<Self> {
+    fn from_attribute(attr: Attribute<attr::Enum>, (): ()) -> Result<Self> {
         let ret = match attr.kind {
             attr::Enum::AutoGen | attr::Enum::AutoGenerate => {
                 let kind = AutoGenKind::from_attr(&attr)?;

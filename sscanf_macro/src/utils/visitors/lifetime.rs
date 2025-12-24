@@ -50,6 +50,7 @@ impl<'l> LifetimeSet<'l> {
 }
 
 fn extract_type_lifetimes(ty: &syn::Type, out: &mut LifetimeSet) {
+    #[allow(clippy::match_same_arms)] // arms kept separate for clarity
     match ty {
         syn::Type::Group(type_group) => extract_type_lifetimes(&type_group.elem, out),
         syn::Type::Paren(type_paren) => extract_type_lifetimes(&type_paren.elem, out),
@@ -58,7 +59,7 @@ fn extract_type_lifetimes(ty: &syn::Type, out: &mut LifetimeSet) {
             if let Some(qself) = &type_path.qself {
                 extract_type_lifetimes(&qself.ty, out);
             }
-            extract_path_lifetimes(&type_path.path, out)
+            extract_path_lifetimes(&type_path.path, out);
         }
         syn::Type::Ptr(type_ptr) => extract_type_lifetimes(&type_ptr.elem, out),
         syn::Type::Reference(type_reference) => {
@@ -126,6 +127,7 @@ fn extract_angle_bracketed_lifetimes(
     out: &mut LifetimeSet,
 ) {
     for arg in &args.args {
+        #[allow(clippy::match_same_arms)] // arms kept separate for clarity
         match arg {
             syn::GenericArgument::Lifetime(lifetime) => {
                 out.add(lifetime);
