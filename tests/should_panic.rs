@@ -93,7 +93,7 @@ fn nesting() {
         }
     }
     assert_throws!(
-        sscanf_unescaped!("abc", "{MyType<_>}").unwrap(),
+        sscanf_regex!("abc", "{MyType<_>}").unwrap(),
         if rustc_version::version().unwrap() < rustc_version::Version::new(1, 90, 0) {
             r#"sscanf: MatchTree::as_alt called on a Regex Match.
 Context: sscanf -> as_seq() -> parse 0 as should_panic::nesting::my_mod::MyType<alloc::vec::Vec<usize>> -> as_seq() -> at(1) -> as_opt()"#

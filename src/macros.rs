@@ -63,18 +63,15 @@
 /// More Examples can be seen in the crate root documentation.
 pub use sscanf_macro::sscanf;
 
-#[doc(hidden)]
-pub use sscanf_macro::sscanf as scanf;
-
 /// Same as [`sscanf`], but allows use of Regex in the format String.
 ///
 /// Signature and Parameters are the same as [`sscanf`].
 ///
 /// ## Examples
 /// ```
-/// use sscanf::sscanf_unescaped;
+/// use sscanf::sscanf_regex;
 /// let input = "5.0SOME_RANDOM_TEXT3";
-/// let output = sscanf_unescaped!(input, "{f32}.*?{usize}"); // .*? matches anything
+/// let output = sscanf_regex!(input, "{f32}.*?{usize}"); // .*? matches anything
 /// assert_eq!(output.unwrap(), (5.0, 3));
 /// ```
 ///
@@ -94,10 +91,7 @@ pub use sscanf_macro::sscanf as scanf;
 /// Note that the `{{` and `}}` escaping for literal `{` and `}` is still required.
 ///
 /// Also note that `^` and `$` are automatically added to the start and end.
-pub use sscanf_macro::sscanf_unescaped;
-
-#[doc(hidden)]
-pub use sscanf_macro::sscanf_unescaped as scanf_unescaped;
+pub use sscanf_macro::sscanf_regex;
 
 /// A derive macro for [`FromScanf`](crate::FromScanf).
 ///
@@ -141,16 +135,16 @@ pub use sscanf_macro::sscanf_unescaped as scanf_unescaped;
 ///   format string could be something like `"{a} {b:/.*?/} {c}"`. All fields that are not annotated with `default`
 ///   must appear exactly once in the format string. Indices can be omitted if the fields are in the same order as the
 ///   placeholders `{}` in the format string. So, the above example could also be written as `"{} {:/.*?/} {}"`.
-/// - `format_unescaped`: Same as `format`, but allows use of Regex in the format String. See [`sscanf_unescaped`] for
+/// - `format_regex`: Same as `format`, but allows use of Regex in the format String. See [`sscanf_regex`] for
 ///   more information.
 /// - `transparent`: If the struct has exactly one field, the struct will be constructed from the field directly. This
 ///   is useful for newtype structs, where the struct is just a wrapper around another type. The field has to implement
 ///   [`FromScanf`](crate::FromScanf).
 ///
 /// Note that only one of the above attributes can be used on a struct. The `format = ` part can be omitted, so
-/// `#[sscanf("<format>")]` is also valid. In this case, the distinction between `format` and `format_unescaped` is
+/// `#[sscanf("<format>")]` is also valid. In this case, the distinction between `format` and `format_regex` is
 /// made by using a regular string literal for `format` and a raw string literal (starting with `r#"` or `r#"`) for
-/// `format_unescaped`.
+/// `format_regex`. TODO: remove the raw string literal distinction.
 ///
 /// #### On the fields
 /// - `default` or `default = <expression>`: Marks the field to be set from a default value rather than the input string.

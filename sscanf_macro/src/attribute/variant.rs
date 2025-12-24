@@ -12,7 +12,7 @@ impl FromAttribute<attr::Variant> for VariantAttributeKind {
         let struct_kind = match attr.kind {
             attr::Variant::Skip => return Ok(Self::Skip),
             attr::Variant::Format => attr::Struct::Format,
-            attr::Variant::FormatUnescaped => attr::Struct::FormatUnescaped,
+            attr::Variant::FormatRegex => attr::Struct::FormatRegex,
             attr::Variant::Transparent => attr::Struct::Transparent,
         };
         let mapped_attr = Attribute {

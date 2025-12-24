@@ -1,5 +1,5 @@
 error: FromScanf: structs must have a format string as an attribute.
-       Please add either of #[sscanf(format = "...")], #[sscanf(format_unescaped = "...")] or #[sscanf("...")]
+       Please add either of #[sscanf(format = "...")], #[sscanf(format_regex = "...")] or #[sscanf("...")]
  --> tests/fail/derive_struct_attributes.rs:2:8
   |
 2 | struct TestNoAttributes;
@@ -12,7 +12,7 @@ error: expected attribute arguments in parentheses: `sscanf(...)`
   |   ^^^^^^
 
 error: FromScanf: structs must have a format string as an attribute.
-       Please add either of #[sscanf(format = "...")], #[sscanf(format_unescaped = "...")] or #[sscanf("...")]
+       Please add either of #[sscanf(format = "...")], #[sscanf(format_regex = "...")] or #[sscanf("...")]
   --> tests/fail/derive_struct_attributes.rs:10:8
    |
 10 | struct TestEmptyAttribute2;
@@ -24,35 +24,35 @@ error: attribute arguments must be in parentheses: `sscanf("")`
 13 | #[sscanf = ""]
    |   ^^^^^^^^^^^
 
-error: cannot specify both `format` and `format_unescaped`
+error: cannot specify both `format` and `format_regex`
   --> tests/fail/derive_struct_attributes.rs:17:10
    |
-17 | #[sscanf(format = "", format_unescaped = "")]
+17 | #[sscanf(format = "", format_regex = "")]
    |          ^^^^^^^^^^^
 
-error: cannot specify both `format` and `format_unescaped`
+error: cannot specify both `format` and `format_regex`
   --> tests/fail/derive_struct_attributes.rs:17:23
    |
-17 | #[sscanf(format = "", format_unescaped = "")]
-   |                       ^^^^^^^^^^^^^^^^^^^^^
+17 | #[sscanf(format = "", format_regex = "")]
+   |                       ^^^^^^^^^^^^^^^^^
 
-error: only one of `format`, `format_unescaped`, or `transparent` is allowed
+error: only one of `format`, `format_regex`, or `transparent` is allowed
   --> tests/fail/derive_struct_attributes.rs:21:10
    |
-21 | #[sscanf(format = "", format_unescaped = "", transparent)]
+21 | #[sscanf(format = "", format_regex = "", transparent)]
    |          ^^^^^^^^^^^
 
-error: only one of `format`, `format_unescaped`, or `transparent` is allowed
+error: only one of `format`, `format_regex`, or `transparent` is allowed
   --> tests/fail/derive_struct_attributes.rs:21:23
    |
-21 | #[sscanf(format = "", format_unescaped = "", transparent)]
-   |                       ^^^^^^^^^^^^^^^^^^^^^
+21 | #[sscanf(format = "", format_regex = "", transparent)]
+   |                       ^^^^^^^^^^^^^^^^^
 
-error: only one of `format`, `format_unescaped`, or `transparent` is allowed
-  --> tests/fail/derive_struct_attributes.rs:21:46
+error: only one of `format`, `format_regex`, or `transparent` is allowed
+  --> tests/fail/derive_struct_attributes.rs:21:42
    |
-21 | #[sscanf(format = "", format_unescaped = "", transparent)]
-   |                                              ^^^^^^^^^^^
+21 | #[sscanf(format = "", format_regex = "", transparent)]
+   |                                          ^^^^^^^^^^^
 
 error: attribute `format` is specified multiple times
   --> tests/fail/derive_struct_attributes.rs:26:10
@@ -66,25 +66,25 @@ error: previous use here
 25 | #[sscanf(format = "")]
    |          ^^^^^^^^^^^
 
-error: cannot specify both `format` and `format_unescaped`
+error: cannot specify both `format` and `format_regex`
   --> tests/fail/derive_struct_attributes.rs:30:10
    |
 30 | #[sscanf(format = "")]
    |          ^^^^^^^^^^^
 
-error: cannot specify both `format` and `format_unescaped`
+error: cannot specify both `format` and `format_regex`
   --> tests/fail/derive_struct_attributes.rs:31:10
    |
-31 | #[sscanf(format_unescaped = "")]
-   |          ^^^^^^^^^^^^^^^^^^^^^
+31 | #[sscanf(format_regex = "")]
+   |          ^^^^^^^^^^^^^^^^^
 
-error: unknown attribute `bob`. Valid attributes are: `format`, `format_unescaped`, or `transparent`
+error: unknown attribute `bob`. Valid attributes are: `format`, `format_regex`, or `transparent`
   --> tests/fail/derive_struct_attributes.rs:35:23
    |
 35 | #[sscanf(format = "", bob = "")]
    |                       ^^^
 
-error: unknown attribute `bob`. Valid attributes are: `format`, `format_unescaped`, or `transparent`
+error: unknown attribute `bob`. Valid attributes are: `format`, `format_regex`, or `transparent`
   --> tests/fail/derive_struct_attributes.rs:40:10
    |
 40 | #[sscanf(bob = "")]
@@ -128,20 +128,20 @@ error: expected identifier
    |          ^
 
 error: attribute `default` can only be used on fields.
-       structs can have the following attributes: `format`, `format_unescaped`, or `transparent`
+       structs can have the following attributes: `format`, `format_regex`, or `transparent`
   --> tests/fail/derive_struct_attributes.rs:68:10
    |
 68 | #[sscanf(default)]
    |          ^^^^^^^
 
 error: attribute `default` can only be used on fields.
-       structs can have the following attributes: `format`, `format_unescaped`, or `transparent`
+       structs can have the following attributes: `format`, `format_regex`, or `transparent`
   --> tests/fail/derive_struct_attributes.rs:72:10
    |
 72 | #[sscanf(default = "")]
    |          ^^^^^^^
 
-error: unknown attribute `bob`. Valid attributes are: `format`, `format_unescaped`, or `transparent`
+error: unknown attribute `bob`. Valid attributes are: `format`, `format_regex`, or `transparent`
   --> tests/fail/derive_struct_attributes.rs:76:10
    |
 76 | #[sscanf(bob)]
@@ -153,14 +153,14 @@ error: unknown attribute `formt`. Did you mean `format`?
 80 | #[sscanf(formt)]
    |          ^^^^^
 
-error: unknown attribute `formad_unscabededd`. Did you mean `format_unescaped`?
+error: unknown attribute `formad_reggae`. Did you mean `format_regex`?
   --> tests/fail/derive_struct_attributes.rs:84:10
    |
-84 | #[sscanf(formad_unscabededd)]
-   |          ^^^^^^^^^^^^^^^^^^
+84 | #[sscanf(formad_reggae)]
+   |          ^^^^^^^^^^^^^
 
 error: unknown attribute `defauld` is similar to `default`, which can only be used on fields.
-       structs can have the following attributes: `format`, `format_unescaped`, or `transparent`
+       structs can have the following attributes: `format`, `format_regex`, or `transparent`
   --> tests/fail/derive_struct_attributes.rs:88:10
    |
 88 | #[sscanf(defauld)]

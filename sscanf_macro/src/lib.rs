@@ -27,8 +27,8 @@ pub(crate) use utils::*;
 
 mod derive;
 
-/// Input string, format string and types for `sscanf` and `sscanf_unescaped`
-struct Scanf {
+/// Input string, format string and types for `sscanf` and `sscanf_regex`
+struct Sscanf {
     /// input to run the `sscanf` on
     parse_input: syn::Expr,
     /// the format string
@@ -37,7 +37,7 @@ struct Scanf {
     type_tokens: Vec<Type<'static>>,
 }
 
-impl Parse for Scanf {
+impl Parse for Sscanf {
     fn parse(input: ParseStream) -> Result<Self> {
         // All of these special cases have to be handled separately, because syn's default
         // behavior when something is missing is to point at the entire macro invocation with
@@ -74,7 +74,7 @@ impl Parse for Scanf {
                 .collect()
         };
 
-        Ok(Scanf {
+        Ok(Sscanf {
             parse_input,
             fmt,
             type_tokens,
@@ -84,13 +84,13 @@ impl Parse for Scanf {
 
 #[proc_macro]
 pub fn sscanf(input: TokenStream1) -> TokenStream1 {
-    let input = syn::parse_macro_input!(input as Scanf);
+    let input = syn::parse_macro_input!(input as Sscanf);
     sscanf_internal(input, true)
 }
 
 #[proc_macro]
-pub fn sscanf_unescaped(input: TokenStream1) -> TokenStream1 {
-    let input = syn::parse_macro_input!(input as Scanf);
+pub fn sscanf_regex(input: TokenStream1) -> TokenStream1 {
+    let input = syn::parse_macro_input!(input as Sscanf);
     sscanf_internal(input, false)
 }
 
@@ -115,7 +115,7 @@ pub fn derive_from_sscanf(input: TokenStream1) -> TokenStream1 {
     }
 }
 
-fn sscanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
+fn sscanf_internal(input: Sscanf, escape_input: bool) -> TokenStream1 {
     let regex_parts = match generate_matcher(&input, escape_input) {
         Ok(v) => v,
         Err(e) => return e.into_compile_error().into(),
@@ -160,7 +160,7 @@ fn sscanf_internal(input: Scanf, escape_input: bool) -> TokenStream1 {
     ret.into()
 }
 
-fn generate_matcher(input: &Scanf, escape_input: bool) -> Result<SequenceMatcher> {
+fn generate_matcher(input: &Sscanf, escape_input: bool) -> Result<SequenceMatcher> {
     let format = FormatString::new(input.fmt.to_slice(), escape_input)?;
 
     // inner function to use early return. This should be a closure, but those can't have lifetimes

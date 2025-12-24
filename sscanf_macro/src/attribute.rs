@@ -111,7 +111,7 @@ declare_attr!(
     attr::All {
         // structs and variants
         Format "format",
-        FormatUnescaped "format_unescaped",
+        FormatRegex "format_regex",
         Transparent "transparent",
         // just variants
         Skip "skip",
@@ -126,8 +126,8 @@ declare_attr!(
         TryFrom "try_from",
     },
     Context {
-        Struct "structs" [ Format, FormatUnescaped, Transparent ],
-        Variant "variants" [ Format, FormatUnescaped, Transparent, Skip ],
+        Struct "structs" [ Format, FormatRegex, Transparent ],
+        Variant "variants" [ Format, FormatRegex, Transparent, Skip ],
         Enum "enums" [ AutoGen, AutoGenerate ],
         Field "fields" [ Default, Map, FilterMap, From, TryFrom ],
     }
@@ -186,7 +186,7 @@ impl<A: Attr> Attribute<A> {
             src.extend(quote! { #value });
 
             let kind_name = if StrLit::new(lit).is_raw() {
-                attr::All::FormatUnescaped.as_str()
+                attr::All::FormatRegex.as_str()
             } else {
                 attr::All::Format.as_str()
             };
@@ -198,7 +198,7 @@ impl<A: Attr> Attribute<A> {
                 });
             }
             let name = attr::All::Format.as_str();
-            let name2 = attr::All::FormatUnescaped.as_str();
+            let name2 = attr::All::FormatRegex.as_str();
 
             let valid = Context::ALL
                 .iter()

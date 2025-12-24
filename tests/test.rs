@@ -40,7 +40,7 @@ fn no_types() {
 #[test]
 fn unescaped() {
     let input = "5.0SOME_RANDOM_TEXT3";
-    let output = sscanf_unescaped!(input, "{f32}.*{usize}");
+    let output = sscanf_regex!(input, "{f32}.*{usize}");
     assert_eq!(output.unwrap(), (5.0, 3));
 }
 

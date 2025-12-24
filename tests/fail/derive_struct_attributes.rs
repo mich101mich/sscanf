@@ -14,11 +14,11 @@ struct TestEmptyAttribute2;
 struct TestAssignedAttribute;
 
 #[derive(sscanf::FromScanf)]
-#[sscanf(format = "", format_unescaped = "")]
+#[sscanf(format = "", format_regex = "")]
 struct TestTooManyAttributes;
 
 #[derive(sscanf::FromScanf)]
-#[sscanf(format = "", format_unescaped = "", transparent)]
+#[sscanf(format = "", format_regex = "", transparent)]
 struct TestTooManyAttributes2;
 
 #[derive(sscanf::FromScanf)]
@@ -28,7 +28,7 @@ struct TestMultipleAttributes;
 
 #[derive(sscanf::FromScanf)]
 #[sscanf(format = "")]
-#[sscanf(format_unescaped = "")]
+#[sscanf(format_regex = "")]
 struct TestMultipleDifferentAttributes;
 
 #[derive(sscanf::FromScanf)]
@@ -81,7 +81,7 @@ struct TestInvalidIdent;
 struct TestTypoInIdent;
 
 #[derive(sscanf::FromScanf)]
-#[sscanf(formad_unscabededd)]
+#[sscanf(formad_reggae)]
 struct TestMoreTyposInIdent;
 
 #[derive(sscanf::FromScanf)]

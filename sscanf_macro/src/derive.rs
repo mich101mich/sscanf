@@ -410,7 +410,7 @@ Alternatively, you can use #[sscanf(transparent)] to derive FromScanf for a sing
         }
 
         bail!(name => r#"FromScanf: structs must have a format string as an attribute.
-Please add either of #[sscanf(format = "...")], #[sscanf(format_unescaped = "...")] or #[sscanf("...")]{hint}"#);
+Please add either of #[sscanf(format = "...")], #[sscanf(format_regex = "...")] or #[sscanf("...")]{hint}"#);
     };
 
     let (regex_parts, from_matches, lifetimes) = parse_format(attr, data.fields)?;
