@@ -518,16 +518,11 @@ mod tests {
             number: options,
             ..Default::default()
         };
-        let parser = __macro_utilities::Parser::new();
-        parser.assert_compiled(|| T::get_matcher(&format));
-        let output =
-            parser.parse_captures(value_str, |matches| T::from_match_tree(matches, &format));
+        let parser = Parser::<T>::with_format(format);
+        let output = parser.parse(value_str);
 
         let Some(parsed_value) = output else {
-            panic!(
-                "Matcher {:?} does not match {value_str} for {name}",
-                T::get_matcher(&format)
-            );
+            panic!("Parser does not match {value_str} for {name}:\n{parser:?}");
         };
 
         assert_eq!(
@@ -547,10 +542,8 @@ mod tests {
             number: options,
             ..Default::default()
         };
-        let parser = __macro_utilities::Parser::new();
-        parser.assert_compiled(|| T::get_matcher(&format));
-        let result =
-            parser.parse_captures(value_str, |matches| T::from_match_tree(matches, &format));
+        let parser = Parser::<T>::with_format(format);
+        let result = parser.parse(value_str);
 
         assert!(
             result.is_none(),

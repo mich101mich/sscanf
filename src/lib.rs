@@ -76,5 +76,48 @@ pub mod advanced;
 #[doc = include_str!("../Changelog.md")]
 pub mod changelog {}
 
-#[doc(hidden)]
-pub mod __macro_utilities;
+/// Parses the given input string into a value of type `T`.
+///
+/// This is equivalent to `sscanf!(input, "{T}")`.
+///
+/// This function can be used when [`FromScanf`] was implemented/derived for `T` in such a way
+/// that it can parse the entire input string without any additional format string.
+///
+/// Note that it is rather inefficient to call this function multiple times with the same type `T`,
+/// since the parser has to be re-constructed each time. If you need to parse multiple
+/// values of the same type, consider using [`advanced::Parser::new`] to create a parser
+/// once and re-use it multiple times.
+pub fn parse<'input, T: FromScanf<'input>>(input: &'input str) -> Option<T> {
+    advanced::Parser::<T>::new().parse(input)
+}
+
+#[cfg(test)]
+mod tests {
+    /// Utility macro for other tests: Asserts that the given block or statement throws a panic with the given message.
+    #[macro_export]
+    macro_rules! assert_panic_message_eq {
+        ( $block:block, $message:literal $(,)? ) => {
+            let Err(error) = std::panic::catch_unwind(move || $block) else {
+                panic!("code {} did not panic", stringify!($block));
+            };
+            if let Some(s) = error.downcast_ref::<&'static str>() {
+                assert_eq!(*s, $message);
+            } else if let Some(s) = error.downcast_ref::<String>() {
+                assert_eq!(s, $message);
+            } else {
+                panic!("unexpected panic payload: {:?}", error);
+            }
+        };
+        ( $expression:expr, $message:literal $(,)? ) => {
+            assert_panic_message_eq!(
+                {
+                    $expression; // avoid problems with lifetimes by not returning the value
+                },
+                $message
+            );
+        };
+        ( $statement:stmt, $message:literal $(,)? ) => {
+            assert_panic_message_eq!({ $statement }, $message);
+        };
+    }
+}

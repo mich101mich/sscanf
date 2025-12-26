@@ -162,12 +162,8 @@ mod tests {
     #[test]
     fn test_tuple_parser() {
         let input = "(1, 2)";
-        let parser = __macro_utilities::Parser::new();
         type Tuple = (u8, u8);
-        parser.assert_compiled(|| Tuple::get_matcher(&Default::default()));
-        let output = parser.parse_captures(input, |matches| {
-            Tuple::from_match_tree(matches, &Default::default())
-        });
+        let output = parse::<Tuple>(input);
         assert_eq!(output.unwrap(), (1, 2));
     }
 }

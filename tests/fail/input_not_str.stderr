@@ -5,15 +5,15 @@ error[E0308]: mismatched types
   |     ----------------^^^^^^--------------
   |     |               |
   |     |               expected `&str`, found `&usize`
-  |     arguments to this function are incorrect
+  |     arguments to this method are incorrect
   |
   = note: expected reference `&str`
              found reference `&usize`
 note: method defined here
- --> $RUST/core/src/str/mod.rs
+ --> src/advanced/parser.rs
   |
-  |     pub const fn get<I: [const] SliceIndex<str>>(&self, i: I) -> Option<&I::Output> {
-  |                  ^^^
+  |     pub fn parse_with<'input>(
+  |            ^^^^^^^^^^
 
 error[E0308]: mismatched types
  --> tests/fail/input_not_str.rs:3:21
@@ -22,12 +22,12 @@ error[E0308]: mismatched types
   |     ----------------^^^^--------------
   |     |               |
   |     |               expected `&str`, found `&&[u8; 1]`
-  |     arguments to this function are incorrect
+  |     arguments to this method are incorrect
   |
   = note: expected reference `&str`
              found reference `&&'static [u8; 1]`
 note: method defined here
- --> $RUST/core/src/str/mod.rs
+ --> src/advanced/parser.rs
   |
-  |     pub const fn get<I: [const] SliceIndex<str>>(&self, i: I) -> Option<&I::Output> {
-  |                  ^^^
+  |     pub fn parse_with<'input>(
+  |            ^^^^^^^^^^

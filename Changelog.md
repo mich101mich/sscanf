@@ -41,12 +41,16 @@ as neither works without the other and versions are always released in parallel.
 ### Added
 - Added a [`FromScanfSimple`][FromScanfSimple@0.5.0] trait to replace the previous combination of
   `FromStr + RegexRepresentation`
+- Added a [`parse`][parse@0.5.0] function to directly parse types that implement `FromScanf`
+- Added a [`Parser`][Parser@0.5.0] type to store parsing metadata in order to make multiple calls to sscanf more efficient
 
 [0.5.0]:                     https://github.com/mich101mich/sscanf/releases/tag/0.5.0
 [Span methods]:              https://doc.rust-lang.org/stable/proc_macro/struct.Span.html#method.start
 [on_unimplemented]:          https://doc.rust-lang.org/stable/reference/attributes/diagnostics.html#the-diagnosticon_unimplemented-attribute
 [RegexRepresentation@0.4.3]: https://docs.rs/sscanf/0.4.3/sscanf/trait.RegexRepresentation.html
 [FromScanfSimple@0.5.0]:     https://docs.rs/sscanf/0.5.0/sscanf/trait.FromScanfSimple.html
+[parse@0.5.0]:               https://docs.rs/sscanf/0.5.0/sscanf/fn.parse.html
+[Parser@0.5.0]:              https://docs.rs/sscanf/0.5.0/sscanf/advanced/struct.Parser.html
 
 ## [0.4.4] - 2025-10-30
 
