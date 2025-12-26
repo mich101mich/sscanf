@@ -221,6 +221,3 @@ pub use sscanf_macro::sscanf_regex;
 /// different `T` are not possible. This also means that deriving `FromScanf` for a struct that wants to match a generic
 /// field will fail.
 pub use sscanf_macro::FromScanf;
-
-#[doc(hidden)]
-pub use sscanf_macro::FromScanf as FromSscanf;
