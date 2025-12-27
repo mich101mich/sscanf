@@ -30,7 +30,7 @@ pub(crate) use syn::{
 mod attribute;
 mod error;
 mod format_string;
-mod regex_parts;
+mod sequence_matcher;
 mod str_lit;
 mod ty;
 mod utils;
@@ -38,17 +38,22 @@ mod utils;
 pub(crate) use attribute::*;
 pub(crate) use error::*;
 pub(crate) use format_string::*;
-pub(crate) use regex_parts::*;
+pub(crate) use sequence_matcher::*;
 pub(crate) use str_lit::*;
 pub(crate) use ty::*;
 pub(crate) use utils::*;
 
 mod derive;
 
-/// Input string, format string and types for `sscanf` and `sscanf_regex`
+/// Input string, format string and types for `sscanf` and `sscanf_with_regex`
 struct Sscanf {
     /// input to run the `sscanf` on
-    parse_input: syn::Expr,
+    input: syn::Expr,
+    /// format string and types
+    parser: SscanfParser,
+}
+
+struct SscanfParser {
     /// the format string
     fmt: StrLit,
     /// Types after the format string
@@ -56,7 +61,7 @@ struct Sscanf {
 }
 
 impl Parse for Sscanf {
-    fn parse(input: ParseStream) -> Result<Self> {
+    fn parse(tokens: ParseStream) -> Result<Self> {
         // All of these special cases have to be handled separately, because syn's default
         // behavior when something is missing is to point at the entire macro invocation with
         // an error message that says "expected <missing thing>". But if a user sees the entire
@@ -68,48 +73,66 @@ impl Parse for Sscanf {
         // macro expected a comma, and it would point to the end of the input where the comma
         // was expected, but since there is nothing there it has no span to point to so it
         // just points at the entire thing."
-        assert_or_bail!(!input.is_empty(), Span::call_site() => "sscanf: at least 2 Parameters required: Input and format string");
+        assert_or_bail!(!tokens.is_empty(), Span::call_site() => "sscanf: at least 2 Parameters required: Input and format string");
 
-        let parse_input: syn::Expr = input.parse()?;
-        assert_or_bail!(!input.is_empty(), parse_input.end_span() => "sscanf: at least 2 Parameters required: Missing format string");
+        let input: syn::Expr = tokens.parse()?;
+        assert_or_bail!(!tokens.is_empty(), input.end_span() => "sscanf: at least 2 Parameters required: Missing format string");
 
-        let comma = input.parse::<Token![,]>()?;
+        let comma = tokens.parse::<Token![,]>()?;
         // Addition to the comment above: here we actually have a comma to point to to say:
         // "Hey, you put a comma here, put something after it". syn doesn't do this
         // because it cannot rewind the input stream to check this.
-        assert_or_bail!(!input.is_empty(), comma.end_span() => "at least 2 Parameters required: Missing format string");
+        assert_or_bail!(!tokens.is_empty(), comma.end_span() => "at least 2 Parameters required: Missing format string");
 
-        let fmt = input.parse::<StrLit>()?;
+        let parser = tokens.parse::<SscanfParser>()?;
 
-        let type_tokens = if input.is_empty() {
+        Ok(Sscanf { input, parser })
+    }
+}
+
+impl Parse for SscanfParser {
+    fn parse(tokens: ParseStream) -> Result<Self> {
+        assert_or_bail!(!tokens.is_empty(), Span::call_site() => "sscanf_parser requires at least a format string");
+
+        let fmt = tokens.parse::<StrLit>()?;
+
+        let type_tokens = if tokens.is_empty() {
             vec![]
         } else {
-            input.parse::<Token![,]>()?; // the comma after the format string
+            tokens.parse::<Token![,]>()?; // the comma after the format string
 
-            input
+            tokens
                 .parse_terminated(Type::parse, Token![,])?
                 .into_iter()
                 .collect()
         };
 
-        Ok(Sscanf {
-            parse_input,
-            fmt,
-            type_tokens,
-        })
+        Ok(SscanfParser { fmt, type_tokens })
     }
 }
 
 #[proc_macro]
 pub fn sscanf(input: TokenStream1) -> TokenStream1 {
     let input = syn::parse_macro_input!(input as Sscanf);
-    sscanf_internal(input, true)
+    sscanf_internal(input, true).into_token_stream_1()
 }
 
 #[proc_macro]
-pub fn sscanf_regex(input: TokenStream1) -> TokenStream1 {
+pub fn sscanf_with_regex(input: TokenStream1) -> TokenStream1 {
     let input = syn::parse_macro_input!(input as Sscanf);
-    sscanf_internal(input, false)
+    sscanf_internal(input, false).into_token_stream_1()
+}
+
+#[proc_macro]
+pub fn sscanf_parser(input: TokenStream1) -> TokenStream1 {
+    let input = syn::parse_macro_input!(input as SscanfParser);
+    sscanf_parser_internal(&input, true).into_token_stream_1()
+}
+
+#[proc_macro]
+pub fn sscanf_parser_with_regex(input: TokenStream1) -> TokenStream1 {
+    let input = syn::parse_macro_input!(input as SscanfParser);
+    sscanf_parser_internal(&input, false).into_token_stream_1()
 }
 
 #[proc_macro_derive(FromScanf, attributes(sscanf))]
@@ -133,43 +156,23 @@ pub fn derive_from_sscanf(input: TokenStream1) -> TokenStream1 {
     }
 }
 
-fn sscanf_internal(input: Sscanf, escape_input: bool) -> TokenStream1 {
-    let regex_parts = match generate_matcher(&input, escape_input) {
-        Ok(v) => v,
-        Err(e) => return e.into_compile_error().into(),
-    };
+/// Internal function to implement the `sscanf` and `sscanf_with_regex` macros
+fn sscanf_internal(input: Sscanf, escape_input: bool) -> Result<TokenStream> {
+    let parser = sscanf_parser_internal(&input.parser, escape_input)?;
 
     let src_str = {
-        let start_span = input.parse_input.span().stable_start();
+        let start_span = input.input.span().stable_start();
         let mut src_str = quote_spanned! {start_span=> &};
-        input.parse_input.to_tokens(&mut src_str);
+        input.input.to_tokens(&mut src_str);
         src_str
     };
 
-    let matcher = regex_parts.get_matcher();
-    let expected_parts = regex_parts.num_parts();
-    let parsers = regex_parts.parsers;
-
-    let ret = quote! {{
-        #[allow(unused_parens, reason = "The code is autogenerated, so it can't check if it could be simplified")]
-        #[allow(clippy::needless_question_mark, reason = "The code is autogenerated, so it can't check if it could be simplified")]
-        #[allow(clippy::double_parens, reason = "The code is autogenerated, so it can't check if it could be simplified")]
-        ::sscanf::advanced::Parser::from_matcher(#matcher).parse_with(#src_str, |src| {
-            let src = src.as_seq();
-
-            assert_eq!(
-                src.num_children(),
-                #expected_parts,
-                "sscanf: internal error: unexpected number of parts"
-            );
-
-            ::std::option::Option::Some(( #(#parsers),* ))
-        })
-    }};
-    ret.into()
+    let ret = quote! { #parser.parse(#src_str) };
+    Ok(ret)
 }
 
-fn generate_matcher(input: &Sscanf, escape_input: bool) -> Result<SequenceMatcher> {
+/// Internal function to generate a Parser from SscanfParser
+fn sscanf_parser_internal(input: &SscanfParser, escape_input: bool) -> Result<TokenStream> {
     let format = FormatString::new(input.fmt.to_slice(), escape_input)?;
 
     // inner function to use early return. This should be a closure, but those can't have lifetimes
@@ -221,5 +224,24 @@ fn generate_matcher(input: &Sscanf, escape_input: bool) -> Result<SequenceMatche
 
     error.ok_or_build()?;
 
-    Ok(SequenceMatcher::new(&format, &types, escape_input))
+    let sequence_matcher = SequenceMatcher::new(&format, &types, escape_input);
+
+    let matcher = sequence_matcher.get_matcher();
+    let expected_parts = sequence_matcher.num_parts();
+    let parsers = sequence_matcher.parsers;
+    let ret = quote! {
+        ::sscanf::Parser::from_matcher(
+            #matcher,
+            |src| {
+                let src = src.as_seq();
+                assert_eq!(src.num_children(), #expected_parts, "sscanf: internal error: unexpected number of parts");
+
+                #[allow(unused_parens, reason = "The code is autogenerated, so it can't check if it could be simplified")]
+                #[allow(clippy::needless_question_mark, reason = "The code is autogenerated, so it can't check if it could be simplified")]
+                #[allow(clippy::double_parens, reason = "The code is autogenerated, so it can't check if it could be simplified")]
+                ::std::option::Option::Some(( #(#parsers),* ))
+            }
+        )
+    };
+    Ok(ret)
 }

@@ -68,8 +68,10 @@
 
 mod from_scanf;
 mod macros;
+mod parser;
 pub use from_scanf::*;
 pub use macros::*;
+pub use parser::*;
 
 pub mod advanced;
 
@@ -80,15 +82,14 @@ pub mod changelog {}
 ///
 /// This is equivalent to `sscanf!(input, "{T}")`.
 ///
-/// This function can be used when [`FromScanf`] was implemented/derived for `T` in such a way
-/// that it can parse the entire input string without any additional format string.
+/// This function can be used when [`FromScanf`] was implemented/derived for `T` in such a way that it can parse the
+/// entire input string without any additional format string.
 ///
-/// Note that it is rather inefficient to call this function multiple times with the same type `T`,
-/// since the parser has to be re-constructed each time. If you need to parse multiple
-/// values of the same type, consider using [`advanced::Parser::new`] to create a parser
-/// once and re-use it multiple times.
+/// Note that it is rather inefficient to call this function multiple times with the same type `T`, since the parser
+/// has to be re-constructed each time. If you need to parse multiple values of the same type, consider using
+/// [`Parser::new`] to create a parser once and re-use it multiple times.
 pub fn parse<'input, T: FromScanf<'input>>(input: &'input str) -> Option<T> {
-    advanced::Parser::<T>::new().parse(input)
+    Parser::<T>::new().parse(input)
 }
 
 #[cfg(test)]

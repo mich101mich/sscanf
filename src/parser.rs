@@ -3,61 +3,56 @@ use crate::{FromScanf, advanced::*};
 use regex_syntax::hir::{Hir, HirKind, Look};
 
 /// A parser type that allows parsing multiple inputs
-#[derive(Debug)]
-pub struct Parser<T> {
+///
+/// This type is mostly created using [`sscanf_parser`](crate::sscanf_parser). Creating it directly is only
+/// useful when deriving/implementing [`FromScanf`] for custom types.
+///
+/// ### Caveats
+/// - Types that borrow from the input string (like `&'input str`) need to have the same lifetime across all
+///   inputs! If you need to parse multiple inputs with different lifetimes, you still need to create multiple
+///   `Parser` instances.
+pub struct Parser<'input, T> {
     regex: regex_automata::meta::Regex,
+    captures: regex_automata::util::captures::Captures,
     match_tree_template: MatchTreeTemplate,
-    format: Option<FormatOptions>,
-    _phantom: std::marker::PhantomData<T>,
+    parse_fn: Box<dyn FnMut(MatchTree<'_, 'input>) -> Option<T>>,
 }
 
-impl<'input, T: FromScanf<'input>> Parser<T> {
+impl<'input, T> Parser<'input, T> {
     /// Create a new parser around a type `T`
     ///
     /// If you just need a parser to parse a single input, there is also a convenience shortcut at
     /// [`sscanf::parse`](crate::parse).
     ///
     /// This type is mostly used if you need to cache the parser for multiple uses.
-    pub fn new() -> Self {
-        Self::with_format(Default::default())
+    pub fn new() -> Self
+    where
+        T: FromScanf<'input>,
+    {
+        Self::with_options(Default::default())
     }
 
     /// Create a new parser around a type `T` with the given format options
-    pub fn with_format(format: FormatOptions) -> Self {
+    pub fn with_options(format: FormatOptions) -> Self
+    where
+        T: FromScanf<'input>,
+    {
         let matcher = T::get_matcher(&format);
-        Self::from_matcher_with_format(matcher, Some(format))
+        let parse_fn =
+            move |match_tree: MatchTree<'_, 'input>| T::from_match_tree(match_tree, &format);
+        Self::from_matcher(matcher, parse_fn)
     }
 
-    /// Tries to parse the given input string into a value of type `T`
-    pub fn parse(&self, input: &'input str) -> Option<T> {
-        self.parse_with(input, |match_tree| {
-            if let Some(format) = &self.format {
-                T::from_match_tree(match_tree, format)
-            } else {
-                T::from_match_tree(match_tree, &FormatOptions::default())
-            }
-        })
-    }
-}
-
-impl<'input, T: FromScanf<'input>> Default for Parser<T> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<T> Parser<T> {
     /// Directly create a parser from a `Matcher`.
     ///
     /// Note that you usually want to use [`Parser::new`] instead, which constructs the matcher
     /// from the type `T` and ensures that the matching and parsing uses the same type. This method is
     /// only exposed for situations where there is no single type `T`, like with the `sscanf!` macro.
-    pub fn from_matcher(matcher: Matcher) -> Self {
-        Self::from_matcher_with_format(matcher, None)
-    }
-
     #[track_caller]
-    fn from_matcher_with_format(matcher: Matcher, format: Option<FormatOptions>) -> Self {
+    pub fn from_matcher(
+        matcher: Matcher,
+        parse_fn: impl FnMut(MatchTree<'_, 'input>) -> Option<T> + 'static,
+    ) -> Self {
         // We need to re-index the capture groups. Capture group 0 is the whole match, so our matchers
         // should start at 1. However, since our outermost Matcher is itself the whole match, we assign it
         // to group 0 but then remove it again after compilation.
@@ -95,29 +90,41 @@ impl<T> Parser<T> {
         // - Conflicting capture indices (we index them ourselves, so this should never happen)
         // - Internal errors in regex-automata (the regex crate is very well tested, so this should never happen)
 
+        let captures = regex.create_captures();
+
         Self {
             regex,
+            captures,
             match_tree_template,
-            format,
-            _phantom: std::marker::PhantomData,
+            parse_fn: Box::new(parse_fn),
         }
     }
 
-    /// Tries to parse the given input string into a value using a custom closure
-    pub fn parse_with<'input>(
-        &self,
-        input: &'input str,
-        f: impl FnOnce(MatchTree<'_, 'input>) -> Option<T>,
-    ) -> Option<T> {
-        let mut captures = self.regex.create_captures();
-        self.regex.captures(input, &mut captures);
+    /// Tries to parse the given input string into a value of type `T`
+    pub fn parse(&mut self, input: &'input str) -> Option<T> {
+        self.regex.captures(input, &mut self.captures);
         let match_tree = MatchTree::new(
             &self.match_tree_template,
-            &captures,
+            &self.captures,
             input,
-            captures.get_group(0)?,
+            self.captures.get_group(0)?,
             Context::Root.into(),
         );
-        f(match_tree)
+        (self.parse_fn)(match_tree)
+    }
+}
+
+impl<'input, T: FromScanf<'input>> Default for Parser<'input, T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<T> std::fmt::Debug for Parser<'_, T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct(&format!("Parser<{}>", std::any::type_name::<T>()))
+            .field("regex", &self.regex)
+            .field("match_tree_template", &self.match_tree_template)
+            .finish()
     }
 }

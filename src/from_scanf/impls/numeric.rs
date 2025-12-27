@@ -518,7 +518,7 @@ mod tests {
             number: options,
             ..Default::default()
         };
-        let parser = Parser::<T>::with_format(format);
+        let mut parser = Parser::<T>::with_options(format);
         let output = parser.parse(value_str);
 
         let Some(parsed_value) = output else {
@@ -542,7 +542,7 @@ mod tests {
             number: options,
             ..Default::default()
         };
-        let parser = Parser::<T>::with_format(format);
+        let mut parser = Parser::<T>::with_options(format);
         let result = parser.parse(value_str);
 
         assert!(

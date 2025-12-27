@@ -5,7 +5,7 @@ The `sscanf` project is a Rust library that provides functionality similar to th
 
 ## Key Components
 - **`src/`**: Contains the core library code, including traits like `FromScanf` and utilities for parsing.
-- **`sscanf_macro/`**: Defines procedural macros like `sscanf!` and `sscanf_regex!`.
+- **`sscanf_macro/`**: Defines procedural macros like `sscanf!` and `sscanf_with_regex!`.
 - **`tests/`**: Includes test cases for various scenarios, organized into subdirectories like `derive/`, `fail/`, and `types/`.
 - **`submodules/test_script/`**: Contains scripts for running tests and verifying compatibility with different Rust versions.
 

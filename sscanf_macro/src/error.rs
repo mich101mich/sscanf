@@ -126,3 +126,16 @@ impl<S: ToTokens> ToTokensErrorTarget for S {
         Error::new_spanned(self, message)
     }
 }
+
+pub trait ResultExt {
+    /// Convert the Result into a TokenStream, converting errors into compile errors.
+    fn into_token_stream_1(self) -> proc_macro::TokenStream;
+}
+impl ResultExt for Result<TokenStream> {
+    fn into_token_stream_1(self) -> proc_macro::TokenStream {
+        match self {
+            Ok(ts) => ts.into(),
+            Err(e) => e.into_compile_error().into(),
+        }
+    }
+}

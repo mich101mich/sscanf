@@ -1,5 +1,8 @@
 //! A file with the macro re-exports to separate the documentation from the crate root docs
 
+#[expect(unused_imports, reason = "for doc links")]
+use crate::Parser;
+
 /// A Macro to parse a string based on a format-string, similar to sscanf in C
 ///
 /// ## Signature
@@ -69,9 +72,9 @@ pub use sscanf_macro::sscanf;
 ///
 /// ## Examples
 /// ```
-/// use sscanf::sscanf_regex;
+/// use sscanf::sscanf_with_regex;
 /// let input = "5.0SOME_RANDOM_TEXT3";
-/// let output = sscanf_regex!(input, "{f32}.*?{usize}"); // .*? matches anything
+/// let output = sscanf_with_regex!(input, "{f32}.*?{usize}"); // .*? matches anything
 /// assert_eq!(output.unwrap(), (5.0, 3));
 /// ```
 ///
@@ -91,7 +94,13 @@ pub use sscanf_macro::sscanf;
 /// Note that the `{{` and `}}` escaping for literal `{` and `}` is still required.
 ///
 /// Also note that `^` and `$` are automatically added to the start and end.
-pub use sscanf_macro::sscanf_regex;
+pub use sscanf_macro::sscanf_with_regex;
+
+/// Converts a format string and types into a [`Parser`] that can be used to parse multiple inputs
+pub use sscanf_macro::sscanf_parser;
+
+/// Same as [`sscanf_parser`], but allows use of Regex in the format String
+pub use sscanf_macro::sscanf_parser_with_regex;
 
 /// A derive macro for [`FromScanf`](crate::FromScanf).
 ///
@@ -135,7 +144,7 @@ pub use sscanf_macro::sscanf_regex;
 ///   format string could be something like `"{a} {b:/.*?/} {c}"`. All fields that are not annotated with `default`
 ///   must appear exactly once in the format string. Indices can be omitted if the fields are in the same order as the
 ///   placeholders `{}` in the format string. So, the above example could also be written as `"{} {:/.*?/} {}"`.
-/// - `format_regex`: Same as `format`, but allows use of Regex in the format String. See [`sscanf_regex`] for
+/// - `format_regex`: Same as `format`, but allows use of Regex in the format String. See [`sscanf_with_regex`] for
 ///   more information.
 /// - `transparent`: If the struct has exactly one field, the struct will be constructed from the field directly. This
 ///   is useful for newtype structs, where the struct is just a wrapper around another type. The field has to implement

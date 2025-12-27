@@ -412,15 +412,15 @@ Alternatively, you can use #[sscanf(transparent)] to derive FromScanf for a sing
 Please add either of #[sscanf(format = "...")], #[sscanf(format_regex = "...")] or #[sscanf("...")]{hint}"#);
     };
 
-    let (regex_parts, from_matches, lifetimes) = parse_format(attr, data.fields)?;
+    let (sequence_matcher, from_matches, lifetimes) = parse_format(attr, data.fields)?;
 
     let ty_generics = generics.split_for_impl().1; // generics of the type have to be kept as-is from the struct definition
 
     let (lifetime, lt_generics) = merge_lifetimes(lifetimes, generics);
     let (impl_generics, _, where_clause) = lt_generics.split_for_impl();
 
-    let matcher = regex_parts.get_matcher();
-    let expected_parts = regex_parts.num_parts();
+    let matcher = sequence_matcher.get_matcher();
+    let expected_parts = sequence_matcher.num_parts();
     let from_sscanf_impl = quote! {
         #[automatically_derived]
         impl #impl_generics ::sscanf::FromScanf<#lifetime> for #name #ty_generics #where_clause {

@@ -3,11 +3,9 @@
 pub(crate) mod format_options;
 pub(crate) mod match_tree;
 pub(crate) mod matcher;
-pub(crate) mod parser;
 pub use format_options::*;
 pub use match_tree::*;
 pub use matcher::*;
-pub use parser::*;
 
 /// Extra trait that needs to be implemented for types that can accept a regex override in the format string
 ///

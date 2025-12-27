@@ -40,8 +40,22 @@ fn no_types() {
 #[test]
 fn regex_format_string() {
     let input = "5.0SOME_RANDOM_TEXT3";
-    let output = sscanf_regex!(input, "{f32}.*{usize}");
+    let output = sscanf_with_regex!(input, "{f32}.*{usize}");
     assert_eq!(output.unwrap(), (5.0, 3));
+}
+
+#[test]
+fn sscanf_parser() {
+    let mut parser = sscanf_parser!("Employee #{usize}!");
+
+    let output = parser.parse("Employee #42!").unwrap();
+    assert_eq!(output, 42);
+
+    let output = parser.parse("Employee #7!").unwrap();
+    assert_eq!(output, 7);
+
+    assert_eq!(parser.parse("Invalid Input"), None);
+    assert_eq!(parser.parse("Employee #X"), None);
 }
 
 #[test]
@@ -62,6 +76,18 @@ fn generic_types() {
     let input = "Test";
     let output = sscanf!(input, "{Bob<usize>}");
     assert_eq!(output.unwrap(), Default::default());
+
+    fn parse_quoted<'input, T: FromScanf<'input>>(s: &'input str) -> Option<T> {
+        sscanf!(s, "\"{T}\"")
+    }
+
+    let input = r#""Hello, World!""#;
+    let output: &str = parse_quoted(input).unwrap();
+    assert_eq!(output, "Hello, World!");
+
+    let input = r#""42""#;
+    let output = parse_quoted::<usize>(input).unwrap();
+    assert_eq!(output, 42);
 }
 
 #[test]
