@@ -45,7 +45,7 @@ pub(crate) use utils::*;
 
 mod derive;
 
-/// Input string, format string and types for `sscanf` and `sscanf_with_regex`
+/// Input string, format string, and types for `sscanf` and `sscanf_with_regex`.
 struct Sscanf {
     /// input to run the `sscanf` on
     input: syn::Expr,
@@ -156,7 +156,7 @@ pub fn derive_from_sscanf(input: TokenStream1) -> TokenStream1 {
     }
 }
 
-/// Internal function to implement the `sscanf` and `sscanf_with_regex` macros
+/// Internal function implementing the `sscanf` and `sscanf_with_regex` macros.
 fn sscanf_internal(input: Sscanf, escape_input: bool) -> Result<TokenStream> {
     let parser = sscanf_parser_internal(&input.parser, escape_input)?;
 
@@ -171,7 +171,7 @@ fn sscanf_internal(input: Sscanf, escape_input: bool) -> Result<TokenStream> {
     Ok(ret)
 }
 
-/// Internal function to generate a Parser from SscanfParser
+/// Internal function to generate a `Parser` from `SscanfParser`.
 fn sscanf_parser_internal(input: &SscanfParser, escape_input: bool) -> Result<TokenStream> {
     let format = FormatString::new(input.fmt.to_slice(), escape_input)?;
 

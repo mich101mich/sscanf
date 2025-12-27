@@ -16,19 +16,18 @@ pub use seq::*;
 pub(crate) use context::*;
 pub(crate) use template::*;
 
-/// Representation of the match of a capture group in a regex, arranged in a tree structure.
+/// A tree representation of regex capture group matches.
 ///
 /// This type is the parameter to the [`FromScanf::from_match_tree`] method.
 ///
-/// Use [`text()`](Self::text) to access the entire matched string, and one of the `as_*` methods to access the
-/// individual matchers.
+/// Use [`text()`](Self::text) for the full matched string, and the `as_*` methods to access specific matcher views.
 ///
-/// There are also convenience methods for parsing, like [`parse()`](Self::parse) for this match tree.
+/// Convenience methods include [`parse()`](Self::parse) to parse this match tree into a value.
 ///
 /// ## On Optional Capture Groups
 ///
-/// There are a lot of mentions of "optional capture groups" or "capture groups that did not match" (or as the regex
-/// crate calls them: "capture groups that did not participate in the match") in this documentation. These refer to
+/// This documentation refers to "optional capture groups" or "capture groups that did not match" (what the regex
+/// crate calls "capture groups that did not participate in the match"). These refer to
 /// capture groups that are not guaranteed to match text when the regex is applied to a string. This can happen
 /// when the capture group is optional in the regex, like `(x)?`, or when it is part of an alternation, like
 /// `(x)|y`. In both cases, it is possible for the overall regex to match a string without that capture group
@@ -78,9 +77,9 @@ pub(crate) use template::*;
 /// assert_eq!(letters, MyType::Letters("abc"));
 /// ```
 ///
-/// Side note: This is the mechanism used by the derive macro when used on an enum. If the derive macro does not
-/// work for your enum, consider implementing this trait in this exact way, using alternations in the regex for the
-/// enum variants, each wrapped in a capture group to check which variant matched: `(...)|(...)|(...)`.
+/// Side note: The derive macro uses this mechanism for enums. If it doesn't work for your enum, implement this trait
+/// explicitly using regex alternations for variants, each wrapped in a capture group to check which variant matched:
+/// `(...)|(...)|(...)`.
 ///
 /// Because of this, there are utility methods on [`Matcher`](crate::advanced::Matcher) for combining matchers:
 /// ```
@@ -95,7 +94,7 @@ pub(crate) use template::*;
 ///
 /// ## Lifetime Parameters
 /// The first lifetime parameter (`'t`) is the lifetime of the match tree itself. Match trees are only valid within
-/// [`FromScanf::from_match_tree`] calls and can't be stored outside of that. This can usually be set to `'_`.
+/// [`FromScanf::from_match_tree`] and can't be stored. This can usually be set to `'_`.
 ///
 /// The second lifetime parameter (`'input`) is the lifetime of the input string that was parsed to create this match
 /// tree.  

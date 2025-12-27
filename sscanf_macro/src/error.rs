@@ -100,7 +100,7 @@ impl ErrorBuilder {
     }
 }
 
-/// Trait for types that can be used as the part that is underlined in an error message
+/// Trait for types that can be used as the part underlined in an error message.
 pub trait ErrorTarget {
     /// Create an error from the source and message
     fn error(&self, message: impl Display) -> Error;
@@ -112,12 +112,12 @@ impl ErrorTarget for Span {
     }
 }
 
-/// Like `ErrorTarget`, but for types that implement `ToTokens`
+/// Like `ErrorTarget`, but for types that implement `ToTokens`.
 ///
 /// Note that we don't just implement `ErrorTarget`, because the compiler will complain an upstream crate might
 /// implement `ToTokens` for `Span`. (It won't, but the compiler can't know that.)
 pub trait ToTokensErrorTarget {
-    /// Create an error from the given tokens and message
+    /// Create an error from the given tokens and message.
     fn error(&self, message: impl Display) -> Error;
 }
 
@@ -128,7 +128,7 @@ impl<S: ToTokens> ToTokensErrorTarget for S {
 }
 
 pub trait ResultExt {
-    /// Convert the Result into a TokenStream, converting errors into compile errors.
+    /// Convert the `Result` into a `TokenStream`, turning errors into compile errors.
     fn into_token_stream_1(self) -> proc_macro::TokenStream;
 }
 impl ResultExt for Result<TokenStream> {

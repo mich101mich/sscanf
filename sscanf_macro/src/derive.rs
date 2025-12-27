@@ -2,7 +2,7 @@ use crate::*;
 
 use std::collections::{HashMap, HashSet};
 
-/// A field on a struct or struct-like enum variant
+/// A field on a struct or struct-like enum variant.
 pub struct Field<'a> {
     /// The identifier of the field
     ident: FieldIdent,
@@ -28,7 +28,7 @@ impl Field<'_> {
     }
 }
 
-/// An identifier for a field, either named (struct with curly brackets) or indexed (tuple struct)
+/// An identifier for a field, either named (struct with curly brackets) or indexed (tuple struct).
 ///
 /// This is a bit of a workaround because `syn::Ident` doesn't accept numbers as identifiers,
 /// but when working with a tuple struct(-variant), we are effectively using the index as an identifier.
@@ -60,7 +60,7 @@ impl Display for FieldIdent {
     }
 }
 
-/// The source where the value for a field will come from when parsing
+/// The source of a field's value when parsing.
 enum ValueSource<'a> {
     /// Field is parsed directly from a placeholder
     Placeholder {
@@ -112,7 +112,7 @@ impl ErrorTarget for ValueSource<'_> {
     }
 }
 
-/// A conversion that should be applied to a field's value after parsing
+/// A conversion applied to a field's value after parsing.
 enum ValueConversion {
     /// No conversion, just use the parsed value as-is
     None,

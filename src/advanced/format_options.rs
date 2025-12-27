@@ -1,8 +1,8 @@
-//! In-memory representations of the format options
+//! In-memory representation of format options.
 
 use std::borrow::Cow;
 
-/// The possible values for the format option in a [`FromScanf`][crate::FromScanf] implementation.
+/// Possible values for the format option in a [`FromScanf`][crate::FromScanf] implementation.
 ///
 /// Note that there is also the custom regex override (e.g. `{:/[a-d]+/}`), but that is handled externally by the
 /// macros and not passed on to the types.
@@ -13,8 +13,8 @@ pub struct FormatOptions {
     pub number: NumberFormatOption,
     /// A fully custom format string (e.g. `{:[%Y-%m-%d]}` for a chrono date).
     ///
-    /// Normally just a `&'static str` borrowing from the format string. Defined as a [`Cow`] just in case some custom
-    /// implementations needs to pass a custom-custom format string to a subtype.
+    /// Normally a `&'static str` borrowing from the format string. Defined as a [`Cow`] for cases where custom
+    /// implementations need to pass a custom format string to a subtype.
     pub custom: Option<Cow<'static, str>>,
 }
 
@@ -34,8 +34,7 @@ impl FormatOptions {
     }
 }
 
-/// A builder for the [`FormatOptions`] struct, since it is marked as `#[non_exhaustive]` and thus cannot be
-/// constructed directly.
+/// Builder for [`FormatOptions`], since it is `#[non_exhaustive]` and cannot be constructed directly.
 #[derive(Clone, Debug)]
 pub struct Builder {
     radix: u32,
@@ -199,18 +198,18 @@ impl NumberFormatOption {
 ///
 /// | Policy    | `123abc` | `0x123abc` | `0X123abc` |
 /// |-----------|:--------:|:----------:|:----------:|
-/// | Forbidden | ✓        |            |            |
-/// | Optional  | ✓        | ✓          | ✓          |
-/// | Required  |          | ✓          | ✓          |
+/// | Forbidden | yes      |            |            |
+/// | Optional  | yes      | yes        | yes        |
+/// | Required  |          | yes        | yes        |
 ///
 /// There is currently no option to distinguish between lowercase and uppercase prefixes. Base parsing is currently
 /// fully case-insensitive, for both the prefix and any letters in the number itself.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NumberPrefixPolicy {
-    /// No prefix is allowed, just the number
+    /// No prefix is allowed; just the number.
     Forbidden,
-    /// The prefix is optional
+    /// The prefix is optional.
     Optional,
-    /// The prefix is required and must be present
+    /// The prefix is required and must be present.
     Required,
 }

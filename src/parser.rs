@@ -2,15 +2,14 @@ use crate::{FromScanf, advanced::*};
 
 use regex_syntax::hir::{Hir, HirKind, Look};
 
-/// A parser type that allows parsing multiple inputs
+/// A parser that can be reused to parse multiple inputs.
 ///
-/// This type is mostly created using [`sscanf_parser`](crate::sscanf_parser). Creating it directly is only
-/// useful when deriving/implementing [`FromScanf`] for custom types.
+/// This type is typically created via [`sscanf_parser`](crate::sscanf_parser). Though it can be constructed directly,
+/// for example for custom types.
 ///
 /// ### Caveats
-/// - Types that borrow from the input string (like `&'input str`) need to have the same lifetime across all
-///   inputs! If you need to parse multiple inputs with different lifetimes, you still need to create multiple
-///   `Parser` instances.
+/// - Types that borrow from the input (like `&str`) must share the same lifetime across all inputs. To parse
+///   inputs with different lifetimes, create multiple `Parser` instances.
 pub struct Parser<'input, T> {
     regex: regex_automata::meta::Regex,
     captures: regex_automata::util::captures::Captures,
@@ -19,10 +18,9 @@ pub struct Parser<'input, T> {
 }
 
 impl<'input, T> Parser<'input, T> {
-    /// Create a new parser around a type `T`
+    /// Create a new parser around type `T`.
     ///
-    /// If you just need a parser to parse a single input, there is also a convenience shortcut at
-    /// [`sscanf::parse`](crate::parse).
+    /// For a single input, use the convenience function [`sscanf::parse`](crate::parse).
     ///
     /// This type is mostly used if you need to cache the parser for multiple uses.
     pub fn new() -> Self
@@ -32,7 +30,7 @@ impl<'input, T> Parser<'input, T> {
         Self::with_options(Default::default())
     }
 
-    /// Create a new parser around a type `T` with the given format options
+    /// Create a new parser around type `T` with the given format options.
     pub fn with_options(format: FormatOptions) -> Self
     where
         T: FromScanf<'input>,
@@ -43,11 +41,10 @@ impl<'input, T> Parser<'input, T> {
         Self::from_matcher(matcher, parse_fn)
     }
 
-    /// Directly create a parser from a `Matcher`.
+    /// Create a parser directly from a `Matcher`.
     ///
-    /// Note that you usually want to use [`Parser::new`] instead, which constructs the matcher
-    /// from the type `T` and ensures that the matching and parsing uses the same type. This method is
-    /// only exposed for situations where there is no single type `T`, like with the `sscanf!` macro.
+    /// Prefer [`Parser::new`], which constructs the matcher and parser from `T` to ensure consistency.
+    /// This method is exposed for situations without a single `T`, like the `sscanf!` macro.
     #[track_caller]
     pub fn from_matcher(
         matcher: Matcher,
@@ -100,7 +97,7 @@ impl<'input, T> Parser<'input, T> {
         }
     }
 
-    /// Tries to parse the given input string into a value of type `T`
+    /// Parse the given input string into a value of type `T`.
     pub fn parse(&mut self, input: &'input str) -> Option<T> {
         self.regex.captures(input, &mut self.captures);
         let match_tree = MatchTree::new(

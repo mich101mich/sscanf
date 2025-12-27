@@ -41,4 +41,8 @@ doc.bat
     - Ensure the total line length does not exceed 100 characters.
     - Hide lines that are not relevant to the example by starting them with `# `.
       - If functionality is hidden by this, add a non-hidden comment mentioning what was hidden, e.g. `// ...your implementation here...`.
+- Prefer ASCII-only characters in all documentation (Rust doc comments and README):
+  - Do not use Unicode punctuation or symbols (em/en dashes, smart quotes, checkmarks, etc.).
+  - Use ASCII equivalents: `-` instead of `—`/`–`, straight quotes `'"'` instead of `“”`, and words like `yes`/`no` instead of `✓`.
+  - Keep examples and tables readable in plain text terminals.
 - Use Rust's new inlined variable syntax in format strings, e.g. `format!("{variable}")` instead of `format!("{}", variable)`.

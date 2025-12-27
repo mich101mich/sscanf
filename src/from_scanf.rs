@@ -8,12 +8,12 @@ mod impls {
 #[expect(unused_imports, reason = "for links in docs")]
 use std::str::FromStr;
 
-/// A trait that allows you to use a custom regex for parsing a type.
+/// A trait for parsing a type with `sscanf`.
 ///
-/// There are three options to implement this trait:
-/// - [`#[derive(FromScanf)]` (simple, readable, fool proof (mostly))](#option-1-deriving)
-/// - [manually implement `FromScanfSimple` (flexible, but requires more code)](#option-2-manually-implement-fromscanfsimple)
-/// - [manually implement `FromScanf` (maximum flexibility, maximum complexity)](#option-3-manually-implement-fromscanf)
+/// There are three ways to implement this trait:
+/// - [`#[derive(FromScanf)]`] (simple, readable, foolproof) - see [Option 1](#option-1-deriving)
+/// - Manually implement [`FromScanfSimple`] (more flexible, more code) - see [Option 2](#option-2-manually-implement-fromscanfsimple)
+/// - Manually implement [`FromScanf`] (maximum flexibility and complexity) - see [Option 3](#option-3-manually-implement-fromscanf)
 ///
 /// ## Option 1: Deriving
 /// ```
@@ -29,11 +29,10 @@ use std::str::FromStr;
 /// assert_eq!(parsed, Fraction { numerator: -10, denominator: 3 });
 /// ```
 ///
-/// As you can see, the derive macro automatically generates the necessary code to parse the type from the format
-/// string. It is aware of the types of the fields, so it can generate the correct regex and parser
-/// implementation.
+/// The derive macro generates the code to parse the type from the format string. It knows the field types and can
+/// generate the correct regex and parser implementation.
 ///
-/// A detailed description of the syntax and options can be found [here](derive.FromScanf.html)
+/// A detailed description of the syntax and options is available in [the derive documentation](derive.FromScanf.html).
 ///
 /// ## Option 2: Manually Implement [`FromScanfSimple`]
 /// ```
@@ -58,11 +57,10 @@ use std::str::FromStr;
 /// let parsed = sscanf::sscanf!("-10/3", "{Fraction}").unwrap();
 /// assert_eq!(parsed, Fraction { numerator: -10, denominator: 3 });
 /// ```
-/// This option gives more control over the parsing process, but requires more code and manually writing the
-/// regex/parsing.
+/// This option gives more control over parsing but requires more code and a regex.
 ///
-/// Note that this option is especially useful for types that already implement [`FromStr`], since the parsing
-/// logic can be reused. For example, the above implementation could be simplified to:
+/// This option is especially useful for types that already implement [`FromStr`], since the parsing logic can be
+/// reused. For example, the above implementation could be simplified to:
 ///
 /// ```
 /// # #[derive(Debug, PartialEq)] // additional traits for assert_eq below. Not required for sscanf and thus hidden in the example.
@@ -127,17 +125,16 @@ use std::str::FromStr;
 /// let parsed = sscanf::sscanf!("-10/3", "{Fraction}").unwrap();
 /// assert_eq!(parsed, Fraction { numerator: -10, denominator: 3 });
 /// ```
-/// This option gives a lot of control over the matching and parsing process. It is also generally faster than the
-/// [`FromScanfSimple`] option, since we can directly access the capture groups without having to parse the string
-/// again. In return, a lot more code is required and it is far more complex to implement/maintain.
+/// This option offers fine-grained control over matching and parsing. It is generally faster than
+/// [`FromScanfSimple`], since you can access capture groups directly without reparsing the string. In return, it
+/// requires more code and is more complex to implement and maintain.
 ///
-/// Hence why it is recommended to use the derive macro to abstract away the complexity of this option while still
-/// getting the same performance benefits.
+/// Therefore, using the derive macro is recommended to hide this complexity while keeping the same performance.
 ///
 /// #### Lifetime Parameter
-/// The lifetime parameter of `FromScanf` and `FromScanfSimple` is the borrow from the input string given to `sscanf`.
-/// If your type borrows parts of that string, like `&str` does, you need to specify the lifetime
-/// parameter and match it with the `'input` parameter:
+/// The lifetime parameter of `FromScanf` and `FromScanfSimple` represents the borrow from the input string given to
+/// `sscanf`. If your type borrows from that string (like `&str`), specify the lifetime and match it with the
+/// `'input` parameter:
 /// ```
 /// struct Name<'a, 'b> {
 ///     first: &'a str,
@@ -171,8 +168,8 @@ use std::str::FromStr;
 /// assert_eq!(parsed.last, "Doe");
 /// ```
 ///
-/// This allows custom borrows from the input string to avoid unnecessary allocations. The lifetime
-/// of the returned value is that of the input string:
+/// This enables borrowing from the input string to avoid allocations. The returned value's lifetime is that of the
+/// input string:
 ///
 /// ```compile_fail
 /// # #[derive(sscanf::FromScanf)]
@@ -192,8 +189,7 @@ use std::str::FromStr;
 /// println!("{} {}", parsed.first, parsed.last); // use after drop
 /// ```
 ///
-/// Note that lifetimes are automatically handled when deriving, though this is based on checking through the
-/// provided types and their lifetimes, so it may not always be correct.
+/// Deriving handles lifetimes automatically by inspecting provided types, though this may not always be perfect.
 /// ```
 /// #[derive(sscanf::FromScanf)]
 /// #[sscanf("{first} {last}")]
@@ -219,7 +215,7 @@ pub trait FromScanf<'input>: Sized {
     ///
     /// See the documentation of [`Matcher`] for details on how to create matchers.
     ///
-    /// The `format` parameter contains customizations from the format string, lik `{:x}` for hexadecimal number
+    /// The `format` parameter contains customizations from the format string, like `{:x}` for hexadecimal number
     /// parsing. If you want numbers within your type to be overridden by these options, you need to pass them
     /// down to the matchers of the fields. Otherwise, you can use, ignore, customize, or override this parameter as
     /// you see fit.
@@ -278,29 +274,26 @@ pub trait FromScanfSimple<'input>
 where
     Self: Sized,
 {
-    /// A regular expression that exactly matches any string representation of the implementing type.
+    /// A regular expression that matches any string representation of the implementing type.
     ///
-    /// The parts of the input string that is matched by this regex will be passed to the
+    /// The parts of the input string that are matched by this regex will be passed to the
     /// [`from_match`](FromScanfSimple::from_match) function for parsing, so the main requirement for this regex
     /// is that it matches exactly the characters that are relevant for parsing the type.\
-    /// For example, for an integer type, this would be a regex that matches digits, optional signs, etc., but
-    /// nothing extra.
+    /// For example, for an integer type, the regex should match digits and optional signs, but nothing extra.
     ///
-    /// The regex doesn't strictly have to be a 1:1 match for any and all valid inputs, but it should be a best
-    /// effort match.\
+    /// The regex doesn't have to be a strict 1:1 match for all valid inputs, but it should be a best-effort match.\
     /// Take for example number types. `i32` can represent numbers from `-2_147_483_648` to `2_147_483_647`, but a
     /// regex that matches all of these values would be extremely complex. Instead, a simpler regex
     /// that matches the correct number of digits is used. This means that inputs from `-9_999_999_999` to
     /// `9_999_999_999` would match the regex, but fail during parsing.\
-    /// This is acceptable, as the regex is still a best effort match for valid inputs and also contains the correct
-    /// number of digits. If it just matched "any number of digits", there might be cases where the user wants to
-    /// parse consecutive hex numbers without separators (which is absolutely supported right now), which would then
-    /// fail because the regex for the first number would greedily match all digits just to fail during parsing.
+    /// This is acceptable: the regex is still a best-effort match for valid inputs and preserves the correct number
+    /// of digits. If it merely matched "any number of digits", parsing consecutive hex numbers without separators
+    /// (which is supported) could fail because the first number would greedily match all digits before failing later.
     ///
-    /// What exactly "best effort" means depends on the type being implemented.
+    /// What "best effort" means depends on the type being implemented.
     const REGEX: &'static str;
 
-    /// The implementation of the parsing.
+    /// Parsing implementation.
     ///
     /// For types implementing [`FromStr`], this can just be `input.parse().ok()`:
     /// ```
@@ -318,19 +311,18 @@ where
     ///
     /// # Guide to `panic!` vs `return None`
     ///
-    /// As the example above shows, the `Result` returned by `FromStr::from_str` is converted to an `Option` by using
-    /// `ok()`, which returns `None` on error. This is the recommended way to handle parsing errors in this function
-    /// if the regex is not a strict 1:1 match for all valid inputs.
+    /// As the example above shows, convert the `Result` from `FromStr::from_str` to an `Option` with `ok()`, which
+    /// returns `None` on error. This is the recommended way to handle parsing errors here when the regex is not a
+    /// strict 1:1 match for all valid inputs.
     ///
-    /// The code in the [`FromScanf`](trait.FromScanf.html#option-2-manually-implement-fromscanfsimple) docs for
-    /// parsing a `Fraction` used `unwrap()` to assert the presence of the `/` character. This is acceptable there, since the regex
-    /// guarantees its presence.
+    /// The example in the [`FromScanf`](trait.FromScanf.html#option-2-manually-implement-fromscanfsimple) docs used
+    /// `unwrap()` to assert the presence of `/`. This is acceptable there, since the regex guarantees it.
     ///
     /// This is the rough guideline:
-    /// - The input passed to this function is **guaranteed** to match the regex in [`REGEX`](FromScanfSimple::REGEX).
-    ///   Any violation of this is a programming error in the calling code and should `panic!()`.
-    ///   - This also includes mistakes in the regex itself, since it is a compile time constant.
-    /// - If the regex matched something that the parser can't handle, return `None` for invalid inputs.
+    /// - The input to this function is **guaranteed** to match [`REGEX`](FromScanfSimple::REGEX). Any violation is a
+    ///   programming error in the calling code and should `panic!()`.
+    ///   - This also includes mistakes in the regex itself, since it is a compile-time constant.
+    /// - If the regex matched something the parser can't handle, return `None` for invalid inputs.
     fn from_match(input: &'input str) -> Option<Self>;
 }
 

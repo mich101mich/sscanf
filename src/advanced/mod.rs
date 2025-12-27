@@ -1,4 +1,4 @@
-//! Types and utilities for advanced FromScanf parsing
+//! Advanced parsing types and utilities.
 
 pub(crate) mod format_options;
 pub(crate) mod match_tree;
@@ -7,13 +7,12 @@ pub use format_options::*;
 pub use match_tree::*;
 pub use matcher::*;
 
-/// Extra trait that needs to be implemented for types that can accept a regex override in the format string
+/// Marks types that support regex overrides in format strings.
 ///
-/// This trait needs to be implemented for a type in order to have a regex override in the format string like
-/// `{MyType:/my-regex/}`.
+/// Implement this trait to allow a regex override in the format string, e.g. `{MyType:/my-regex/}`.
 ///
-/// This is not handled by the core `FromScanf` trait, since complex types like structs rely on specific capture groups
-/// to parse their fields, and a regex override would break that assumption.
+/// Complex types (e.g., structs) rely on specific capture groups to parse fields, so overriding the regex is outside
+/// the scope of `FromScanf`.
 #[diagnostic::on_unimplemented(
     message = "type `{Self}` doesn't support regex overrides in `sscanf!`",
     label = "can't use regex override for this type",
@@ -23,9 +22,8 @@ pub use matcher::*;
 pub trait AcceptsRegexOverride<'input>: Sized {
     /// Callback to parse the input string from a regex match.
     ///
-    /// Note that only the full match is passed to this function, not the individual capture groups.
-    /// This is because the regex override can change the number and meaning of capture groups, meaning
-    /// the type can't rely on them.
+    /// Only the full match is passed to this function, not individual capture groups. A regex override can change the
+    /// number and meaning of capture groups, so the type cannot rely on them.
     ///
     /// For most types, this can simply fall back to [`FromStr`](std::str::FromStr), since it just needs to parse
     /// the type from a string:
@@ -47,7 +45,6 @@ pub trait AcceptsRegexOverride<'input>: Sized {
     /// }
     /// ```
     ///
-    /// The main reason to provide a custom implementation is if the type accepts format options for e.g. number
-    /// parsing.
+    /// Provide a custom implementation when the type uses format options (e.g., number parsing).
     fn from_regex_match(input: &'input str, format: &FormatOptions) -> Option<Self>;
 }
