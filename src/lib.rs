@@ -7,19 +7,21 @@
     unstable_features,
     unused_import_braces,
     unused_qualifications,
-    // rustdoc::missing_doc_code_examples,
+    // rustdoc::missing_doc_code_examples, // can be re-enabled when developing, but not useful as a strict rule
     rustdoc::broken_intra_doc_links,
     rustdoc::private_intra_doc_links,
     rustdoc::missing_crate_level_docs,
     rustdoc::invalid_codeblock_attributes,
-    rustdoc::bare_urls
+    rustdoc::invalid_html_tags,
+    rustdoc::bare_urls,
+    rustdoc::redundant_explicit_links,
+    rustdoc::unescaped_backticks
 )]
 //
-// set of clippy pedantic lints that I disagree with
+// set of clippy::pedantic lints that I disagree with
 #![allow(
-    clippy::wildcard_imports,
+    clippy::wildcard_imports, // glob import > importing 20 items
     clippy::enum_glob_use,
-    clippy::manual_assert, // I don't want the "assertion failed" text in the panic message
     clippy::items_after_statements // if an item is only used locally, define it where it is needed
 )]
 //
@@ -29,8 +31,7 @@
 //! Ideally, errors in the format string point to the exact position in the string that caused the error. This already
 //! works on nightly, but not on stable - at least until Rust Issue
 //! [`#54725`](https://github.com/rust-lang/rust/issues/54725) enables calling
-//! [`Literal::subspan`](https://doc.rust-lang.org/proc_macro/struct.Literal.html#method.subspan)
-//! from stable.
+//! [`Literal::subspan`](https://doc.rust-lang.org/proc_macro/struct.Literal.html#method.subspan) from stable.
 //!
 //! Errors on nightly currently look like this:
 //! ```compile_fail
