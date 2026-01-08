@@ -428,7 +428,7 @@ Please add either of #[sscanf(format = "...")], #[sscanf(format_regex = "...")] 
                 #matcher
             }
 
-            fn from_match_tree(src: ::sscanf::advanced::MatchTree<'_, #lifetime>, _: &::sscanf::advanced::FormatOptions) -> ::std::option::Option<Self> {
+            fn from_match(src: ::sscanf::advanced::Match<'_, #lifetime>, _: &::sscanf::advanced::FormatOptions) -> ::std::option::Option<Self> {
                 let src = src.as_seq();
 
                 assert_eq!(
@@ -541,7 +541,7 @@ To do this, add #[sscanf(format = \"...\")] to a variant");
                 ::sscanf::advanced::Matcher::Alt(vec![ #(#variant_matchers),* ])
             }
 
-            fn from_match_tree(variants: ::sscanf::advanced::MatchTree<'_, #lifetime>, _: &::sscanf::advanced::FormatOptions) -> ::std::option::Option<Self> {
+            fn from_match(variants: ::sscanf::advanced::Match<'_, #lifetime>, _: &::sscanf::advanced::FormatOptions) -> ::std::option::Option<Self> {
                 let variants = variants.as_alt_enum(&[#(#variant_names),*]);
                 let src = variants.get();
                 struct __SscanfTokenExtensionWrapper<T>(T);

@@ -1,4 +1,4 @@
-/// The source structure of a MatchTree, consisting of only the indices in the capture group list.
+/// The source structure of a Match, consisting of only the indices in the capture group list.
 #[derive(Debug)]
 pub(crate) struct MatchTreeTemplate {
     pub index: usize,

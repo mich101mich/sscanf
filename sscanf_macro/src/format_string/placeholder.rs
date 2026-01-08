@@ -11,7 +11,7 @@ use crate::*;
 pub struct Placeholder<'a> {
     pub src: StrLitSlice<'a>,
     pub ident: Option<StrLitSlice<'a>>,
-    pub config: FormatOptions<'a>,
+    pub options: FormatOptions<'a>,
 }
 
 impl<'a> FromFormatString<'a> for Placeholder<'a> {
@@ -64,7 +64,11 @@ impl<'a> FromFormatString<'a> for Placeholder<'a> {
         let src = parser.slice_since(parser.get_open_bracket_pos());
         let config = config.unwrap_or_else(|| FormatOptions::empty(src));
 
-        Ok(Placeholder { src, ident, config })
+        Ok(Placeholder {
+            src,
+            ident,
+            options: config,
+        })
     }
 }
 

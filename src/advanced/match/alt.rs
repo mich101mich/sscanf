@@ -5,7 +5,7 @@ use super::*;
 pub struct AltMatch<'t, 'input> {
     pub(crate) full_text: &'input str,
     pub(crate) matched_index: usize,
-    pub(crate) child: MatchTree<'t, 'input>,
+    pub(crate) child: Match<'t, 'input>,
 }
 
 impl<'t, 'input> AltMatch<'t, 'input> {
@@ -22,7 +22,7 @@ impl<'t, 'input> AltMatch<'t, 'input> {
     /// Returns the sub-match of the matched alternative.
     ///
     /// Please make sure to check [`Self::matched_index`] first to know which alternative was matched.
-    pub fn get(&'t self) -> MatchTree<'t, 'input> {
+    pub fn get(&'t self) -> Match<'t, 'input> {
         self.child
     }
 }

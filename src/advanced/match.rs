@@ -18,7 +18,7 @@ pub(crate) use template::*;
 
 /// A tree representation of regex capture group matches.
 ///
-/// This type is the parameter to the [`FromScanf::from_match_tree`] method.
+/// This type is the parameter to the [`FromScanf::from_match`] method.
 ///
 /// Use [`text()`](Self::text) for the full matched string, and the `as_*` methods to access specific matcher views.
 ///
@@ -33,14 +33,14 @@ pub(crate) use template::*;
 /// `(x)|y`. In both cases, it is possible for the overall regex to match a string without that capture group
 /// actually capturing any text.
 ///
-/// In this crate, these capture groups are referred to as "optional" and are represented by `Option<MatchTree>` in the
+/// In this crate, these capture groups are referred to as "optional" and are represented by `Option<Match>` in the
 /// return type of [`as_opt()`](Self::as_opt).  
 /// Note that there is **no** automatic handling of `Option` types in either the `sscanf` macro or the `FromScanf`
 /// derive!
 ///
 /// #### Example of using optional capture groups to parse an enum:
 /// ```
-/// use sscanf::advanced::{Matcher, MatchTree, FormatOptions};
+/// use sscanf::advanced::{Matcher, Match, FormatOptions};
 /// # #[derive(Debug, PartialEq, Eq)]
 /// enum MyType<'a> {
 ///     Digits(usize),
@@ -55,7 +55,7 @@ pub(crate) use template::*;
 ///         ])
 ///     }
 ///
-///     fn from_match_tree(matches: MatchTree<'_, 'input>, _: &FormatOptions) -> Option<Self> {
+///     fn from_match(matches: Match<'_, 'input>, _: &FormatOptions) -> Option<Self> {
 ///         let matches = matches.as_alt();
 ///         let text = matches.get().text();
 ///         if matches.matched_index() == 0 {
@@ -94,14 +94,14 @@ pub(crate) use template::*;
 ///
 /// ## Lifetime Parameters
 /// The first lifetime parameter (`'t`) is the lifetime of the match tree itself. Match trees are only valid within
-/// [`FromScanf::from_match_tree`] and can't be stored. This can usually be set to `'_`.
+/// [`FromScanf::from_match`] and can't be stored. This can usually be set to `'_`.
 ///
 /// The second lifetime parameter (`'input`) is the lifetime of the input string that was parsed to create this match
 /// tree.  
 /// If your type borrows parts of the input string, like `&str` does, you need to match the lifetime parameter on
 /// your type to the `'input` parameter.
 #[derive(Clone, Copy)]
-pub struct MatchTree<'t, 'input> {
+pub struct Match<'t, 'input> {
     template: &'t MatchTreeTemplate,
     captures: &'t Captures,
     input: &'input str,
@@ -109,9 +109,9 @@ pub struct MatchTree<'t, 'input> {
     context: ContextChain<'t>,
 }
 
-impl<'t, 'input> MatchTree<'t, 'input> {
-    /// Internal constructor. MatchTrees can only be received as a parameter to `FromScanf::from_match_tree` and from
-    /// the methods on an existing `MatchTree`.
+impl<'t, 'input> Match<'t, 'input> {
+    /// Internal constructor. `Match` can only be received as a parameter to `FromScanf::from_match` and from
+    /// the methods on an existing `Match`.
     pub(crate) fn new(
         template: &'t MatchTreeTemplate,
         captures: &'t Captures,
@@ -133,13 +133,13 @@ impl<'t, 'input> MatchTree<'t, 'input> {
         self.full_text
     }
 
-    /// Convenience method to call [`FromScanf::from_match_tree`] with this match tree.
+    /// Convenience method to call [`FromScanf::from_match`] with this match tree.
     ///
     /// The type `T` must implement the [`FromScanf`] trait, and this object must have been created from a match to
     /// [`T::get_matcher()`](FromScanf::get_matcher).
-    pub fn parse<T: FromScanf<'input>>(&self, format: &FormatOptions) -> Option<T> {
+    pub fn parse<T: FromScanf<'input>>(&self, options: &FormatOptions) -> Option<T> {
         let context = self.context.and(Context::Parse(std::any::type_name::<T>()));
-        T::from_match_tree(MatchTree { context, ..*self }, format)
+        T::from_match(Match { context, ..*self }, options)
     }
 
     /// Returns the match as a Vec of regex captures.
@@ -148,11 +148,11 @@ impl<'t, 'input> MatchTree<'t, 'input> {
     /// `Option`, because capture groups in optional sections and alternations might not have matched.
     ///
     /// ## Panics
-    /// Panics if this `MatchTree` was not created from a [`Matcher::Regex`].
+    /// Panics if this `Match` was not created from a [`Matcher::Regex`].
     pub fn as_regex_matches(&'t self) -> Vec<Option<&'input str>> {
         let MatchTreeKind::Regex(range) = &self.template.kind else {
             panic!(
-                "sscanf: MatchTree::as_regex_matches called on a {}.\nContext: {}",
+                "sscanf: Match::as_regex_matches called on a {}.\nContext: {}",
                 self.template.kind_name(),
                 self.context
             )
@@ -166,11 +166,11 @@ impl<'t, 'input> MatchTree<'t, 'input> {
     /// Returns the match as a [`SeqMatch`].
     ///
     /// ## Panics
-    /// Panics if this `MatchTree` was not created from a [`Matcher::Seq`].
+    /// Panics if this `Match` was not created from a [`Matcher::Seq`].
     pub fn as_seq(&'t self) -> SeqMatch<'t, 'input> {
         let MatchTreeKind::Seq(children) = &self.template.kind else {
             panic!(
-                "sscanf: MatchTree::as_seq called on a {}.\nContext: {}",
+                "sscanf: Match::as_seq called on a {}.\nContext: {}",
                 self.template.kind_name(),
                 self.context,
             )
@@ -187,11 +187,11 @@ impl<'t, 'input> MatchTree<'t, 'input> {
     /// Returns the match as an [`AltMatch`].
     ///
     /// ## Panics
-    /// Panics if this `MatchTree` was not created from a [`Matcher::Alt`].
+    /// Panics if this `Match` was not created from a [`Matcher::Alt`].
     pub fn as_alt(&'t self) -> AltMatch<'t, 'input> {
         let MatchTreeKind::Alt(children) = &self.template.kind else {
             panic!(
-                "sscanf: MatchTree::as_alt called on a {}.\nContext: {}",
+                "sscanf: Match::as_alt called on a {}.\nContext: {}",
                 self.template.kind_name(),
                 self.context,
             )
@@ -207,7 +207,7 @@ impl<'t, 'input> MatchTree<'t, 'input> {
             );
         };
 
-        let child = MatchTree::new(
+        let child = Match::new(
             child,
             self.captures,
             self.input,
@@ -224,11 +224,11 @@ impl<'t, 'input> MatchTree<'t, 'input> {
     /// Returns the match as an [`AltMatch`], with enum variants as context.
     ///
     /// ## Panics
-    /// Panics if this `MatchTree` was not created from a [`Matcher::Alt`].
+    /// Panics if this `Match` was not created from a [`Matcher::Alt`].
     pub fn as_alt_enum(&'t self, variants: &[&'static str]) -> AltMatch<'t, 'input> {
         let MatchTreeKind::Alt(children) = &self.template.kind else {
             panic!(
-                "sscanf: MatchTree::as_alt_enum called on a {}.\nContext: {}",
+                "sscanf: Match::as_alt_enum called on a {}.\nContext: {}",
                 self.template.kind_name(),
                 self.context,
             )
@@ -237,7 +237,7 @@ impl<'t, 'input> MatchTree<'t, 'input> {
         assert_eq!(
             children.len(),
             variants.len(),
-            "sscanf: Mismatch between number of alternatives and number of variant names provided to MatchTree::as_alt_enum.\nContext: {}",
+            "sscanf: Mismatch between number of alternatives and number of variant names provided to Match::as_alt_enum.\nContext: {}",
             self.context,
         );
 
@@ -252,7 +252,7 @@ impl<'t, 'input> MatchTree<'t, 'input> {
             );
         };
 
-        let child = MatchTree::new(
+        let child = Match::new(
             child,
             self.captures,
             self.input,
@@ -267,20 +267,20 @@ impl<'t, 'input> MatchTree<'t, 'input> {
         }
     }
 
-    /// Returns the match as an optional [`MatchTree`]
+    /// Returns the match as an optional [`Match`]
     ///
     /// ## Panics
-    /// Panics if this `MatchTree` was not created from a [`Matcher::Optional`].
-    pub fn as_opt(&'t self) -> Option<MatchTree<'t, 'input>> {
+    /// Panics if this `Match` was not created from a [`Matcher::Optional`].
+    pub fn as_opt(&'t self) -> Option<Match<'t, 'input>> {
         let MatchTreeKind::Optional(child) = &self.template.kind else {
             panic!(
-                "sscanf: MatchTree::as_opt called on a {}.\nContext: {}",
+                "sscanf: Match::as_opt called on a {}.\nContext: {}",
                 self.template.kind_name(),
                 self.context,
             )
         };
         let span = self.captures.get_group(child.index)?;
-        Some(MatchTree::new(
+        Some(Match::new(
             child,
             self.captures,
             self.input,
@@ -290,7 +290,7 @@ impl<'t, 'input> MatchTree<'t, 'input> {
     }
 }
 
-impl std::fmt::Debug for MatchTree<'_, '_> {
+impl std::fmt::Debug for Match<'_, '_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.template.kind {
             MatchTreeKind::Regex(_) => {
@@ -313,7 +313,7 @@ impl std::fmt::Debug for MatchTree<'_, '_> {
     }
 }
 
-impl std::fmt::Display for MatchTree<'_, '_> {
+impl std::fmt::Display for Match<'_, '_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.text().fmt(f)
     }
@@ -355,34 +355,34 @@ mod tests {
             })),
         };
 
-        let match_tree_seq = MatchTree::new(&template_seq, &captures, input, current, context);
+        let match_tree_seq = Match::new(&template_seq, &captures, input, current, context);
         assert_panic_message_eq!(
             match_tree_seq.as_regex_matches(),
-            r#"sscanf: MatchTree::as_regex_matches called on a Sequence Match.
+            r#"sscanf: Match::as_regex_matches called on a Sequence Match.
 Context: sscanf"#
         );
 
         let context = context.and(Context::AsSeq);
-        let match_tree_regex = MatchTree::new(&template_regex, &captures, input, current, context);
+        let match_tree_regex = Match::new(&template_regex, &captures, input, current, context);
         assert_panic_message_eq!(
             match_tree_regex.as_seq(),
-            r#"sscanf: MatchTree::as_seq called on a Regex Match.
+            r#"sscanf: Match::as_seq called on a Regex Match.
 Context: sscanf -> as_seq()"#
         );
 
         let context = context.and(Context::AsAltEnum("hi"));
-        let match_tree_alt = MatchTree::new(&template_alt, &captures, input, current, context);
+        let match_tree_alt = Match::new(&template_alt, &captures, input, current, context);
         assert_panic_message_eq!(
             match_tree_alt.as_opt(),
-            r#"sscanf: MatchTree::as_opt called on a Alt Match.
+            r#"sscanf: Match::as_opt called on a Alt Match.
 Context: sscanf -> as_seq() -> as_alt(hi matched)"#
         );
 
         let context = context.and(Context::Parse("MyType"));
-        let match_tree_opt = MatchTree::new(&template_opt, &captures, input, current, context);
+        let match_tree_opt = Match::new(&template_opt, &captures, input, current, context);
         assert_panic_message_eq!(
             match_tree_opt.as_alt(),
-            r#"sscanf: MatchTree::as_alt called on a Optional Match.
+            r#"sscanf: Match::as_alt called on a Optional Match.
 Context: sscanf -> as_seq() -> as_alt(hi matched) -> parse as MyType"#
         );
     }
@@ -441,10 +441,10 @@ Context: sscanf -> as_seq() -> as_alt(hi matched) -> parse as MyType"#
             ]),
         };
 
-        let match_tree_regex = MatchTree::new(&template_regex, &captures, input, current, context);
+        let match_tree_regex = Match::new(&template_regex, &captures, input, current, context);
         assert_eq!(
             format!("{:#?}", match_tree_regex),
-            r#"MatchTree::Seq {
+            r#"Match::Seq {
     full_text: "abcdghj",
     children: [
         Some(

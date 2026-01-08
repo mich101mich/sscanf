@@ -30,7 +30,7 @@ impl<'t, 'input> SeqMatch<'t, 'input> {
     /// can only be called for positions that were filled with a [`MatchPart::Matcher`]. If the position was filled
     /// with any other kind of match part (e.g., a literal or regex), this method will panic.
     ///
-    /// Shorthand for `self.at(index).parse()`. The same restrictions apply as for [`parse()`](MatchTree::parse).
+    /// Shorthand for `self.at(index).parse()`. The same restrictions apply as for [`parse()`](Match::parse).
     ///
     /// ## Panics
     /// Panics if the index is out of bounds or if the slot did not contain a [`MatchPart::Matcher`].
@@ -38,10 +38,10 @@ impl<'t, 'input> SeqMatch<'t, 'input> {
     pub fn parse_at<T: FromScanf<'input>>(
         &self,
         index: usize,
-        format: &FormatOptions,
+        options: &FormatOptions,
     ) -> Option<T> {
         let context = Context::ParseAt(std::any::type_name::<T>(), index);
-        T::from_match_tree(self.inner_at(index, context), format)
+        T::from_match(self.inner_at(index, context), options)
     }
 
     #[doc(hidden)] // hidden to avoid cluttering docs even more
@@ -49,10 +49,10 @@ impl<'t, 'input> SeqMatch<'t, 'input> {
     pub fn parse_at_from_custom_regex<T: AcceptsRegexOverride<'input>>(
         &self,
         index: usize,
-        format: &FormatOptions,
+        options: &FormatOptions,
     ) -> Option<T> {
         let context = Context::ParseAt(std::any::type_name::<T>(), index);
-        AcceptsRegexOverride::from_regex_match(self.inner_at(index, context).text(), format)
+        AcceptsRegexOverride::from_regex_match(self.inner_at(index, context).text(), options)
     }
     /// Same as [`parse_at`](Self::parse_at) but allows specifying a name for better error messages.
     ///
@@ -65,10 +65,10 @@ impl<'t, 'input> SeqMatch<'t, 'input> {
         &self,
         name: &'static str,
         index: usize,
-        format: &FormatOptions,
+        options: &FormatOptions,
     ) -> Option<T> {
         let context = Context::ParseField(name, index, std::any::type_name::<T>());
-        T::from_match_tree(self.inner_at(index, context), format)
+        T::from_match(self.inner_at(index, context), options)
     }
 
     #[doc(hidden)] // hidden to avoid cluttering docs even more
@@ -77,10 +77,10 @@ impl<'t, 'input> SeqMatch<'t, 'input> {
         &self,
         name: &'static str,
         index: usize,
-        format: &FormatOptions,
+        options: &FormatOptions,
     ) -> Option<T> {
         let context = Context::ParseField(name, index, std::any::type_name::<T>());
-        AcceptsRegexOverride::from_regex_match(self.inner_at(index, context).text(), format)
+        AcceptsRegexOverride::from_regex_match(self.inner_at(index, context).text(), options)
     }
 
     /// Returns the sub-match at the given index, asserting that the slot contained a [`MatchPart::Matcher`].
@@ -88,13 +88,13 @@ impl<'t, 'input> SeqMatch<'t, 'input> {
     /// ## Panics
     /// Panics if the index is out of bounds or if the slot did not contain a [`MatchPart::Matcher`].
     #[track_caller]
-    pub fn at(&'t self, index: usize) -> MatchTree<'t, 'input> {
+    pub fn at(&'t self, index: usize) -> Match<'t, 'input> {
         self.inner_at(index, Context::At(index))
     }
 
     /// Internal method to get the sub-match at the given index, asserting that it exists.
     #[track_caller]
-    fn inner_at(&'t self, index: usize, context: Context) -> MatchTree<'t, 'input> {
+    fn inner_at(&'t self, index: usize, context: Context) -> Match<'t, 'input> {
         let context = self.context.and(context);
         let Some(child) = self.children.get(index) else {
             panic!(
@@ -111,7 +111,7 @@ impl<'t, 'input> SeqMatch<'t, 'input> {
                 "sscanf: sub-match at index {index} is None. Are there any unescaped `?` or `|` in a regex?\nContext: {context}"
             );
         };
-        MatchTree::new(child, self.captures, self.input, span, context)
+        Match::new(child, self.captures, self.input, span, context)
     }
 
     /// Returns the sub-match at the given index, if the index exists and contained a [`MatchPart::Matcher`].
@@ -119,7 +119,7 @@ impl<'t, 'input> SeqMatch<'t, 'input> {
     /// Note that you should generally know at compile time which slots contain matchers and which do not.
     /// This method only exists in case some user has an extremely dynamic use case.
     #[track_caller]
-    pub fn get(&'t self, index: usize) -> Option<MatchTree<'t, 'input>> {
+    pub fn get(&'t self, index: usize) -> Option<Match<'t, 'input>> {
         let child = self.children.get(index)?.as_ref()?;
         let context = self.context.and(Context::Get(index));
         let Some(span) = self.captures.get_group(child.index) else {
@@ -127,13 +127,7 @@ impl<'t, 'input> SeqMatch<'t, 'input> {
                 "sscanf: sub-match at index {index} is None. Are there any unescaped `?` or `|` in a regex?\nContext: {context}"
             );
         };
-        Some(MatchTree::new(
-            child,
-            self.captures,
-            self.input,
-            span,
-            context,
-        ))
+        Some(Match::new(child, self.captures, self.input, span, context))
     }
 }
 
@@ -145,7 +139,7 @@ impl std::fmt::Debug for SeqMatch<'_, '_> {
             .map(|match_tree| {
                 let match_tree = match_tree.as_ref()?;
                 let span = self.captures.get_group(match_tree.index).unwrap();
-                Some(MatchTree::new(
+                Some(Match::new(
                     match_tree,
                     self.captures,
                     self.input,
@@ -154,7 +148,7 @@ impl std::fmt::Debug for SeqMatch<'_, '_> {
                 ))
             })
             .collect::<Vec<_>>();
-        f.debug_struct("MatchTree::Seq")
+        f.debug_struct("Match::Seq")
             .field("full_text", &self.text())
             .field("children", &children.as_slice())
             .finish_non_exhaustive()

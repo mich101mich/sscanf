@@ -2,7 +2,7 @@
 pub(crate) enum Context {
     Root,
 
-    // MatchTree methods
+    // Match methods
     Parse(&'static str),
     AsSeq,
     AsAlt(usize),

@@ -87,7 +87,7 @@ fn nesting() {
                 MatchPart::literal("c"),
             ])
         }
-        fn from_match_tree(matches: MatchTree<'_, '_>, _: &FormatOptions) -> Option<Self> {
+        fn from_match(matches: Match<'_, '_>, _: &FormatOptions) -> Option<Self> {
             let _ = matches.as_seq().at(1).as_opt()?.as_alt().get();
             Some(MyType(&R))
         }
@@ -95,10 +95,10 @@ fn nesting() {
     assert_throws!(
         sscanf_with_regex!("abc", "{MyType<_>}").unwrap(),
         if rustc_version::version().unwrap() < rustc_version::Version::new(1, 90, 0) {
-            r#"sscanf: MatchTree::as_alt called on a Regex Match.
+            r#"sscanf: Match::as_alt called on a Regex Match.
 Context: sscanf -> as_seq() -> parse 0 as should_panic::nesting::my_mod::MyType<alloc::vec::Vec<usize>> -> as_seq() -> at(1) -> as_opt()"#
         } else {
-            r#"sscanf: MatchTree::as_alt called on a Regex Match.
+            r#"sscanf: Match::as_alt called on a Regex Match.
 Context: sscanf -> as_seq() -> parse 0 as should_panic::nesting::my_mod::MyType<'_, alloc::vec::Vec<usize>> -> as_seq() -> at(1) -> as_opt()"#
         }
     );
@@ -112,7 +112,7 @@ mod context {
         fn get_matcher(_: &FormatOptions) -> Matcher {
             Matcher::from_regex(".*").unwrap()
         }
-        fn from_match_tree(matches: MatchTree<'_, '_>, _: &FormatOptions) -> Option<Self> {
+        fn from_match(matches: Match<'_, '_>, _: &FormatOptions) -> Option<Self> {
             matches.as_opt();
             None
         }
@@ -128,7 +128,7 @@ mod context {
                 usize::get_matcher(f).into(),
             ])
         }
-        fn from_match_tree(matches: MatchTree<'_, '_>, f: &FormatOptions) -> Option<Self> {
+        fn from_match(matches: Match<'_, '_>, f: &FormatOptions) -> Option<Self> {
             let matches = matches.as_seq();
             let index = matches.parse_at(3, f)?;
             matches.at(index).parse::<FailingStruct>(f).map(SeqAtStruct)
@@ -139,7 +139,7 @@ mod context {
     fn root() {
         assert_throws!(
             sscanf!("hi", "{FailingStruct}").unwrap(),
-            r#"sscanf: MatchTree::as_opt called on a Regex Match.
+            r#"sscanf: Match::as_opt called on a Regex Match.
 Context: sscanf -> as_seq() -> parse 0 as should_panic::context::FailingStruct"#
         );
     }
@@ -151,14 +151,14 @@ Context: sscanf -> as_seq() -> parse 0 as should_panic::context::FailingStruct"#
             fn get_matcher(f: &FormatOptions) -> Matcher {
                 FailingStruct::get_matcher(f)
             }
-            fn from_match_tree(matches: MatchTree<'_, '_>, f: &FormatOptions) -> Option<Self> {
+            fn from_match(matches: Match<'_, '_>, f: &FormatOptions) -> Option<Self> {
                 matches.parse::<FailingStruct>(f).map(ParseStruct)
             }
         }
 
         assert_throws!(
             sscanf!("abc", "{ParseStruct}").unwrap(),
-            r#"sscanf: MatchTree::as_opt called on a Regex Match.
+            r#"sscanf: Match::as_opt called on a Regex Match.
 Context: sscanf -> as_seq() -> parse 0 as should_panic::context::parse::ParseStruct -> parse as should_panic::context::FailingStruct"#
         );
     }
@@ -167,7 +167,7 @@ Context: sscanf -> as_seq() -> parse 0 as should_panic::context::parse::ParseStr
     fn as_seq_at() {
         assert_throws!(
             sscanf!("abc: 1", "{SeqAtStruct}").unwrap(),
-            r#"sscanf: MatchTree::as_opt called on a Regex Match.
+            r#"sscanf: Match::as_opt called on a Regex Match.
 Context: sscanf -> as_seq() -> parse 0 as should_panic::context::SeqAtStruct -> as_seq() -> at(1) -> parse as should_panic::context::FailingStruct"#
         );
 
@@ -194,7 +194,7 @@ Context: sscanf -> as_seq() -> parse 0 as should_panic::context::SeqAtStruct -> 
                     FailingStruct::get_matcher(f).into(),
                 ])
             }
-            fn from_match_tree(matches: MatchTree<'_, '_>, f: &FormatOptions) -> Option<Self> {
+            fn from_match(matches: Match<'_, '_>, f: &FormatOptions) -> Option<Self> {
                 matches
                     .as_seq()
                     .get(1)
@@ -205,7 +205,7 @@ Context: sscanf -> as_seq() -> parse 0 as should_panic::context::SeqAtStruct -> 
         }
         assert_throws!(
             sscanf!("ab", "{SeqGetStruct}").unwrap(),
-            r#"sscanf: MatchTree::as_opt called on a Regex Match.
+            r#"sscanf: Match::as_opt called on a Regex Match.
 Context: sscanf -> as_seq() -> parse 0 as should_panic::context::as_seq_get::SeqGetStruct -> as_seq() -> get(1) -> parse as should_panic::context::FailingStruct"#
         );
     }
@@ -220,7 +220,7 @@ Context: sscanf -> as_seq() -> parse 0 as should_panic::context::as_seq_get::Seq
                     FailingStruct::get_matcher(f).into(),
                 ])
             }
-            fn from_match_tree(matches: MatchTree<'_, '_>, f: &FormatOptions) -> Option<Self> {
+            fn from_match(matches: Match<'_, '_>, f: &FormatOptions) -> Option<Self> {
                 matches
                     .as_seq()
                     .parse_at::<FailingStruct>(1, f)
@@ -229,7 +229,7 @@ Context: sscanf -> as_seq() -> parse 0 as should_panic::context::as_seq_get::Seq
         }
         assert_throws!(
             sscanf!("ab", "{SeqParseAtStruct}").unwrap(),
-            r#"sscanf: MatchTree::as_opt called on a Regex Match.
+            r#"sscanf: Match::as_opt called on a Regex Match.
 Context: sscanf -> as_seq() -> parse 0 as should_panic::context::as_seq_parse_at::SeqParseAtStruct -> as_seq() -> parse 1 as should_panic::context::FailingStruct"#
         );
     }
@@ -244,7 +244,7 @@ Context: sscanf -> as_seq() -> parse 0 as should_panic::context::as_seq_parse_at
                     FailingStruct::get_matcher(f).into(),
                 ])
             }
-            fn from_match_tree(matches: MatchTree<'_, '_>, f: &FormatOptions) -> Option<Self> {
+            fn from_match(matches: Match<'_, '_>, f: &FormatOptions) -> Option<Self> {
                 matches
                     .as_seq()
                     .parse_field::<FailingStruct>("field_name", 1, f)
@@ -253,7 +253,7 @@ Context: sscanf -> as_seq() -> parse 0 as should_panic::context::as_seq_parse_at
         }
         assert_throws!(
             sscanf!("ab", "{SeqParseFieldStruct}").unwrap(),
-            r#"sscanf: MatchTree::as_opt called on a Regex Match.
+            r#"sscanf: Match::as_opt called on a Regex Match.
 Context: sscanf -> as_seq() -> parse 0 as should_panic::context::as_seq_parse_field::SeqParseFieldStruct -> as_seq() -> parse .field_name (index 1 as should_panic::context::FailingStruct)"#
         );
     }
@@ -268,7 +268,7 @@ Context: sscanf -> as_seq() -> parse 0 as should_panic::context::as_seq_parse_fi
                     FailingStruct::get_matcher(f),
                 ])
             }
-            fn from_match_tree(matches: MatchTree<'_, '_>, f: &FormatOptions) -> Option<Self> {
+            fn from_match(matches: Match<'_, '_>, f: &FormatOptions) -> Option<Self> {
                 matches
                     .as_alt()
                     .get()
@@ -279,7 +279,7 @@ Context: sscanf -> as_seq() -> parse 0 as should_panic::context::as_seq_parse_fi
 
         assert_throws!(
             sscanf!("hi", "{AltStruct}").unwrap(),
-            r#"sscanf: MatchTree::as_opt called on a Regex Match.
+            r#"sscanf: Match::as_opt called on a Regex Match.
 Context: sscanf -> as_seq() -> parse 0 as should_panic::context::as_alt::AltStruct -> as_alt(1 matched) -> parse as should_panic::context::FailingStruct"#
         );
     }
@@ -294,7 +294,7 @@ Context: sscanf -> as_seq() -> parse 0 as should_panic::context::as_alt::AltStru
                     FailingStruct::get_matcher(f),
                 ])
             }
-            fn from_match_tree(matches: MatchTree<'_, '_>, f: &FormatOptions) -> Option<Self> {
+            fn from_match(matches: Match<'_, '_>, f: &FormatOptions) -> Option<Self> {
                 matches
                     .as_alt_enum(&["A", "B"])
                     .get()
@@ -305,7 +305,7 @@ Context: sscanf -> as_seq() -> parse 0 as should_panic::context::as_alt::AltStru
 
         assert_throws!(
             sscanf!("hi", "{AltStruct}").unwrap(),
-            r#"sscanf: MatchTree::as_opt called on a Regex Match.
+            r#"sscanf: Match::as_opt called on a Regex Match.
 Context: sscanf -> as_seq() -> parse 0 as should_panic::context::as_alt_enum::AltStruct -> as_alt(B matched) -> parse as should_panic::context::FailingStruct"#
         );
     }
@@ -317,7 +317,7 @@ Context: sscanf -> as_seq() -> parse 0 as should_panic::context::as_alt_enum::Al
             fn get_matcher(f: &FormatOptions) -> Matcher {
                 FailingStruct::get_matcher(f).optional()
             }
-            fn from_match_tree(matches: MatchTree<'_, '_>, f: &FormatOptions) -> Option<Self> {
+            fn from_match(matches: Match<'_, '_>, f: &FormatOptions) -> Option<Self> {
                 matches
                     .as_opt()
                     .unwrap()
@@ -328,7 +328,7 @@ Context: sscanf -> as_seq() -> parse 0 as should_panic::context::as_alt_enum::Al
 
         assert_throws!(
             sscanf!("hi", "{OptStruct}").unwrap(),
-            r#"sscanf: MatchTree::as_opt called on a Regex Match.
+            r#"sscanf: Match::as_opt called on a Regex Match.
 Context: sscanf -> as_seq() -> parse 0 as should_panic::context::as_opt::OptStruct -> as_opt() -> parse as should_panic::context::FailingStruct"#
         );
     }

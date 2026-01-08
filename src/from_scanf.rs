@@ -1,4 +1,4 @@
-use crate::advanced::{FormatOptions, MatchTree, Matcher};
+use crate::advanced::{FormatOptions, Match, Matcher};
 
 mod impls {
     mod numeric;
@@ -104,20 +104,20 @@ use std::str::FromStr;
 ///
 /// use sscanf::advanced::*; // for Matcher etc.
 /// impl FromScanf<'_> for Fraction {
-///     fn get_matcher(format: &FormatOptions) -> Matcher {
+///     fn get_matcher(options: &FormatOptions) -> Matcher {
 ///         // matches <isize> '/' <usize>
 ///         Matcher::Seq(vec![
-///             <isize as FromScanf>::get_matcher(format).into(),
+///             <isize as FromScanf>::get_matcher(options).into(),
 ///             MatchPart::literal("/"),
-///             <usize as FromScanf>::get_matcher(format).into(),
+///             <usize as FromScanf>::get_matcher(options).into(),
 ///         ])
 ///     }
 ///
-///     fn from_match_tree(matches: MatchTree<'_, '_>, format: &FormatOptions) -> Option<Self> {
+///     fn from_match(matches: Match<'_, '_>, options: &FormatOptions) -> Option<Self> {
 ///         let matches = matches.as_seq(); // our matcher is a sequence, so we can convert to that
 ///         Some(Self {
-///             numerator: matches.parse_field("numerator", 0, format)?,
-///             denominator: matches.parse_field("denominator", 2, format)?, // index 1 is the literal '/', so we skip it
+///             numerator: matches.parse_field("numerator", 0, options)?,
+///             denominator: matches.parse_field("denominator", 2, options)?, // index 1 is the literal '/', so we skip it
 ///         })
 ///     }
 /// }
@@ -153,7 +153,7 @@ use std::str::FromStr;
 ///         ])
 ///     }
 ///
-///     fn from_match_tree(matches: MatchTree<'_, 'input>, _: &FormatOptions) -> Option<Self> {
+///     fn from_match(matches: Match<'_, 'input>, _: &FormatOptions) -> Option<Self> {
 ///         let matches = matches.as_seq();
 ///         Some(Self {
 ///             first: matches.at(0).text(),
@@ -215,23 +215,23 @@ pub trait FromScanf<'input>: Sized {
     ///
     /// See the documentation of [`Matcher`] for details on how to create matchers.
     ///
-    /// The `format` parameter contains customizations from the format string, like `{:x}` for hexadecimal number
+    /// The `options` parameter contains customizations from the format string, like `{:x}` for hexadecimal number
     /// parsing. If you want numbers within your type to be overridden by these options, you need to pass them
     /// down to the matchers of the fields. Otherwise, you can use, ignore, customize, or override this parameter as
     /// you see fit.
-    fn get_matcher(format: &FormatOptions) -> Matcher;
+    fn get_matcher(options: &FormatOptions) -> Matcher;
 
     /// Callback to parse the input string from a match tree.
     ///
     /// ```
-    /// # use sscanf::advanced::{Matcher, MatchTree, FormatOptions};
+    /// # use sscanf::advanced::{Matcher, Match, FormatOptions};
     /// # struct MyType { first_field: u8, second_field: u8 }
     /// impl sscanf::FromScanf<'_> for MyType {
     ///     fn get_matcher(_: &FormatOptions) -> Matcher {
     ///         Matcher::from_regex(r"your-(capturing)-(regex)-here").unwrap()
     ///     }
     ///
-    ///     fn from_match_tree(matches: MatchTree<'_, '_>, _: &FormatOptions) -> Option<Self> {
+    ///     fn from_match(matches: Match<'_, '_>, _: &FormatOptions) -> Option<Self> {
     ///         let matches = matches.as_regex_matches(); // our matcher used from_regex, so we can convert to that
     ///         Some(Self {
     ///             first_field: matches[0].unwrap().parse().ok()?,
@@ -253,14 +253,14 @@ pub trait FromScanf<'input>: Sized {
     /// | Problem Description | Example | Action | Explanation |
     /// |---------------------|---------|--------|-------------|
     /// | The regex is too broad | The first capture group can match 100+ digits, but our final data type might not store that many | return&nbsp;`None` | This case should have been filtered by the regex, but wasn't. <br/>Note that this might be unavoidable. For example `u8`'s regex matches only three digits, but 999 is not a valid `u8` and has to be filtered during the parsing process |
-    /// | The `MatchTree` has fewer children than there are direct capture groups in the regex | The `MatchTree` only has 0 or 1 child | `panic!()` | This is a programming error in the calling code |
+    /// | The `Match` has fewer children than there are direct capture groups in the regex | The `Match` only has 0 or 1 child | `panic!()` | This is a programming error in the calling code |
     /// | You tried to access a capture group that does not exist | Attempting to access a third capture group | `panic!()` | This is a programming error in your code |
     /// | An optional capture group did not match | the second group did not match an `s` | continue parsing | This is a valid case, so the parsing should be able to handle it. Otherwise, the group should be made non-optional |
     /// | A non-optional capture group did not match | The first capture group is `None` | `panic!()` | This is a programming error in the calling code |
     ///
     /// If a programming error occurs and you are certain that it is not your fault, please open an issue on GitHub.
     ///
-    fn from_match_tree(matches: MatchTree<'_, 'input>, format: &FormatOptions) -> Option<Self>;
+    fn from_match(matches: Match<'_, 'input>, options: &FormatOptions) -> Option<Self>;
 }
 
 /// A simpler version of [`FromScanf`] for manual implementations.
@@ -338,7 +338,7 @@ impl<'input, T: FromScanfSimple<'input>> FromScanf<'input> for T {
     }
 
     #[track_caller]
-    fn from_match_tree(matches: MatchTree<'_, 'input>, _: &FormatOptions) -> Option<Self> {
+    fn from_match(matches: Match<'_, 'input>, _: &FormatOptions) -> Option<Self> {
         Self::from_match(matches.text())
     }
 }

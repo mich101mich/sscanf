@@ -14,7 +14,7 @@ pub struct Parser<'input, T> {
     regex: regex_automata::meta::Regex,
     captures: regex_automata::util::captures::Captures,
     match_tree_template: MatchTreeTemplate,
-    parse_fn: Box<dyn FnMut(MatchTree<'_, 'input>) -> Option<T>>,
+    parse_fn: Box<dyn FnMut(Match<'_, 'input>) -> Option<T>>,
 }
 
 impl<'input, T> Parser<'input, T> {
@@ -31,13 +31,12 @@ impl<'input, T> Parser<'input, T> {
     }
 
     /// Create a new parser around type `T` with the given format options.
-    pub fn with_options(format: FormatOptions) -> Self
+    pub fn with_options(options: FormatOptions) -> Self
     where
         T: FromScanf<'input>,
     {
-        let matcher = T::get_matcher(&format);
-        let parse_fn =
-            move |match_tree: MatchTree<'_, 'input>| T::from_match_tree(match_tree, &format);
+        let matcher = T::get_matcher(&options);
+        let parse_fn = move |match_tree: Match<'_, 'input>| T::from_match(match_tree, &options);
         Self::from_matcher(matcher, parse_fn)
     }
 
@@ -48,7 +47,7 @@ impl<'input, T> Parser<'input, T> {
     #[track_caller]
     pub fn from_matcher(
         matcher: Matcher,
-        parse_fn: impl FnMut(MatchTree<'_, 'input>) -> Option<T> + 'static,
+        parse_fn: impl FnMut(Match<'_, 'input>) -> Option<T> + 'static,
     ) -> Self {
         // We need to re-index the capture groups. Capture group 0 is the whole match, so our matchers
         // should start at 1. However, since our outermost Matcher is itself the whole match, we assign it
@@ -100,7 +99,7 @@ impl<'input, T> Parser<'input, T> {
     /// Parse the given input string into a value of type `T`.
     pub fn parse(&mut self, input: &'input str) -> Option<T> {
         self.regex.captures(input, &mut self.captures);
-        let match_tree = MatchTree::new(
+        let match_tree = Match::new(
             &self.match_tree_template,
             &self.captures,
             input,

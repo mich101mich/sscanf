@@ -66,7 +66,7 @@ impl Parser {
             //    If we just called `src.parse_field`, the compiler would underline just the `parse_field` with the
             //    error: "borrowed data escapes outside of associated function" and a hint pointing to the fact that
             //    `src` is being borrowed by its method call etc, which is not very helpful.
-            //    By using the `MatchTree::parse_field(self, ...)` call syntax, it will instead underline the entire
+            //    By using the `Match::parse_field(self, ...)` call syntax, it will instead underline the entire
             //    call with the error message: "lifetime may not live long enough" and the hint that the lifetime of
             //    the FromScanf implementation would need to outlive the lifetime of the parsed type, which is
             //    exactly the error we want to point out.
@@ -140,12 +140,12 @@ impl SequenceMatcher {
             let match_index = ret.match_parts.len(); // the index of the matcher to be added now
 
             let (match_part, parser);
-            if let Some(custom) = &ph.config.regex {
+            if let Some(custom) = &ph.options.regex {
                 match_part = MatchPart::from_custom_regex(&custom.regex);
-                parser = Parser::from_custom_regex(match_index, ty, &ph.config);
+                parser = Parser::from_custom_regex(match_index, ty, &ph.options);
             } else {
-                match_part = MatchPart::from_type(ty, &ph.config);
-                parser = Parser::from_type(match_index, ty, &ph.config);
+                match_part = MatchPart::from_type(ty, &ph.options);
+                parser = Parser::from_type(match_index, ty, &ph.options);
             }
             ret.match_parts.push(match_part);
             ret.parsers.push(parser);

@@ -183,8 +183,8 @@ fn custom_format_option() {
     struct MyOption<T>(Option<T>);
 
     impl<'input, T: FromScanf<'input>> FromScanf<'input> for MyOption<T> {
-        fn get_matcher(format: &advanced::FormatOptions) -> advanced::Matcher {
-            let mut format = format.clone();
+        fn get_matcher(options: &advanced::FormatOptions) -> advanced::Matcher {
+            let mut format = options.clone();
             let option = format.custom.take().unwrap();
             let (prefix, suffix) = option.split_once("{}").unwrap();
             advanced::Matcher::Seq(vec![
@@ -195,12 +195,12 @@ fn custom_format_option() {
             .optional()
         }
 
-        fn from_match_tree(
-            matches: advanced::MatchTree<'_, 'input>,
-            format: &advanced::FormatOptions,
+        fn from_match(
+            matches: advanced::Match<'_, 'input>,
+            options: &advanced::FormatOptions,
         ) -> Option<Self> {
             let inner = if let Some(m) = matches.as_opt() {
-                Some(m.as_seq().parse_field("0", 1, format)?)
+                Some(m.as_seq().parse_field("0", 1, options)?)
             } else {
                 None
             };

@@ -11,7 +11,7 @@ impl FromScanf<'_> for String {
         Matcher::from_regex(r".+?").unwrap()
     }
 
-    fn from_match_tree(matches: MatchTree<'_, '_>, _: &FormatOptions) -> Option<Self> {
+    fn from_match(matches: Match<'_, '_>, _: &FormatOptions) -> Option<Self> {
         Some(matches.text().to_string())
     }
 }
@@ -30,7 +30,7 @@ impl<'input> FromScanf<'input> for &'input str {
         Matcher::from_regex(r".+?").unwrap()
     }
 
-    fn from_match_tree(matches: MatchTree<'_, 'input>, _: &FormatOptions) -> Option<Self> {
+    fn from_match(matches: Match<'_, 'input>, _: &FormatOptions) -> Option<Self> {
         Some(matches.text())
     }
 }
@@ -49,7 +49,7 @@ impl<'input> FromScanf<'input> for Cow<'input, str> {
         Matcher::from_regex(r".+?").unwrap()
     }
 
-    fn from_match_tree(matches: MatchTree<'_, 'input>, _: &FormatOptions) -> Option<Self> {
+    fn from_match(matches: Match<'_, 'input>, _: &FormatOptions) -> Option<Self> {
         Some(Cow::Borrowed(matches.text()))
     }
 }
@@ -65,7 +65,7 @@ impl FromScanf<'_> for char {
         Matcher::from_regex(r".").unwrap()
     }
 
-    fn from_match_tree(matches: MatchTree<'_, '_>, _: &FormatOptions) -> Option<Self> {
+    fn from_match(matches: Match<'_, '_>, _: &FormatOptions) -> Option<Self> {
         parse_char(matches.text())
     }
 }
@@ -94,7 +94,7 @@ impl FromScanf<'_> for bool {
         Matcher::from_regex(r"(?i:true|false|1|0|yes|no|on|off|t|f)").unwrap()
     }
 
-    fn from_match_tree(matches: MatchTree<'_, '_>, _: &FormatOptions) -> Option<Self> {
+    fn from_match(matches: Match<'_, '_>, _: &FormatOptions) -> Option<Self> {
         parse_bool(matches.text())
     }
 }
@@ -120,7 +120,7 @@ impl FromScanf<'_> for PathBuf {
         Matcher::from_regex(r".+?").unwrap()
     }
 
-    fn from_match_tree(matches: MatchTree<'_, '_>, _: &FormatOptions) -> Option<Self> {
+    fn from_match(matches: Match<'_, '_>, _: &FormatOptions) -> Option<Self> {
         matches.text().parse().ok()
     }
 }
@@ -141,20 +141,20 @@ mod tests {
         A: FromScanf<'input>,
         B: FromScanf<'input>,
     {
-        fn get_matcher(format: &FormatOptions) -> Matcher {
+        fn get_matcher(options: &FormatOptions) -> Matcher {
             Matcher::Seq(vec![
                 MatchPart::literal("("),
-                A::get_matcher(format).into(),
+                A::get_matcher(options).into(),
                 MatchPart::regex(r",\s*").unwrap(),
-                B::get_matcher(format).into(),
+                B::get_matcher(options).into(),
                 MatchPart::literal(")"),
             ])
         }
 
-        fn from_match_tree(matches: MatchTree<'_, 'input>, format: &FormatOptions) -> Option<Self> {
+        fn from_match(matches: Match<'_, 'input>, options: &FormatOptions) -> Option<Self> {
             let matches = matches.as_seq();
-            let a = matches.parse_at(1, format)?;
-            let b = matches.parse_at(3, format)?;
+            let a = matches.parse_at(1, options)?;
+            let b = matches.parse_at(3, options)?;
             Some((a, b))
         }
     }

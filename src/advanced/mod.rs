@@ -1,10 +1,10 @@
 //! Advanced parsing types and utilities.
 
 pub(crate) mod format_options;
-pub(crate) mod match_tree;
+pub(crate) mod r#match;
 pub(crate) mod matcher;
 pub use format_options::*;
-pub use match_tree::*;
+pub use r#match::*;
 pub use matcher::*;
 
 /// Marks types that support regex overrides in format strings.
@@ -46,5 +46,5 @@ pub trait AcceptsRegexOverride<'input>: Sized {
     /// ```
     ///
     /// Provide a custom implementation when the type uses format options (e.g., number parsing).
-    fn from_regex_match(input: &'input str, format: &FormatOptions) -> Option<Self>;
+    fn from_regex_match(input: &'input str, options: &FormatOptions) -> Option<Self>;
 }

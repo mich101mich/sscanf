@@ -41,9 +41,9 @@ trait PrimitiveNumber: Sized {
     fn negative_from_unsigned(n: Self::Unsigned) -> Option<Self>;
 }
 
-fn primitive_get_matcher<T: PrimitiveNumber>(format: &FormatOptions) -> Matcher {
-    let format = &format.number;
-    let radix = format.to_number();
+fn primitive_get_matcher<T: PrimitiveNumber>(options: &FormatOptions) -> Matcher {
+    let options = &options.number;
+    let radix = options.to_number();
 
     use regex_syntax::hir::*;
     fn optional(inner: Hir) -> Hir {
@@ -82,8 +82,8 @@ fn primitive_get_matcher<T: PrimitiveNumber>(format: &FormatOptions) -> Matcher 
 
         Hir::concat(vec![zero, specifier])
     }
-    fn add_prefix(regex: &mut Vec<Hir>, format: NumberFormatOption) {
-        let (lower, policy) = match format {
+    fn add_prefix(regex: &mut Vec<Hir>, options: NumberFormatOption) {
+        let (lower, policy) = match options {
             NumberFormatOption::Binary(number_prefix_policy) => ('b', number_prefix_policy),
             NumberFormatOption::Octal(number_prefix_policy) => ('o', number_prefix_policy),
             NumberFormatOption::Decimal => return,
@@ -96,7 +96,7 @@ fn primitive_get_matcher<T: PrimitiveNumber>(format: &FormatOptions) -> Matcher 
             NumberPrefixPolicy::Required => regex.push(make_prefix(lower)),
         }
     }
-    add_prefix(&mut regex, *format);
+    add_prefix(&mut regex, *options);
 
     // possible characters for digits
     let possible_chars = if radix <= 10 {
@@ -142,7 +142,7 @@ fn primitive_get_matcher<T: PrimitiveNumber>(format: &FormatOptions) -> Matcher 
 }
 
 fn generic_number_parse<T: PrimitiveNumber>(
-    format: &FormatOptions,
+    options: &FormatOptions,
     is_negative: bool,
     number: &str,
 ) -> Option<T> {
@@ -151,34 +151,34 @@ fn generic_number_parse<T: PrimitiveNumber>(
         // in order to avoid an overflow when trying to parse number like -128i8, we need to parse the number as its
         // unsigned counterpart, e.g. u8::parse_radix("128", 10). This is better than having to manually check for
         // the overflowing value or constructing a new string with a leading minus sign.
-        let raw_num = T::Unsigned::parse_radix(number, format.number.to_number())?;
+        let raw_num = T::Unsigned::parse_radix(number, options.number.to_number())?;
         T::negative_from_unsigned(raw_num)
     } else {
-        T::parse_radix(number, format.number.to_number())
+        T::parse_radix(number, options.number.to_number())
     }
 }
 
 fn primitive_from_match_tree<T: PrimitiveNumber>(
-    matches: MatchTree<'_, '_>,
-    format: &FormatOptions,
+    matches: Match<'_, '_>,
+    options: &FormatOptions,
 ) -> Option<T> {
     let is_negative = matches.text().starts_with('-');
     let matches = matches.as_regex_matches();
     let number = matches[0].unwrap(); // We created a capture in primitive_get_matcher
-    generic_number_parse(format, is_negative, number)
+    generic_number_parse(options, is_negative, number)
 }
 
 fn primitive_from_regex_override<T: PrimitiveNumber>(
     input: &str,
-    format: &FormatOptions,
+    options: &FormatOptions,
 ) -> Option<T> {
     let mut rest = input;
     let is_negative = rest.starts_with('-');
     rest = rest.strip_prefix(['+', '-']).unwrap_or(rest);
 
-    if let Some(prefix) = format.number.prefix() {
+    if let Some(prefix) = options.number.prefix() {
         let prefix_upper = prefix.to_ascii_uppercase();
-        if format.number.prefix_policy() == NumberPrefixPolicy::Required {
+        if options.number.prefix_policy() == NumberPrefixPolicy::Required {
             rest = rest
                 .strip_prefix(prefix)
                 .or_else(|| rest.strip_prefix(&prefix_upper))
@@ -194,7 +194,7 @@ fn primitive_from_regex_override<T: PrimitiveNumber>(
         }
     }
 
-    generic_number_parse::<T>(format, is_negative, rest)
+    generic_number_parse::<T>(options, is_negative, rest)
 }
 
 macro_rules! impl_int {
@@ -215,12 +215,12 @@ macro_rules! impl_int {
 
             doc_concat! {
                 impl FromScanf<'_> for $unsigned {
-                    fn get_matcher(format: &FormatOptions) -> Matcher {
-                        primitive_get_matcher::<$unsigned>(format)
+                    fn get_matcher(options: &FormatOptions) -> Matcher {
+                        primitive_get_matcher::<$unsigned>(options)
                     }
 
-                    fn from_match_tree(matches: MatchTree<'_, '_>, format: &FormatOptions) -> Option<Self> {
-                        primitive_from_match_tree::<$unsigned>(matches, format)
+                    fn from_match(matches: Match<'_, '_>, options: &FormatOptions) -> Option<Self> {
+                        primitive_from_match_tree::<$unsigned>(matches, options)
                     }
                 },
                 "Matches an unsigned integer type with ", stringify!($bits), " bits.",
@@ -241,8 +241,8 @@ macro_rules! impl_int {
             }
 
             impl AcceptsRegexOverride<'_> for $unsigned {
-                fn from_regex_match(input: &str, format: &FormatOptions) -> Option<Self> {
-                    primitive_from_regex_override::<$unsigned>(input, format)
+                fn from_regex_match(input: &str, options: &FormatOptions) -> Option<Self> {
+                    primitive_from_regex_override::<$unsigned>(input, options)
                 }
             }
 
@@ -263,12 +263,12 @@ macro_rules! impl_int {
 
             doc_concat! {
                 impl FromScanf<'_> for $signed {
-                    fn get_matcher(format: &FormatOptions) -> Matcher {
-                        primitive_get_matcher::<$signed>(format)
+                    fn get_matcher(options: &FormatOptions) -> Matcher {
+                        primitive_get_matcher::<$signed>(options)
                     }
 
-                    fn from_match_tree(matches: MatchTree<'_, '_>, format: &FormatOptions) -> Option<Self> {
-                        primitive_from_match_tree::<$signed>(matches, format)
+                    fn from_match(matches: Match<'_, '_>, options: &FormatOptions) -> Option<Self> {
+                        primitive_from_match_tree::<$signed>(matches, options)
                     }
                 },
                 concat!("Matches a signed number with ", $digits_2, " bits in the respective radix."),
@@ -285,8 +285,8 @@ macro_rules! impl_int {
             }
 
             impl AcceptsRegexOverride<'_> for $signed {
-                fn from_regex_match(input: &str, format: &FormatOptions) -> Option<Self> {
-                    primitive_from_regex_override::<$signed>(input, format)
+                fn from_regex_match(input: &str, options: &FormatOptions) -> Option<Self> {
+                    primitive_from_regex_override::<$signed>(input, options)
                 }
             }
         )+
@@ -331,18 +331,18 @@ impl PrimitiveNumber for usize {
 /// }
 /// ```
 impl FromScanf<'_> for usize {
-    fn get_matcher(format: &FormatOptions) -> Matcher {
-        primitive_get_matcher::<usize>(format)
+    fn get_matcher(options: &FormatOptions) -> Matcher {
+        primitive_get_matcher::<usize>(options)
     }
 
-    fn from_match_tree(matches: MatchTree<'_, '_>, format: &FormatOptions) -> Option<Self> {
-        primitive_from_match_tree::<usize>(matches, format)
+    fn from_match(matches: Match<'_, '_>, options: &FormatOptions) -> Option<Self> {
+        primitive_from_match_tree::<usize>(matches, options)
     }
 }
 
 impl AcceptsRegexOverride<'_> for usize {
-    fn from_regex_match(input: &str, format: &FormatOptions) -> Option<Self> {
-        primitive_from_regex_override::<usize>(input, format)
+    fn from_regex_match(input: &str, options: &FormatOptions) -> Option<Self> {
+        primitive_from_regex_override::<usize>(input, options)
     }
 }
 
@@ -385,18 +385,18 @@ impl PrimitiveNumber for isize {
 /// }
 /// ```
 impl FromScanf<'_> for isize {
-    fn get_matcher(format: &FormatOptions) -> Matcher {
-        primitive_get_matcher::<isize>(format)
+    fn get_matcher(options: &FormatOptions) -> Matcher {
+        primitive_get_matcher::<isize>(options)
     }
 
-    fn from_match_tree(matches: MatchTree<'_, '_>, format: &FormatOptions) -> Option<Self> {
-        primitive_from_match_tree::<isize>(matches, format)
+    fn from_match(matches: Match<'_, '_>, options: &FormatOptions) -> Option<Self> {
+        primitive_from_match_tree::<isize>(matches, options)
     }
 }
 
 impl AcceptsRegexOverride<'_> for isize {
-    fn from_regex_match(input: &str, format: &FormatOptions) -> Option<Self> {
-        primitive_from_regex_override::<isize>(input, format)
+    fn from_regex_match(input: &str, options: &FormatOptions) -> Option<Self> {
+        primitive_from_regex_override::<isize>(input, options)
     }
 }
 
@@ -418,20 +418,20 @@ macro_rules! impl_non_zero {
 
             doc_concat! {
                 impl FromScanf<'_> for $ty {
-                    fn get_matcher(format: &FormatOptions) -> Matcher {
-                        primitive_get_matcher::<$base>(format)
+                    fn get_matcher(options: &FormatOptions) -> Matcher {
+                        primitive_get_matcher::<$base>(options)
                     }
 
-                    fn from_match_tree(matches: MatchTree<'_, '_>, format: &FormatOptions) -> Option<Self> {
-                        primitive_from_match_tree::<$base>(matches, format).and_then(Self::new)
+                    fn from_match(matches: Match<'_, '_>, options: &FormatOptions) -> Option<Self> {
+                        primitive_from_match_tree::<$base>(matches, options).and_then(Self::new)
                     }
                 },
                 concat!("Matches a non-zero [", stringify!($base), "](trait.FromScanf.html#impl-FromScanf<'_>-for-", stringify!($base), ").")
             }
 
             impl AcceptsRegexOverride<'_> for $ty {
-                fn from_regex_match(input: &str, format: &FormatOptions) -> Option<Self> {
-                    primitive_from_regex_override::<$base>(input, format).and_then(Self::new)
+                fn from_regex_match(input: &str, options: &FormatOptions) -> Option<Self> {
+                    primitive_from_regex_override::<$base>(input, options).and_then(Self::new)
                 }
             }
         )+
@@ -450,7 +450,7 @@ macro_rules! impl_float {
                 Matcher::from_regex(FLOAT).unwrap()
             }
 
-            fn from_match_tree(matches: MatchTree<'_, '_>, _: &FormatOptions) -> Option<Self> {
+            fn from_match(matches: Match<'_, '_>, _: &FormatOptions) -> Option<Self> {
                 matches.text().parse().ok()
             }
         }
@@ -514,11 +514,11 @@ mod tests {
     {
         let name = std::any::type_name::<T>();
 
-        let format = FormatOptions {
+        let options = FormatOptions {
             number: options,
             ..Default::default()
         };
-        let mut parser = Parser::<T>::with_options(format);
+        let mut parser = Parser::<T>::with_options(options);
         let output = parser.parse(value_str);
 
         let Some(parsed_value) = output else {
@@ -538,11 +538,11 @@ mod tests {
     {
         let name = std::any::type_name::<T>();
 
-        let format = FormatOptions {
+        let options = FormatOptions {
             number: options,
             ..Default::default()
         };
-        let mut parser = Parser::<T>::with_options(format);
+        let mut parser = Parser::<T>::with_options(options);
         let result = parser.parse(value_str);
 
         assert!(
