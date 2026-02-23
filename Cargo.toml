@@ -21,5 +21,5 @@ regex-automata = "0.4.0" # Note when updating: regex-automata depends on regex-s
 regex-syntax = "0.8.0" # Should match regex-syntax in sscanf_macro/Cargo.toml
 
 [dev-dependencies]
-trybuild = "1.0.78"
+err_span_check = "0.1.0"
 rustc_version = "0.4.0"

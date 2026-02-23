@@ -275,17 +275,5 @@ fn respects_raw_strings() {
 #[test]
 #[ignore]
 fn error_message_tests() {
-    let root = std::path::PathBuf::from("tests/fail");
-    let mut paths = vec![root.clone()];
-
-    // Error Messages are different in nightly => Different .stderr files
-    let nightly = rustc_version::version_meta().unwrap().channel == rustc_version::Channel::Nightly;
-    let channel = if nightly { "nightly" } else { "stable" };
-    paths.push(root.join(channel));
-
-    let t = trybuild::TestCases::new();
-    for mut path in paths {
-        path.push("*.rs");
-        t.compile_fail(path.display().to_string());
-    }
+    err_span_check::run_on_fail_dir();
 }

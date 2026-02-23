@@ -1,4 +1,4 @@
-A Rust crate providing an `sscanf`-like macro (inverse of `format!()`), powered by regex.
+# A Rust crate providing an `sscanf`-like macro (inverse of `format!()`), powered by regex
 
 [![Tests](https://github.com/mich101mich/sscanf/actions/workflows/test.yml/badge.svg)](https://github.com/mich101mich/sscanf/actions/workflows/test.yml)
 [![Crates.io](https://img.shields.io/crates/v/sscanf.svg)](https://crates.io/crates/sscanf)
@@ -8,6 +8,7 @@ A Rust crate providing an `sscanf`-like macro (inverse of `format!()`), powered 
 `sscanf` is originally a C function that takes a string, a format string with placeholders, and
 several variables. It parses the input and writes matched values into those variables. In Rust,
 this crate returns a tuple instead. You can think of it as reversing a call to `format!()`:
+
 ```rust
 // format: takes format string and values, returns String
 let msg = format!("Hello {}{}!", "World", 5);
@@ -23,10 +24,12 @@ assert_eq!(parsed.unwrap(), ("World", 5));
 let parsed2 = sscanf::sscanf!(msg, "Hello {&str}{usize}!");
 assert_eq!(parsed2.unwrap(), ("World", 5));
 ```
+
 `sscanf!()` takes a format string like `format!()`, but instead of writing values into `{}` placeholders,
 it extracts the values at those positions into the returned tuple.
 
 If matching the format string fails, `None` is returned:
+
 ```rust
 let msg = "Text that doesn't match the format string";
 let parsed = sscanf::sscanf!(msg, "Hello {&str}{usize}!");
@@ -43,6 +46,7 @@ The second mirrors the [captured identifiers in format strings (since 1.58)](htt
 This option has less helpful compiler errors on stable Rust, but is otherwise identical to the first.
 
 More examples of the capabilities of `sscanf`:
+
 ```rust
 use sscanf::sscanf;
 use std::num::NonZeroUsize;
@@ -89,6 +93,7 @@ let input = "color: #D4AF37";
 let (r, g, b) = sscanf!(input, "color: #{u8:x}{u8:x}{u8:x}").unwrap();
 assert_eq!((r, g, b), (0xD4, 0xAF, 0x37));
 ```
+
 The input here is a `&'static str`, but it can be `String`, `&str`, `&String`, ...
 Basically anything that auto-derefs to `str` without taking ownership. See [examples](https://docs.rs/sscanf/latest/sscanf/macro.sscanf.html#examples)
 for a few examples of possible inputs.
@@ -107,7 +112,7 @@ This means that any sequence of replacements is possible as long as the regex fi
 combination that works. In the `char, usize, char, usize` example above it manages to assign
 the `N` and `E` to the `char`s because they cannot be matched by the `usize`s.
 
-# Format Options
+## Format Options
 All options are inside `'{'` `'}'` and after a `:`, so either as `{<type>:<option>}` or
 as `{:<option>}`. Note: The type might still have a path that contains `::`. Any double
 colons are ignored and only single colons are used to separate the options.
@@ -131,6 +136,7 @@ or Wrappers (~~`struct Wrapper(i32);`~~) or Aliases (~~`type Alias = i32;`~~). *
 - `{:/.../}`: Match according to the [`Regex`](https://docs.rs/regex) between the `/` `/`
 
 For example:
+
 ```rust
 let input = "random Text";
 let parsed = sscanf::sscanf!(input, "{&str:/[^m]+/}{&str}");
@@ -146,6 +152,7 @@ that any `/` need to be escaped as `\/` since they are used to end the regex.
 
 **NOTE:** You should use raw strings for a format string containing a regex, since otherwise you
 need to escape any `\` as `\\`:
+
 ```rust
 use sscanf::sscanf;
 let input = "1234";
@@ -182,7 +189,7 @@ but without a prefix. Thus:
 
 More uses for `#` may be added in the future. Let me know if you have a suggestion for this.
 
-# Custom Types
+## Custom Types
 
 `sscanf` works with most primitive Types from `std` as well as `String` by default. The
 full list can be seen here: [Implementations of `FromScanf`](https://docs.rs/sscanf/latest/sscanf/trait.FromScanf.html#foreign-impls).
@@ -192,6 +199,7 @@ To add more types there are two options:
 - Manually implement [`FromScanf`](https://docs.rs/sscanf/latest/sscanf/trait.FromScanf.html) for your type (flexible, but requires more code)
 
 The simplest option is to use `derive`:
+
 ```rust
 #[derive(sscanf::FromScanf)] // The derive macro
 #[derive(Debug, PartialEq)] // additional traits for assert_eq below. Not required for sscanf
@@ -205,6 +213,7 @@ assert_eq!(parsed, Fraction { numerator: -10, denominator: 3 });
 ```
 
 Also works for enums:
+
 ```rust
 #[derive(sscanf::FromScanf)]
 enum HasChanged {
@@ -229,9 +238,9 @@ assert!(matches!(parsed, HasChanged::Yes { added: 325, deleted: 15 }));
 More details can be found in the [`FromScanf` documentation](https://docs.rs/sscanf/latest/sscanf/trait.FromScanf.html)
 and the [`derive` documentation](https://docs.rs/sscanf/latest/sscanf/derive.FromScanf.html)
 
-# Changelog
+## Changelog
 See [Changelog.md](https://github.com/mich101mich/sscanf/blob/master/Changelog.md)
 
-# License
+## License
 Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or
 [MIT license](LICENSE-MIT) at your option.

@@ -277,7 +277,8 @@ impl<'a> StrLitSlice<'a> {
             } else {
                 writeln!(m, "{start_line: >ln_length$} | {prefix}{line}{suffix}").unwrap();
             }
-            writeln!(m, "{ln_blank} | {E: <prefix_len$}{E:^<line_len$}").unwrap(); // spaces for prefix, then '^' for the string part
+            // spaces for prefix, then '^' for the string part
+            writeln!(m, "{ln_blank} | {E: <prefix_len$}{E:^<line_len$}").unwrap();
         } else {
             //   --> tests/fail/nightly/multiline_format_str.rs:12:10
             //    |
@@ -305,9 +306,9 @@ impl<'a> StrLitSlice<'a> {
                     write!(m, "{line_no: >ln_length$} | | {line}").unwrap();
                 }
 
-                writeln!(m, "{ln_blank} | | ...").unwrap();
-                // Note: The rust compiler would write "... |" instead, but if we do that in the error message itself, it somehow
-                // breaks the indentation of the previous line.
+                // write "...   |" padded to align the `|` with the right `|` of the numbered lines
+                let total_len = ln_length + 3; // line number + " | "
+                writeln!(m, "{: <total_len$}|", "...").unwrap();
 
                 let line = middle_lines.last().unwrap();
                 let line_no = end_line - 1;
@@ -733,7 +734,7 @@ Line 9"# };
      |  ___^
 1001 | | Line 3
 1002 | | Line 4
-     | | ...
+...    |
 1005 | | Line 7
 1006 | | Line 8
      | |_______^
