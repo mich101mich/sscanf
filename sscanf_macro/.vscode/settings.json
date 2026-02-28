@@ -1,0 +1,4 @@
+{
+    "rust-analyzer.cargo.targetDir": "../target/rls",
+    "coverage-gutters.coverageBaseDir": "../target/sscanf_macro/coverage",
+}

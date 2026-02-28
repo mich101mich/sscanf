@@ -1,11 +1,4 @@
 use sscanf::*;
-use std::str::FromStr;
-
-mod types {
-    mod full_f32;
-    mod full_f64;
-    mod hex_number;
-}
 
 mod derive {
     mod r#enum;
@@ -19,11 +12,11 @@ fn basic() {
     let output = sscanf!(input, "Test {usize} {f32} {{}} {}!", std::string::String);
     let (a, b, c) = output.unwrap();
     assert_eq!(a, 5);
-    assert!((b - 1.4).abs() < f32::EPSILON, "b is {}", b);
+    assert!((b - 1.4).abs() < f32::EPSILON, "b is {b}");
     assert_eq!(c, "bob");
 
     let n = sscanf!(input, "hi");
-    n.unwrap_err();
+    assert!(n.is_none());
 
     let input = "Position<5,0.3,2>; Dir: N24E10";
     let output = sscanf!(
@@ -41,40 +34,38 @@ fn no_types() {
     let result = sscanf!("hi", "hi");
     result.unwrap();
     let result = sscanf!("hi", "no");
-    result.unwrap_err();
+    assert!(result.is_none());
 }
 
 #[test]
-fn get_regex() {
-    let input = "Test 5 {} bob!";
-    let regex = sscanf_get_regex!("Test {usize} {{}} {}!", std::string::String);
-    assert_eq!(regex.as_str(), r"^Test (\+?\d{1,20}) \{\} (.+?)!$");
-
-    let output = regex.captures(input);
-    assert!(output.is_some());
-    let output = output.unwrap();
-    assert_eq!(output.get(1).map(|m| m.as_str()), Some("5"));
-    assert_eq!(output.get(2).map(|m| m.as_str()), Some("bob"));
-}
-
-#[test]
-fn unescaped() {
+fn regex_format_string() {
     let input = "5.0SOME_RANDOM_TEXT3";
-    let output = sscanf_unescaped!(input, "{f32}.*{usize}");
+    let output = sscanf_with_regex!(input, "{f32}.*{usize}");
     assert_eq!(output.unwrap(), (5.0, 3));
+}
+
+#[test]
+fn sscanf_parser() {
+    let mut parser = sscanf_parser!("Employee #{usize}!");
+
+    let output = parser.parse("Employee #42!").unwrap();
+    assert_eq!(output, 42);
+
+    let output = parser.parse("Employee #7!").unwrap();
+    assert_eq!(output, 7);
+
+    assert_eq!(parser.parse("Invalid Input"), None);
+    assert_eq!(parser.parse("Employee #X"), None);
 }
 
 #[test]
 fn generic_types() {
     #[derive(Debug, PartialEq, Eq, Default)]
     pub struct Bob<T>(pub std::marker::PhantomData<T>);
-    impl<T> RegexRepresentation for Bob<T> {
+    impl<T: Default> FromScanfSimple<'_> for Bob<T> {
         const REGEX: &'static str = ".*";
-    }
-    impl<T: Default> FromStr for Bob<T> {
-        type Err = <f64 as FromStr>::Err;
-        fn from_str(_: &str) -> Result<Self, Self::Err> {
-            Ok(Default::default())
+        fn from_match(_: &str) -> Option<Self> {
+            Some(Default::default())
         }
     }
 
@@ -85,6 +76,18 @@ fn generic_types() {
     let input = "Test";
     let output = sscanf!(input, "{Bob<usize>}");
     assert_eq!(output.unwrap(), Default::default());
+
+    fn parse_quoted<'input, T: FromScanf<'input>>(s: &'input str) -> Option<T> {
+        sscanf!(s, "\"{T}\"")
+    }
+
+    let input = r#""Hello, World!""#;
+    let output: &str = parse_quoted(input).unwrap();
+    assert_eq!(output, "Hello, World!");
+
+    let input = r#""42""#;
+    let output = parse_quoted::<usize>(input).unwrap();
+    assert_eq!(output, 42);
 }
 
 #[test]
@@ -123,7 +126,7 @@ fn config_numbers() {
     // negative number on unsigned
     let input = "-0xab01";
     let parsed = sscanf!(input, "{usize:x}");
-    parsed.unwrap_err();
+    assert!(parsed.is_none());
 
     // explicit positive number with prefix
     let input = "+10 +0xab01 +0o127 +0b101010";
@@ -145,11 +148,36 @@ fn config_numbers() {
 
     // :#x etc forces the prefix
     assert_eq!(out, sscanf!(prefix, "{u8:#x} {u8:#o} {u8:#b}").unwrap());
-    sscanf!(no_prefix, "{u8:#x} {u8:#o} {u8:#b}").unwrap_err();
+    assert!(sscanf!(no_prefix, "{u8:#x} {u8:#o} {u8:#b}").is_none());
 
     // :r16 etc have no prefix
-    sscanf!(prefix, "{u8:r16} {u8:r8} {u8:r2}").unwrap_err();
+    assert!(sscanf!(prefix, "{u8:r16} {u8:r8} {u8:r2}").is_none());
     assert_eq!(out, sscanf!(no_prefix, "{u8:r16} {u8:r8} {u8:r2}").unwrap());
+
+    // using type aliases
+    type MyNumber = usize;
+    let input = "0xab01";
+    let parsed = sscanf!(input, "{MyNumber:x}");
+    assert_eq!(parsed.unwrap(), 0xab01);
+
+    // regex overrides
+    let input = "123";
+    assert_eq!(sscanf!(input, "{usize:/\\d{3}/}").unwrap(), 123);
+    assert_eq!(sscanf!(input, "{usize:x /\\d{3}/}").unwrap(), 0x123);
+    assert_eq!(sscanf!(input, "{usize:o /\\d{3}/}").unwrap(), 0o123);
+    assert_eq!(sscanf!(input, "{usize:r36 /\\d{3}/}").unwrap(), 1371);
+
+    assert!(sscanf!(input, "{usize:#b /\\d{3}/}").is_none());
+    assert!(sscanf!(input, "{usize:#o /\\d{3}/}").is_none());
+    assert!(sscanf!(input, "{usize:#x /\\d{3}/}").is_none());
+
+    let input = "0x123";
+    assert_eq!(sscanf!(input, "{usize:x /.*/}").unwrap(), 0x123);
+    assert_eq!(sscanf!(input, "{usize:#x /.*/}").unwrap(), 0x123);
+    assert!(sscanf!(input, "{usize:/.*/}").is_none());
+
+    assert_eq!(sscanf!("0b1010", "{usize:b /.*/}").unwrap(), 0b1010);
+    assert_eq!(sscanf!("0o17", "{usize:o /.*/}").unwrap(), 0o17);
 }
 
 #[test]
@@ -172,40 +200,54 @@ fn custom_regex() {
     let input = r"({(\}*[\{";
     let parsed = sscanf!(input, r"{:/\(\{\(\\\}\*/}{:/\[\\\{/}", str, str);
     assert_eq!(parsed.unwrap(), (r"({(\}*", r"[\{"));
-
-    #[derive(Debug, PartialEq)]
-    struct NoRegex;
-    impl FromStr for NoRegex {
-        type Err = std::convert::Infallible;
-        fn from_str(_s: &str) -> Result<Self, Self::Err> {
-            Ok(NoRegex)
-        }
-    }
-    let parsed = sscanf!(input, "{NoRegex:/.*/}");
-    assert_eq!(parsed.unwrap(), NoRegex);
 }
 
 #[test]
-fn derived_from_str() {
-    #[derive(Debug, PartialEq, FromScanf)]
-    #[sscanf("{}: {}")]
-    struct Bob {
-        name: String,
-        value: usize,
+fn custom_format_option() {
+    #[derive(Debug, PartialEq)]
+    struct MyOption<T>(Option<T>);
+
+    impl<'input, T: FromScanf<'input>> FromScanf<'input> for MyOption<T> {
+        fn get_matcher(options: &advanced::FormatOptions) -> advanced::Matcher {
+            let mut format = options.clone();
+            let option = format.custom.take().unwrap();
+            let (prefix, suffix) = option.split_once("{}").unwrap();
+            advanced::Matcher::Seq(vec![
+                advanced::MatchPart::literal(prefix.to_string()),
+                T::get_matcher(&format).into(),
+                advanced::MatchPart::literal(suffix.to_string()),
+            ])
+            .optional()
+        }
+
+        fn from_match(
+            matches: advanced::Match<'_, 'input>,
+            options: &advanced::FormatOptions,
+        ) -> Option<Self> {
+            let inner = if let Some(m) = matches.as_opt() {
+                Some(m.as_seq().parse_field("0", 1, options)?)
+            } else {
+                None
+            };
+            Some(Self(inner))
+        }
     }
 
-    let expected = Bob {
-        name: "bob".to_string(),
-        value: 5,
-    };
+    let input = "Find the code '<12345>' in the text.";
+    let parsed = sscanf!(
+        input,
+        "Find the code '{MyOption<usize>:[<{}>]}' in the text."
+    )
+    .unwrap();
+    assert_eq!(parsed, MyOption(Some(12345)));
 
-    assert_eq!(Bob::from_str("bob: 5").unwrap(), expected);
-    assert!(Bob::from_str("bob: 6").unwrap() != expected);
-    assert!(Bob::from_str("bob : 5").unwrap() != expected);
-
-    assert!(Bob::from_str("{bob: 5}").is_err());
-    assert!(Bob::from_str("bob: a").is_err());
-    assert!(Bob::from_str("bob").is_err());
+    let input = "Find the code '' in the text.";
+    let parsed = sscanf!(
+        input,
+        "Find the code '{MyOption<usize>:[<{}>]}' in the text."
+    )
+    .unwrap();
+    assert_eq!(parsed, MyOption(None));
 }
 
 #[test]
@@ -216,7 +258,7 @@ fn string_lifetime() {
         let input = String::from("hi");
         s = sscanf!(input, "{String}").unwrap();
     }
-    println!("{}", s);
+    println!("{s}");
 
     // check if sscanf works with various function signatures
     fn process(a: &str) -> &str {
@@ -229,41 +271,34 @@ fn string_lifetime() {
     }
     process_with_borrow("hi");
 
+    #[allow(clippy::needless_lifetimes)]
     fn process_with_lifetime<'a, 'b>(_a: &'a str, b: &'b str) -> &'b str {
         sscanf!(b, "{&str}").unwrap()
     }
     process_with_lifetime("hi", "hi");
 
     fn process_cow<'a>(a: &'a str) -> std::borrow::Cow<'a, str> {
-        sscanf!(a, "{Cow<str>}").unwrap()
+        sscanf!(a, "{std::borrow::Cow<str>}").unwrap()
     }
     process_cow("hi");
 }
 
 #[test]
-fn error_lifetime() {
-    fn foo() -> Result<(), Box<dyn std::error::Error>> {
-        let input = String::from("hi");
-        sscanf!(input, "{String}").map_err(|err| err.to_string())?;
-        Ok(())
-    }
-    foo().unwrap();
+fn respects_raw_strings() {
+    let input = "0  \\  \"  \n  \x41  \u{0041}";
+    let parsed = sscanf!(input, "{usize}  \\  \"  \n  \x41  \u{0041}");
+    assert_eq!(parsed.unwrap(), 0);
+
+    let parsed = sscanf!(
+        input,
+        r#"{usize}  \  "  
+  A  A"#
+    );
+    assert_eq!(parsed.unwrap(), 0);
 }
 
 #[test]
 #[ignore]
 fn error_message_tests() {
-    let root = std::path::PathBuf::from("tests/fail");
-    let mut paths = vec![root.clone()];
-
-    // Error Messages are different in nightly => Different .stderr files
-    let nightly = rustc_version::version_meta().unwrap().channel == rustc_version::Channel::Nightly;
-    let channel = if nightly { "nightly" } else { "stable" };
-    paths.push(root.join(channel));
-
-    let t = trybuild::TestCases::new();
-    for mut path in paths {
-        path.push("*.rs");
-        t.compile_fail(path.display().to_string());
-    }
+    err_span_check::run_on_fail_dir();
 }

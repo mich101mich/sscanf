@@ -11,6 +11,52 @@ as neither works without the other and versions are always released in parallel.
 [sscanf_macro]: https://crates.io/crates/sscanf_macro
 [sscanf]: https://crates.io/crates/sscanf
 
+## [0.5.0] - 2026-02-28
+
+### Changed
+- Bumped MSRV to `1.88.0` (**BREAKING**).
+  - This allows updating all outdated dependencies.
+  - This adds several improvements to error messages, like [Span methods] or
+    [diagnostic::on_unimplemented][on_unimplemented].
+- Changed `sscanf!` return type back to `Option` (**BREAKING**) (sorry).
+  - This change was originally made to allow debugging custom types, but the returned error was never really useful,
+    and the addition of the derive macro made it useless in not just 99% of use cases like before, but 99.99%.\
+    Having a `Result` that should have been an `Option` was adding far too much complexity and multiple pitfalls.
+- Completely redesigned the `FromScanf` trait (NOTE: The derive macro still works as before).
+- Renamed `sscanf_unescaped` and `format_unescaped` to `sscanf_with_regex` and `format_regex` to be more meaningful (**BREAKING**).
+- `format_unescaped` can no longer be written as just a raw string (**BREAKING**).
+
+### Removed
+- Removed auto-implementation of `FromScanf` for types implementing `FromStr` (**BREAKING**).
+  - This has the benefit that `FromScanf` is now implemented for `&str` and `Cow<str>`, which was previously
+    blocked by an "upstream crate might implement FromStr" error.
+    - Note: Parsing the types was previously possible through a hack in the `sscanf` macro.
+  - This also improves the error message in case `FromScanf` is not implemented.
+  - The same functionality can still be achieved with the [`FromScanfSimple`][FromScanfSimple@0.5.0] trait.
+- Removed the [`RegexRepresentation`][RegexRepresentation@0.4.4] trait. The `REGEX` constant is now part of
+  [`FromScanfSimple`][FromScanfSimple@0.5.0] (**BREAKING**).
+- Removed the previously deprecated `FullF32`, `FullF64`, and `HexNumber` (technically breaking, but they have been
+  deprecated for 3 years or more).
+
+### Added
+- Added a [`FromScanfSimple`][FromScanfSimple@0.5.0] trait to replace the previous combination of
+  `FromStr + RegexRepresentation`.
+- Added a [`parse`][parse@0.5.0] function to directly parse types that implement `FromScanf`.
+- Added a [`Parser`][Parser@0.5.0] type to store parsing metadata in order to make multiple calls to `sscanf` more
+  efficient.
+- Added [`sscanf_parser`][sscanf_parser@0.5.0] and [`sscanf_parser_with_regex`][sscanf_parser_with_regex@0.5.0]
+  macros to generate `Parser`s.
+
+[0.5.0]:                            https://github.com/mich101mich/sscanf/releases/tag/0.5.0
+[Span methods]:                     https://doc.rust-lang.org/stable/proc_macro/struct.Span.html#method.start
+[on_unimplemented]:                 https://doc.rust-lang.org/stable/reference/attributes/diagnostics.html#the-diagnosticon_unimplemented-attribute
+[RegexRepresentation@0.4.4]:        https://docs.rs/sscanf/0.4.4/sscanf/trait.RegexRepresentation.html
+[FromScanfSimple@0.5.0]:            https://docs.rs/sscanf/0.5.0/sscanf/trait.FromScanfSimple.html
+[parse@0.5.0]:                      https://docs.rs/sscanf/0.5.0/sscanf/fn.parse.html
+[Parser@0.5.0]:                     https://docs.rs/sscanf/0.5.0/sscanf/struct.Parser.html
+[sscanf_parser@0.5.0]:              https://docs.rs/sscanf/0.5.0/sscanf/macro.sscanf_parser.html
+[sscanf_parser_with_regex@0.5.0]:   https://docs.rs/sscanf/0.5.0/sscanf/macro.sscanf_parser_with_regex.html
+
 ## [0.4.4] - 2025-10-30
 
 ### Changed

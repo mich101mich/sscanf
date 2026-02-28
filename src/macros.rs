@@ -1,45 +1,43 @@
-//! A file with the macro re-exports to separate the documentation from the crate root docs
+//! Macro re-exports to keep documentation separate from the crate root.
 
-/// A Macro to parse a string based on a format-string, similar to sscanf in C
+#[expect(unused_imports, reason = "for doc links")]
+use crate::Parser;
+
+/// Parses a string using a format string, similar to C's `sscanf`.
 ///
 /// ## Signature
 /// ```ignore
-/// sscanf!(input: impl Deref<Target=str>, format: <literal>, Type...) -> Result<(Type...), sscanf::Error>
+/// sscanf!(input: impl Deref<Target=str>, format: <literal>, Type...) -> Option<(Type...)>
 /// ```
 ///
 /// ## Parameters
-/// * `input`: The string to parse. Can be anything that implements [`Deref<Target=str>`](std::ops::Deref)
-///   (e.g. `&str`, `String`, `Cow<str>`, etc. See examples below). Note that `sscanf` does not take
-///   ownership of the input.
-/// * `format`: A literal string. No const or static allowed, just like with [`format!()`](std::format).
-/// * `Type...`: The types to parse. See [Custom Types](index.html#custom-types) for more information.
+/// * `input`: The string to parse. Can be anything that auto-derefs to `str` (e.g. `&str`, `String`, `Cow<str>`, etc.).
+///   See the examples below. Note that `sscanf` does not take ownership of the input.\
+///   More formally, `sscanf` adds a `&` before the input and then passes it to [`Parser::parse`](crate::Parser::parse),
+///   so the input must be something that rust can coerce to `&str`.
+/// * `format`: A literal string. No `const` or `static` allowed, just like with [`format!()`](std::format).
+/// * `Type...`: Any types that are not written into the format string. See [Custom Types](index.html#custom-types)
+///   for details.
 ///
 /// ## Return Value
-/// A [`Result`](std::result::Result) with a tuple of the parsed types or a [`sscanf::Error`](crate::errors::Error).
-/// Note that an error usually indicates that the input didn't match the format string, making the
-/// returned [`Result`](std::result::Result) functionally equivalent to an [`Option`](std::option::Option),
-/// and most applications should treat it that way. An error is only useful when debugging
-/// custom implementations of [`FromStr`](std::str::FromStr) or [`FromScanf`](crate::FromScanf).
-/// See [`sscanf::Error`](crate::errors::Error) for more information.
+/// Returns `Some(tuple)` containing the parsed types, or `None` if matching or parsing fails.
 ///
 /// ## Details
-/// The format string _has_ to be a string literal (with some form of `"` on either side),
-/// because it is parsed by the procedural macro at compile time and checks if all the types
-/// and placeholders are matched. This is not possible from inside a variable or even a `const
-/// &str` somewhere else.
+/// The format string must be a string literal, because it is parsed by the procedural macro at compile time to ensure
+/// all types and placeholders match. This cannot be done if the format is stored in a variable or even a `const &str`
+/// elsewhere.
 ///
-/// Placeholders within the format string are marked with `{}`. Any `'{'` or `'}'` that should not be
-/// treated as placeholders need to be escaped by writing `'{{'` or `'}}'`. For every placeholder there
-/// has to be a type name inside the `{}` or exactly one type in the parameters after the format
-/// string. Types can be referenced by indices in the placeholder, similar to [`format!()`](std::fmt).
+/// Placeholders in the format string are `{}`. Any `{` or `}` that should be literal must be escaped as `{{` and `}}`.
+/// For every placeholder there must be a type name inside the `{}`, or exactly one type in the parameters after the
+/// format string. Types can be referenced by indices like `{0}`, similar to [`format!()`](std::format).
 ///
-/// Any additional formatting options are placed behind a `:`. For a list of options, see
-/// the [crate root documentation](index.html#format-options).
+/// Any additional formatting options are placed after a `:`. For a list of options, see the
+/// [crate root documentation](index.html#format-options).
 ///
 /// ## Examples
-/// A few examples for possible inputs:
+/// Examples of accepted input types:
 /// ```
-/// # use sscanf::sscanf;
+/// # use sscanf::sscanf; use std::{borrow::Cow, rc::Rc, boxed::Box};
 /// let input = "5"; // &str
 /// assert_eq!(sscanf!(input, "{usize}").unwrap(), 5);
 ///
@@ -50,123 +48,155 @@
 /// assert_eq!(sscanf!(input, "{usize}").unwrap(), 5);
 /// assert_eq!(sscanf!(input.as_str(), "{usize}").unwrap(), 5);
 ///
-/// let input = std::borrow::Cow::from("5"); // Cow<str>
+/// let input: Box<str> = String::from("5").into_boxed_str();
 /// assert_eq!(sscanf!(input, "{usize}").unwrap(), 5);
 ///
-/// let input = std::rc::Rc::from("5"); // Rc<str>
+/// let input: Cow<str> = Cow::Borrowed("5");
+/// assert_eq!(sscanf!(input, "{usize}").unwrap(), 5);
+///
+/// let input: Rc<str> = Rc::from(String::from("5"));
 /// assert_eq!(sscanf!(input, "{usize}").unwrap(), 5);
 ///
 /// // and many more
 /// ```
 ///
 /// ```compile_fail
-/// // temporary value: doesn't work
+/// // temporary value: does not work
+/// # use sscanf::sscanf;
 /// sscanf!(String::from("5"), "{usize}");
 /// ```
 ///
-/// More Examples can be seen in the crate root documentation.
+/// More examples are available in the crate root documentation.
 pub use sscanf_macro::sscanf;
 
-#[doc(hidden)]
-pub use sscanf_macro::sscanf as scanf;
-
-/// Same as [`sscanf`], but returns the regex without running it. Useful for debugging or efficiency.
+/// Same as [`sscanf`], but allows using regex in the format string.
 ///
-/// ## Signature
-/// ```ignore
-/// sscanf_get_regex!(format: <literal>, Type...) -> &'static Regex
-/// ```
+/// Signature is the same as [`sscanf`].
 ///
-/// ## Parameters
-/// * `format`: A literal string. No const or static allowed, just like with [`format!()`](std::format).
-/// * `Type...`: The types to parse. See [Custom Types](index.html#custom-types) for more information.
+/// Parameters are the same as [`sscanf`], but any non-placeholder parts of the format string are treated as regex.
 ///
-/// Returns: A reference to the generated [`Regex`](regex::Regex).
+/// Note that the `{{` and `}}` escaping for literal `{` and `}` is still required. So if you want to have a
+/// counted repetition like `[0-9]{4}` as part of the regex, you have to write it as `[0-9]{{4}}`.
 ///
-/// The Placeholders can be obtained by capturing the Regex and using the 1-based index of the Group.
+/// The pattern is automatically anchored: `^` at the start and `$` at the end.
 ///
 /// ## Examples
 /// ```
-/// use sscanf::sscanf_get_regex;
-/// let input = "Test 5 -2";
-/// let regex = sscanf_get_regex!("Test {usize} {i32}");
-/// assert_eq!(regex.as_str(), r"^Test (\+?\d{1,20}) ([-+]?\d{1,10})$");
-///
-/// let output = regex.captures(input);
-/// assert!(output.is_some());
-/// let output = output.unwrap();
-///
-/// let capture_5 = output.get(1);
-/// assert!(capture_5.is_some());
-/// assert_eq!(capture_5.unwrap().as_str(), "5");
-///
-/// let capture_negative_2 = output.get(2);
-/// assert!(capture_negative_2.is_some());
-/// assert_eq!(capture_negative_2.unwrap().as_str(), "-2");
-/// ```
-pub use sscanf_macro::sscanf_get_regex;
-
-#[doc(hidden)]
-pub use sscanf_macro::sscanf_get_regex as scanf_get_regex;
-
-/// Same as [`sscanf`], but allows use of Regex in the format String.
-///
-/// Signature and Parameters are the same as [`sscanf`].
-///
-/// ## Examples
-/// ```
-/// use sscanf::sscanf_unescaped;
+/// use sscanf::sscanf_with_regex;
 /// let input = "5.0SOME_RANDOM_TEXT3";
-/// let output = sscanf_unescaped!(input, "{f32}.*?{usize}"); // .*? matches anything
+/// let output = sscanf_with_regex!(input, "{f32}.*?{usize}"); // .*? matches anything
 /// assert_eq!(output.unwrap(), (5.0, 3));
 /// ```
 ///
-/// The basic [`sscanf`] would escape the `.`, `*` and `?`and match against the literal Characters,
-/// as one would expect from a Text matcher:
+/// The basic [`sscanf`] escapes `.`, `*`, and `?` and matches literal characters:
 /// ```
 /// use sscanf::sscanf;
 /// let input = "5.0SOME_RANDOM_TEXT3";
 /// let output = sscanf!(input, "{f32}.*{usize}");
-/// assert!(output.is_err()); // does not match
+/// assert!(output.is_none()); // does not match
 ///
-/// let input2 = "5.0.*3";
-/// let output2 = sscanf!(input2, "{f32}.*{usize}"); // regular sscanf is unaffected by special characters
+/// let input2 = "5.0[a-z]3";
+/// let output2 = sscanf!(input2, "{f32}[a-z]{usize}"); // regular sscanf is unaffected by special characters
 /// assert_eq!(output2.unwrap(), (5.0, 3));
 /// ```
-///
-/// Note that the `{{` and `}}` escaping for literal `{` and `}` is still required.
-///
-/// Also note that `^` and `$` are automatically added to the start and end.
-pub use sscanf_macro::sscanf_unescaped;
+pub use sscanf_macro::sscanf_with_regex;
 
-#[doc(hidden)]
-pub use sscanf_macro::sscanf_unescaped as scanf_unescaped;
+/// Converts a format string and types into a [`Parser`] that can be reused to parse multiple inputs.
+///
+/// ## Signature
+/// ```ignore
+/// sscanf_parser!(format: <literal>, Type...) -> Parser<(Type...)>
+/// ```
+///
+/// ## Parameters
+/// * `format`: A literal string. No `const` or `static` allowed, just like with [`format!()`](std::format).
+/// * `Type...`: Any types that are not written into the format string. See [Custom Types](index.html#custom-types)
+///   for details.
+///
+/// ## Return Value
+/// Returns a [`Parser`] over the parsed tuple. Use the [`parse`](crate::Parser::parse) method to parse inputs.
+///
+/// ## Details
+/// Code like
+/// ```ignore
+/// sscanf!(input, "<format>", Type...)
+/// ```
+/// is identical to
+/// ```ignore
+/// sscanf_parser!("<format>", Type...).parse(input)
+/// ```
+///
+/// Parsers can be reused across inputs. Creating a parser is semi-costly, so reusing it avoids overhead in loops with
+/// the same format and types.
+///
+/// For types that borrow from the input string, lifetimes restrict how long a parser may live. See [`Parser`]
+/// documentation for details.
+///
+/// ## Examples
+/// ```
+/// use sscanf::{sscanf_parser, Parser};
+/// let mut parser: Parser<(&str, i32)> = sscanf_parser!("{&str} {i32}");
+///
+/// let multiline_input = "Hello 1\nWorld 2\nRust 3";
+/// let parsed = multiline_input
+///     .lines()
+///     .filter_map(|line| parser.parse(line))
+///     .collect::<Vec<_>>();
+///
+/// assert_eq!(parsed, vec![("Hello", 1), ("World", 2), ("Rust", 3)]);
+/// ```
+pub use sscanf_macro::sscanf_parser;
 
-/// A derive macro for [`FromScanf`](crate::FromScanf).
+/// Same as [`sscanf_parser`], but allows using regex in the format string.
+///
+/// Signature and parameters are the same as [`sscanf_parser`]; format string handling matches
+/// [`sscanf_with_regex`].
+///
+/// ## Examples
+/// ```
+/// use sscanf::sscanf_parser_with_regex;
+/// let mut parser = sscanf_parser_with_regex!(r"{&str}\s+{i32}");
+///
+/// let aligned_table = r#"Name   Integer
+/// Hello        1
+/// World        2
+/// of     3456789
+/// Rust        10"#;
+///
+/// let parsed = aligned_table
+///     .lines()
+///     .skip(1) // skip header line
+///     .map(|line| parser.parse(line).unwrap())
+///     .collect::<Vec<_>>();
+///
+/// assert_eq!(parsed, vec![("Hello", 1), ("World", 2), ("of", 3456789), ("Rust", 10)]);
+/// ```
+pub use sscanf_macro::sscanf_parser_with_regex;
+
+/// Derive macro for [`FromScanf`](crate::FromScanf).
 ///
 /// ## For structs
 /// ```ignore
 /// #[derive(sscanf::FromScanf)]
-/// #[sscanf(format = "<format>")] // format string. has to contain placeholders for all
+/// #[sscanf(format = "<format>")] // format string; must contain placeholders for all
 /// struct MyStruct {              // non-default fields: {<field>}, {<field_2>}, {<field_with_conversion>}
 ///
-///     <field>: <type>, // requires <type>: FromScanf (implemented for all primitive types
-///                      // and several others from std)
+///     <field>: <type>, // requires <type> to implement FromScanf
 ///
-///     <field_2>: <type_2>, // requires <type_2>: FromScanf
+///     <field_2>: <type_2>, // requires `<type_2>: FromScanf`
 ///
 ///     // ...
 ///
 ///     // possible attributes on fields:
 ///
 ///     #[sscanf(default)]
-///     <field_with_default>: <type>, // requires <type>: Default, but doesn't need FromScanf
+///     <field_with_default>: <type>, // requires `<type>: Default`, but doesn't need FromScanf
 ///
 ///     #[sscanf(default = <expression>)] // accepts any expression that returns <type>
 ///     <field_with_custom_default>: <type>, // no traits required.
 ///
 ///     #[sscanf(map = |input: <matched_type>| { <conversion from <matched_type> to <actual_type>> })]
-///     <field_with_conversion>: <actual_type>, // requires <matched_type>: FromScanf
+///     <field_with_conversion>: <actual_type>, // requires `<matched_type>: FromScanf`
 /// }
 ///
 /// // tuple structs have the same capabilities, just without field names:
@@ -179,43 +209,30 @@ pub use sscanf_macro::sscanf_unescaped as scanf_unescaped;
 ///
 /// #### On the struct
 ///
-/// - `format`: The format string to parse the struct from. Similar to the format string for
-///   [`sscanf`], but with field names/indices instead of types for the placeholders. So, if you have
-///   a struct with fields `a`, `b` and `c`, the format string could be something like
-///   `"{a} {b:/.*?/} {c}"`. All fields that are not annotated with `default` must appear exactly
-///   once in the format string. Indices can be omitted if the fields are in the same order as the
-///   placeholders `{}` in the format string. So, the above example could also be written as
-///   `"{} {:/.*?/} {}"`.
-/// - `format_unescaped`: Same as `format`, but allows use of Regex in the format String. See
-///   [`sscanf_unescaped`] for more information.
-/// - `transparent`: If the struct has exactly one field, the struct will be constructed from the
-///   field directly. This is useful for newtype structs, where the struct is just a wrapper around
-///   another type. The field has to implement [`FromScanf`](crate::FromScanf).
+/// - `format`: The format string to parse the struct from. Similar to the format string for [`sscanf`], but with field
+///   names or indices instead of types. For a struct with fields `a`, `b`, and `c`, a format could be
+///   `"{a} {b:/.*?/} {c}"`. All non-`default` fields must appear exactly once. Names or indices can be omitted when
+///   fields are in the same order as `{}` placeholders, so the above can also be `"{} {:/.*?/} {}"`.
+/// - `format_regex`: Same as `format`, but allows using regex in the format string. See [`sscanf_with_regex`] for
+///   details.
+/// - `transparent`: If the struct has exactly one field, the struct will be constructed from the field directly. This
+///   is useful for newtype structs, where the struct is just a wrapper around another type. The field has to implement
+///   [`FromScanf`](crate::FromScanf).
 ///
-/// Note that only one of the above attributes can be used on a struct. The `format = ` part can
-/// be omitted, so `#[sscanf("<format>")]` is also valid. In this case, the distinction between
-/// `format` and `format_unescaped` is made by using a regular string literal for `format` and a
-/// raw string literal (starting with `r#"` or `r#"`) for `format_unescaped`.
+/// Only one of the above attributes can be used on a struct at a time. The `format = ` part can be omitted,
+/// so `#[sscanf("<format>")]` is also valid.
 ///
 /// #### On the fields
-/// - `default` or `default = <expression>`: Marks the field to be set from a default value rather than the input string. A
-///   simple `#[sscanf(default)]` will set the field to [`Default::default()`](std::default::Default).
-///   If the field type doesn't implement [`Default`](std::default::Default), the attribute can
-///   take an expression that will be evaluated to get the default value. The expression can be
-///   any code, including function calls or `{ <code> }` blocks, as long as they can be assigned
-///   to the field type.
-/// - `map = |<param>: <type>| <conversion>`: Allows matching against a different type than the field type. The `map` attribute takes
-///   a closure that takes the matched type as input and returns the field type. The type of the
-///   parameter of the closure has to be explicitly specified, since it is needed to generate the
-///   matching code.
-/// - `filter_map = |<param>: <type>| <conversion>`: Same as `map`, but the closure returns an [`Option`](std::option::Option) instead
-///   of the field type. If the closure returns [`None`](std::option::Option::None), the parsing
-///   fails.
-/// - `from = <type>`: Allows matching against a different type than the field type. The `from` attribute
-///   takes a Type as input, which implements [`FromScanf`](crate::FromScanf) and can be converted
-///   to the field type using [`From`](std::convert::From).
-/// - `try_from = <type>`: Same as `from`, but the conversion can fail. If the conversion fails,
-///   the parsing fails.
+/// - `default` or `default = <expression>`: Sets the field from a default value rather than the input string.
+///   `#[sscanf(default)]` uses [`Default::default()`](Default). If the type doesn't implement [`Default`], provide an
+///   expression to compute the value. The expression can be any code, including function calls or `{ <code> }` blocks,
+///   as long as it produces the field type.
+/// - `map = |<param>: <type>| <conversion>`: Matches a different type and maps it to the field type. The closure's
+///   parameter type must be specified, since it is needed for matching.
+/// - `filter_map = |<param>: <type>| <conversion>`: Like `map`, but returns an [`Option`]. If it returns [`None`],
+///   parsing fails.
+/// - `from = <type>`: Matches a different type that implements [`FromScanf`] and converts it using [`From`].
+/// - `try_from = <type>`: Like `from`, but the conversion can fail. If it does, parsing fails.
 ///
 /// ## For enums
 /// ```ignore
@@ -223,10 +240,10 @@ pub use sscanf_macro::sscanf_unescaped as scanf_unescaped;
 /// enum MyEnum {
 ///     #[sscanf(format = "<format>")] // has to contain `{<field>}` and any other fields
 ///     Variant1 {
-///         <field>: <type>, // requires <type>: FromScanf
+///         <field>: <type>, // requires `<type>: FromScanf`
 ///
 ///         #[sscanf(default)]
-///         <field_with_default>: <type2>, // requires <type2>: Default
+///         <field_with_default>: <type2>, // requires `<type2>: Default`
 ///
 ///         // ... (same as for structs)
 ///     },
@@ -240,17 +257,16 @@ pub use sscanf_macro::sscanf_unescaped as scanf_unescaped;
 ///     Variant4, // this variant won't be constructed by sscanf
 /// }
 /// ```
-/// An enum takes multiple format strings, one for each variant. The value returned from `sscanf`
-/// is constructed from the variant that matched the input. If multiple variants match, the first
-/// one in the enum definition is used. No variant matching means the entire enum won't match.
+/// An enum takes multiple format strings - one per variant. The value returned from `sscanf` is constructed from the
+/// variant that matches the input. If multiple variants match, the first one in the enum definition is used. If no
+/// variant matches, parsing fails.
 ///
 /// ### Attributes
 ///
 /// #### On the enum
-/// - `autogen = "<case>"` or `autogenerate = "<case>"`: Automatically create the format strings for
-///   all variants based on the variant names. This only works for variants without fields. The
-///   format can be overridden by specifying a `format = ` attribute on the variant. The `case`
-///   parameter can be one of:
+/// - `autogen = "<case>"` or `autogenerate = "<case>"`: Automatically create format strings for all variants
+///   based on the variant names. This only works for variants without fields. You can override the format by adding
+///   a format attribute on the variant. The `case` parameter can be one of:
 ///   - `"CaseSensitive"`: The variant name is used as-is. Default if no `case` parameter is specified.
 ///   - `"CaseInsensitive"`: Same as `"CaseSensitive"`, but case is ignored.
 ///   - `"lower case"`: Lower case with spaces between words.
@@ -266,51 +282,8 @@ pub use sscanf_macro::sscanf_unescaped as scanf_unescaped;
 ///
 /// #### On the variants
 ///
-/// Same as for structs. If no format string or `transparent` attribute is specified, the variant
-/// won't be constructed by `sscanf`. Unless `autogen` is specified, in which case the format string
-/// is generated automatically. To avoid this, add the `skip` attribute to the variant. `skip` has
-/// no effect without `autogen`.
+/// Same as for structs. If neither a format string nor `transparent` is specified, the variant won't be constructed
+/// by `sscanf`. With `autogen`, a format string is generated automatically; to prevent this, add `skip` to the variant.
+/// `skip` has no effect without `autogen`.
 ///
-/// ## A note on Generics
-/// Any lifetime parameters will be carried over. Any type `&'a str` will contain a borrow of the
-/// input string, with an appropriate lifetime.
-///
-/// As for type generics: [`RegexRepresentation`](crate::RegexRepresentation) cannot be implemented
-/// for generic types, since the contained associated `const` is only created once by Rust for all
-/// generic instances, meaning that different regexes for different `T` are not possible. This
-/// also means that deriving `FromScanf` for a struct that wants to match a generic field without
-/// a `map` or `default` attribute will generally fail. The only possibilities are:
-/// ```
-/// #[derive(sscanf::FromScanf)]
-/// #[sscanf(format = "...{field:/<regex>/}...")]
-/// struct MyGenericStruct<T>
-/// where
-///     T: std::str::FromStr + 'static,
-///     <T as std::str::FromStr>::Err: std::error::Error + 'static,
-/// {
-///     field: T,
-/// }
-///
-/// let input = "...<regex>...";
-/// let res = sscanf::sscanf!(input, "{MyGenericStruct<String>}").unwrap();
-/// assert_eq!(res.field, String::from("<regex>"));
-/// ```
-/// There are two important things in this example:
-/// 1. Since `RegexRepresentation` cannot be used, every occurrence of generic fields in the format
-///    string have to have a regex (`{:/.../}) attached to them.
-/// 2. The type bounds on `T` have to contain all of those exact bounds.
-///
-/// Any `T` has to be constructed by [`FromStr`](std::str::FromStr) from what is matched by the
-/// specified regex, making this setup virtually useless for all but a few selected types. Since
-/// the generic parameter has to be specified in the actual `sscanf` call, it is usually better
-/// to just use a concrete type in the struct itself.
-///
-/// It is possible to have `T` directly require `FromScanf` like this: `T: for<'a> FromScanf<'a>`.
-/// However, since `FromScanf` implementations usually rely on capture groups inside of their regex,
-/// this would require also having the exact same capture groups in the format string, which is
-/// currently not possible. Implementations that don't rely on capture groups are usually those
-/// that were blanket-implemented based on their `FromStr` implementation.
 pub use sscanf_macro::FromScanf;
-
-#[doc(hidden)]
-pub use sscanf_macro::FromScanf as FromSscanf;

@@ -1,5 +1,7 @@
 use super::*;
 
+use std::fmt::Write;
+
 pub type FieldAttribute<'a> =
     SingleAttributeContainer<attr::Field, FieldAttributeKind, &'a syn::Type>;
 
@@ -24,32 +26,24 @@ impl FromAttribute<attr::Field, &'_ syn::Type> for FieldAttributeKind {
                 let filters = attr.kind == attr::Field::FilterMap;
 
                 let closure_format = "|<arg>: <type>| <conversion>";
-                let mut closure_hint = String::from("where `<type>` is the type that should be matched against and `<conversion>` converts from `<type>` to `");
+                let mut closure_hint = String::from(
+                    "where `<type>` is the type that should be matched against and `<conversion>` converts from `<type>` to `",
+                );
                 if filters {
-                    closure_hint.push_str(&format!("Option<{}>", ty.to_token_stream()));
+                    write!(closure_hint, "Option<{}>", ty.to_token_stream()).unwrap();
                 } else {
-                    closure_hint.push_str(&ty.to_token_stream().to_string());
+                    write!(closure_hint, "{}", ty.to_token_stream()).unwrap();
                 }
                 closure_hint.push('`');
 
-                let mapper = attr.value_as::<syn::Expr>(closure_format, Some(&closure_hint))?; // checked in tests/fail/derive_field_attributes.rs
-                let mapper = if let syn::Expr::Closure(closure) = mapper {
-                    closure
-                } else {
-                    let msg = format!(
-                        "attribute `{}` requires a closure like: `{}`\n{}",
-                        attr.kind, closure_format, closure_hint
-                    );
-                    return Error::err_spanned(mapper, msg); // checked in tests/fail/derive_field_attributes.rs
+                let mapper = attr.value_as::<syn::Expr>(closure_format, Some(&closure_hint))?;
+                let syn::Expr::Closure(mapper) = mapper else {
+                    bail!(mapper => "attribute `{}` requires a closure like: `{closure_format}`\n{closure_hint}", attr.kind);
                 };
 
                 let param = if mapper.inputs.len() == 1 {
-                    mapper.inputs.first().unwrap()
+                    mapper.inputs.first().unwrap() // safe because len() == 1
                 } else {
-                    let msg = format!(
-                        "attribute `{}` requires a closure with exactly one argument",
-                        attr.kind
-                    );
                     let mut span_src = TokenStream::new();
                     for param in mapper.inputs.pairs().skip(1) {
                         param.to_tokens(&mut span_src);
@@ -59,17 +53,13 @@ impl FromAttribute<attr::Field, &'_ syn::Type> for FieldAttributeKind {
                         mapper.or1_token.to_tokens(&mut span_src);
                         mapper.or2_token.to_tokens(&mut span_src);
                     }
-                    return Error::err_spanned(span_src, msg); // checked in tests/fail/derive_field_attributes.rs
+                    bail!(span_src => "attribute `{}` requires a closure with exactly one argument", attr.kind);
                 };
 
                 let ty = if let syn::Pat::Type(ty) = param {
                     (*ty.ty).clone()
                 } else {
-                    let msg = format!(
-                        "`{}` closure has to specify the type of the argument",
-                        attr.kind
-                    );
-                    return Error::err_spanned(param, msg); // checked in tests/fail/derive_field_attributes.rs
+                    bail!(param => "`{}` closure has to specify the type of the argument", attr.kind);
                 };
 
                 Self::Map {
@@ -81,11 +71,15 @@ impl FromAttribute<attr::Field, &'_ syn::Type> for FieldAttributeKind {
             attr::Field::From | attr::Field::TryFrom => {
                 let hint = format!(
                     "where `<type>` is the type that should be matched against and implements `{}<{}>`",
-                    if attr.kind == attr::Field::From { "Into" } else { "TryInto" },
+                    if attr.kind == attr::Field::From {
+                        "Into"
+                    } else {
+                        "TryInto"
+                    },
                     ty.to_token_stream()
                 );
                 // can't convert directly to `syn::Type` because error messages would be confusing
-                let ty = attr.value_as::<Type>("<type>", Some(&hint))?; // checked in tests/fail/derive_field_attributes.rs
+                let ty = attr.value_as::<Type>("<type>", Some(&hint))?;
 
                 Self::From {
                     ty: ty.into_inner(),

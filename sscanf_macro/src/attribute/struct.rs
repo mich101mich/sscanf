@@ -8,22 +8,21 @@ pub enum StructAttributeKind {
 }
 
 impl FromAttribute<attr::Struct> for StructAttributeKind {
-    fn from_attribute(attr: Attribute<attr::Struct>, _: ()) -> Result<Self> {
+    fn from_attribute(attr: Attribute<attr::Struct>, (): ()) -> Result<Self> {
         let ret = match attr.kind {
-            attr::Struct::Format | attr::Struct::FormatUnescaped => {
+            attr::Struct::Format | attr::Struct::FormatRegex => {
                 let value = attr.value_as(
                     "\"<format>\"",
                     Some("where `<format>` is a format string using the field names inside of its placeholders")
-                )?; // checked in tests/fail/derive_struct_attributes.rs
+                )?;
                 Self::Format {
                     value,
-                    escape: attr.kind != attr::Struct::FormatUnescaped,
+                    escape: attr.kind != attr::Struct::FormatRegex,
                 }
             }
             attr::Struct::Transparent => {
                 if let Some(value) = attr.value.as_ref() {
-                    let msg = format!("attribute `{}` does not take a value", attr.kind);
-                    return Error::err_spanned(value, msg); // checked in tests/fail/derive_struct_attributes.rs
+                    bail!(value => "attribute `{}` does not take a value", attr.kind);
                 }
                 Self::Transparent
             }

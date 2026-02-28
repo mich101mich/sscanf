@@ -1,8 +1,22 @@
 use crate::*;
 
+mod format_options;
+mod parser;
+mod placeholder;
+pub use format_options::*;
+pub use parser::*;
+pub use placeholder::*;
+
+/// A parsed format string, consisting of literal parts and placeholders.
+///
+/// Structure:
+///     "..........{some_type:some-config}..........{some_type:some-config}.........."
+///      \________/\_____________________/\________/\_____________________/\________/
+///       parts[0]     placeholders[0]     parts[1]     placeholders[1]     parts[2]
+///                                  
 pub struct FormatString<'a> {
     pub placeholders: Vec<Placeholder<'a>>,
-    pub parts: Vec<String>, // contains placeholders.len() + 1 escaped parts
+    pub parts: Vec<String>, // contains placeholders.len() + 1 parts
 }
 
 impl<'a> FormatString<'a> {
@@ -10,37 +24,54 @@ impl<'a> FormatString<'a> {
         let mut placeholders = vec![];
         let mut parts = vec![];
         let mut current_part = String::new();
+        let mut current_part_start = 0;
 
-        // keep the iterator as a variable to allow peeking and advancing in a sub-function
-        let mut iter = src.text().char_indices().peekable();
+        let mut parser = FormatStringParser::new(src);
 
-        while let Some((i, c)) = iter.next() {
+        loop {
+            let prev_pos = parser.get_pos();
+            let Ok((pos, c)) = parser.take() else {
+                break;
+            };
+
             if c == '{' {
-                if iter.next_if(|(_, c)| *c == '{').is_some() {
+                if parser.take_if_eq('{').is_some() {
                     // escaped '{{', will be handled like a regular char by the following code
                 } else {
-                    placeholders.push(Placeholder::new(&mut iter, &src, i)?);
-                    current_part.push('(');
-                    parts.push(current_part);
-                    current_part = String::from(")");
+                    let part = std::mem::take(&mut current_part);
+                    if !escape_input && let Err(err) = regex_syntax::parse(&part) {
+                        let msg = format!("invalid regex syntax in literal part: {err}");
+                        return parser.slice(current_part_start, prev_pos).err(msg);
+                    }
+                    parts.push(part);
+                    parser.mark_open_bracket(pos);
+                    placeholders.push(parser.parse()?);
+                    current_part_start = parser.get_pos();
                     continue;
                 }
             } else if c == '}' {
-                if iter.next_if(|(_, c)| *c == '}').is_some() {
+                if parser.take_if_eq('}').is_some() {
                     // escaped '}}', will be handled like a regular char by the following code
+                } else if current_part.is_empty() && !placeholders.is_empty() {
+                    // most recent chars were a placeholder: '{...}}'
+                    let msg = "escaped '}}' after an unescaped '{'.
+If you didn't mean to create a placeholder, escape the '{' as '{{'
+If you did, either remove the second '}' or escape it with another '}'";
+                    return parser.err_at(pos, msg);
                 } else {
+                    // standalone '}'
                     let msg = "unexpected standalone '}'. Literal '}' need to be escaped as '}}'";
-                    return src.slice(i..=i).err(msg); // checked in tests/fail/<channel>/missing_bracket.rs
+                    return parser.err_at(pos, msg);
                 }
-            }
-
-            if escape_input && regex_syntax::is_meta_character(c) {
-                current_part.push('\\');
             }
 
             current_part.push(c);
         }
 
+        if !escape_input && let Err(err) = regex_syntax::parse(&current_part) {
+            let msg = format!("invalid regex syntax in literal part: {err}");
+            return parser.slice(current_part_start, parser.get_pos()).err(msg);
+        }
         parts.push(current_part);
         Ok(Self {
             placeholders,
@@ -48,3 +79,5 @@ impl<'a> FormatString<'a> {
         })
     }
 }
+
+// TODO: add tests

@@ -1,5 +1,7 @@
 use sscanf::*;
 
+// TODO: lifetime tests (static, "input")
+
 static CORRECT_INPUT: &str = "Testing with (3.4,1,-2,0)!";
 macro_rules! correct_result {
     (named) => {
@@ -39,8 +41,7 @@ fn basic() {
     assert_eq!(ret, correct_result!(named));
 
     for input in WRONG_INPUTS {
-        let res = sscanf!(input, "Testing with {TestStruct}!");
-        res.unwrap_err();
+        assert!(sscanf!(input, "Testing with {TestStruct}!").is_none());
     }
 }
 
@@ -59,8 +60,7 @@ fn indexed() {
     assert_eq!(ret, correct_result!(named));
 
     for input in WRONG_INPUTS {
-        let res = sscanf!(input, "Testing with {TestStruct}!");
-        res.unwrap_err();
+        assert!(sscanf!(input, "Testing with {TestStruct}!").is_none());
     }
 }
 
@@ -79,8 +79,7 @@ fn auto_indexed() {
     assert_eq!(ret, correct_result!(named));
 
     for input in WRONG_INPUTS {
-        let res = sscanf!(input, "Testing with {TestStruct}!");
-        res.unwrap_err();
+        assert!(sscanf!(input, "Testing with {TestStruct}!").is_none());
     }
 }
 
@@ -94,8 +93,7 @@ fn tuple_struct() {
     assert_eq!(ret, correct_result!(unnamed));
 
     for input in WRONG_INPUTS {
-        let res = sscanf!(input, "Testing with {TestStruct}!");
-        res.unwrap_err();
+        assert!(sscanf!(input, "Testing with {TestStruct}!").is_none());
     }
 }
 

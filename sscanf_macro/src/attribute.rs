@@ -1,6 +1,8 @@
-use std::collections::HashMap;
-use std::fmt::{Debug, Display};
-use std::hash::Hash;
+use std::{
+    collections::HashMap,
+    fmt::{Debug, Display},
+    hash::Hash,
+};
 
 use crate::*;
 
@@ -16,7 +18,7 @@ pub use r#variant::*;
 pub trait Attr: Debug + Display + Copy + Ord + Hash + 'static {
     fn all() -> &'static [Self];
     fn context() -> Context;
-
+    fn find_equivalent(other: attr::All) -> Option<Self>;
     fn as_str(&self) -> &'static str;
 }
 
@@ -33,7 +35,7 @@ macro_rules! declare_attr {
         pub enum $context_enum {
             $($context),+
         }
-        #[allow(dead_code)]
+        #[allow(dead_code, reason = "This is auto-generated code, so not all of it will be used by all invocations.")]
         impl $context_enum {
             pub const ALL: &'static [Self] = &[ $(Self::$context),+ ];
             pub const ALL_NAMES: &'static [&'static str] = &[ $($context_name),+ ];
@@ -45,6 +47,16 @@ macro_rules! declare_attr {
                     $(Self::$context => attr::$context::ALL_NAMES),+
                 }
             }
+            pub const fn has_attr(&self, attr: $attr_mod::$attr_enum) -> bool {
+                match self {
+                    $(Self::$context => {
+                        match attr {
+                            $(attr::$attr_enum::$context_attr => true,)+
+                            _ => false,
+                        }
+                    }),+
+                }
+            }
         }
         impl std::fmt::Display for $context_enum {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -53,6 +65,7 @@ macro_rules! declare_attr {
         }
 
         pub mod $attr_mod {
+            #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
             pub enum $attr_enum {
                 $($attr_ident),+
             }
@@ -69,7 +82,7 @@ macro_rules! declare_attr {
                 pub enum $context {
                     $($context_attr),+
                 }
-                #[allow(dead_code)]
+                #[allow(dead_code, reason = "This is auto-generated code, so not all of it will be used by all invocations.")]
                 impl $context {
                     pub const ALL: &'static [Self] = &[$(Self::$context_attr),+];
                     pub const ALL_NAMES: &'static [&'static str] = &[$(Self::$context_attr.as_str()),+];
@@ -91,6 +104,12 @@ macro_rules! declare_attr {
                     fn context() -> super::$context_enum {
                         super::$context_enum::$context
                     }
+                    fn find_equivalent(other: $attr_enum) -> Option<Self> {
+                        match other {
+                            $($attr_enum::$context_attr => Some(Self::$context_attr),)+
+                            _ => None,
+                        }
+                    }
                     fn as_str(&self) -> &'static str {
                         self.as_str()
                     }
@@ -99,7 +118,7 @@ macro_rules! declare_attr {
         }
 
         use syn::punctuated::Punctuated;
-        fn attr_parser<A: Attr>() -> fn(ParseStream) -> syn::Result<Punctuated<Attribute<A>, Token![,]>> {
+        fn attr_parser<A: Attr>() -> fn(ParseStream) -> Result<Punctuated<Attribute<A>, Token![,]>> {
             match A::context() {
                 $($context_enum::$context => |input| Punctuated::parse_terminated_with(input, |input| Attribute::parse(input))),+
             }
@@ -111,7 +130,7 @@ declare_attr!(
     attr::All {
         // structs and variants
         Format "format",
-        FormatUnescaped "format_unescaped",
+        FormatRegex "format_regex",
         Transparent "transparent",
         // just variants
         Skip "skip",
@@ -126,56 +145,49 @@ declare_attr!(
         TryFrom "try_from",
     },
     Context {
-        Struct "structs" [ Format, FormatUnescaped, Transparent ],
-        Variant "variants" [ Format, FormatUnescaped, Transparent, Skip ],
+        Struct "structs" [ Format, FormatRegex, Transparent ],
+        Variant "variants" [ Format, FormatRegex, Transparent, Skip ],
         Enum "enums" [ AutoGen, AutoGenerate ],
         Field "fields" [ Default, Map, FilterMap, From, TryFrom ],
     }
 );
 
-fn find_match<A: Attr>(s: &str, src: &TokenStream) -> syn::Result<A> {
+fn find_match<A: Attr>(src: &syn::Ident) -> Result<A> {
+    let s = src.to_string();
     if let Some(attr) = A::all().iter().find(|attr| attr.as_str() == s) {
         return Ok(*attr);
     }
 
     let context = A::context();
-    let valid = list_items(context.all_attr_names(), |s| format!("`{}`", s));
+    let valid = list_items_quoted(context.all_attr_names(), '`');
 
     let mut others = Context::ALL.to_vec();
     others.retain(|&other| other != context);
 
     let mut found_others = vec![];
     for other in &others {
-        if other.all_attr_names().contains(&s) {
+        if other.all_attr_names().contains(&s.as_str()) {
             found_others.push(other);
         }
     }
     if !found_others.is_empty() {
-        let others = list_items(&found_others, |other| other.to_string());
-        let msg = format!(
-            "attribute `{}` can only be used on {}.\n{} can have the following attributes: {}",
-            s, others, context, valid
-        );
-        return Err(syn::Error::new_spanned(src, msg)); // checked in tests/fail/derive_struct_attributes.rs
+        let others = list_items(&found_others);
+        bail!(src => "attribute `{s}` can only be used on {others}.
+{context} can have the following attributes: {valid}");
     }
 
-    if let Some(similar) = find_closest(s, context.all_attr_names()) {
-        let msg = format!("unknown attribute `{}`. Did you mean `{}`?", s, similar);
-        return Err(syn::Error::new_spanned(src, msg)); // checked in tests/fail/derive_struct_attributes.rs
+    if let Some(similar) = find_closest(&s, context.all_attr_names()) {
+        bail!(src => "unknown attribute `{s}`. Did you mean `{similar}`?");
     }
 
     for other in &others {
-        if let Some(similar) = find_closest(s, other.all_attr_names()) {
-            let msg = format!(
-                "unknown attribute `{}` is similar to `{}`, which can only be used on {}.\n{} can have the following attributes: {}",
-                s, similar, other, context, valid
-            );
-            return Err(syn::Error::new_spanned(src, msg)); // checked in tests/fail/derive_struct_attributes.rs
+        if let Some(similar) = find_closest(&s, other.all_attr_names()) {
+            bail!(src => "unknown attribute `{s}` is similar to `{similar}`, which can only be used on {other}.
+{context} can have the following attributes: {valid}");
         }
     }
 
-    let msg = format!("unknown attribute `{}`. Valid attributes are: {}", s, valid);
-    Err(syn::Error::new_spanned(src, msg)) // checked in tests/fail/derive_struct_attributes.rs
+    bail!(src => "unknown attribute `{s}`. Valid attributes are: {valid}");
 }
 
 pub struct Attribute<A: Attr> {
@@ -185,61 +197,49 @@ pub struct Attribute<A: Attr> {
 }
 
 impl<A: Attr> Attribute<A> {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        let mut src = TokenStream::new();
-
+    fn parse(input: ParseStream) -> Result<Self> {
         if input.peek(syn::LitStr) {
             let lit = input.parse::<syn::LitStr>()?;
-            let value = syn::parse2::<syn::Expr>(quote! { #lit }).unwrap();
-            src.extend(quote! { #value });
 
-            let kind_name = if StrLit::new(lit).is_raw() {
-                attr::All::FormatUnescaped.as_str()
-            } else {
-                attr::All::Format.as_str()
-            };
-            if let Some(&kind) = A::all().iter().find(|attr| attr.as_str() == kind_name) {
-                return Ok(Self {
-                    kind,
-                    value: Some(value),
-                    src,
-                });
+            let expected = attr::All::Format;
+            if let Some(kind) = A::find_equivalent(expected) {
+                let src = lit.to_token_stream();
+                let lit = syn::Lit::Str(lit);
+                let value = Some(syn::Expr::Lit(syn::ExprLit { attrs: vec![], lit }));
+                return Ok(Self { kind, value, src });
             }
-            let name = attr::All::Format.as_str();
-            let name2 = attr::All::FormatUnescaped.as_str();
 
             let valid = Context::ALL
                 .iter()
-                .filter(|c| c.all_attr_names().iter().any(|n| *n == name || *n == name2))
+                .filter(|c| c.has_attr(expected))
                 .collect::<Vec<_>>();
-            let valid = list_items(&valid, |c| c.to_string());
+            let valid = list_items(&valid);
 
-            let msg = format!(
-                "omitting the attribute name is only valid for the `{}` attribute on {}",
-                name, valid,
-            );
-            return Err(syn::Error::new_spanned(value, msg)); // checked in tests/fail/derive_field_attributes.rs
+            let name = expected.as_str();
+            bail!(lit.start_span() => "omitting the attribute name is only valid for the `{name}` attribute on {valid}");
         }
+
         let attr = input.parse::<syn::Ident>()?;
-        src.extend(quote! { #attr });
-        let kind = find_match(&attr.to_string(), &src)?;
+        let kind = find_match(&attr)?;
 
-        let mut value = None;
         let peek = input.lookahead1();
-        if !input.is_empty() && !peek.peek(Token![,]) {
-            if !peek.peek(Token![=]) {
-                return Err(peek.error()); // checked in tests/fail/derive_struct_attributes.rs
-            }
-            let eq_sign = input.parse::<Token![=]>()?;
-
-            if input.is_empty() {
-                let msg = "expected an expression after `=`";
-                return Err(syn::Error::new_spanned(eq_sign, msg)); // checked in tests/fail/derive_struct_attributes.rs
-            }
-            let expr = input.parse::<syn::Expr>()?;
-            src.extend(quote! { #eq_sign #expr });
-            value = Some(expr);
+        if input.is_empty() || peek.peek(Token![,]) {
+            return Ok(Self {
+                kind,
+                value: None,
+                src: attr.to_token_stream(),
+            });
         }
+
+        if !peek.peek(Token![=]) {
+            return Err(peek.error());
+        }
+        let eq_sign = input.parse::<Token![=]>()?;
+
+        assert_or_bail!(!input.is_empty(), eq_sign.end_span() => "expected an expression after `=`");
+
+        let value = Some(input.parse::<syn::Expr>()?);
+        let src = quote! { #attr #eq_sign #value };
 
         Ok(Self { kind, value, src })
     }
@@ -247,17 +247,17 @@ impl<A: Attr> Attribute<A> {
     fn value_as<T: Parse>(&self, description: &str, addition: Option<&str>) -> Result<T> {
         if let Some(value) = &self.value {
             Ok(syn::parse2(quote! { #value })?)
+        } else if let Some(addition) = addition {
+            bail!(self => "attribute `{0}` has the format: `#[sscanf({0} = {description})]`\n{addition}", self.kind);
         } else {
-            let mut msg = format!(
-                "attribute `{0}` has the format: `#[sscanf({0} = {1})]`",
-                self.kind, description
-            );
-            if let Some(addition) = addition {
-                msg.push('\n');
-                msg.push_str(addition);
-            }
-            Error::err_spanned(&self.src, msg)
+            bail!(self => "attribute `{0}` has the format: `#[sscanf({0} = {description})]`", self.kind);
         }
+    }
+}
+
+impl<A: Attr> ErrorTarget for Attribute<A> {
+    fn error(&self, message: impl Display) -> Error {
+        self.src.error(message)
     }
 }
 
@@ -273,15 +273,10 @@ fn find_attrs<A: Attr>(attrs: Vec<syn::Attribute>) -> Result<HashMap<A, Attribut
             // message in the `NameValue` case would just be "expected a '('" with a span
             // underlining the '=' sign, which is not very helpful
             syn::Meta::Path(p) => {
-                let msg = "expected attribute arguments in parentheses: `sscanf(...)`";
-                return Error::err_spanned(p, msg); // checked in tests/fail/derive_struct_attributes.rs
+                bail!(p => "expected attribute arguments in parentheses: `sscanf(...)`");
             }
             syn::Meta::NameValue(nv) => {
-                let msg = format!(
-                    "attribute arguments must be in parentheses: `sscanf({})`",
-                    nv.value.to_token_stream()
-                );
-                return Error::err_spanned(nv, msg); // checked in tests/fail/derive_struct_attributes.rs
+                bail!(nv => "attribute arguments must be in parentheses: `sscanf({})`", nv.value.to_token_stream());
             }
         };
 
@@ -297,11 +292,10 @@ fn find_attrs<A: Attr>(attrs: Vec<syn::Attribute>) -> Result<HashMap<A, Attribut
             use std::collections::hash_map::Entry;
             match ret.entry(attr.kind) {
                 Entry::Occupied(entry) => {
-                    let msg = format!("attribute `{}` is specified multiple times", attr.kind);
-                    return Error::builder()
-                        .with_spanned(attr.src, msg)
-                        .with_spanned(&entry.get().src, "previous use here")
-                        .build_err(); // checked in tests/fail/derive_struct_attributes.rs
+                    bail!(
+                        {attr => "attribute `{}` is specified multiple times", attr.kind},
+                        {entry.get() => "previous use here"},
+                    );
                 }
                 Entry::Vacant(entry) => {
                     entry.insert(attr);
@@ -324,19 +318,19 @@ fn expect_one<A: Attr>(attrs: HashMap<A, Attribute<A>>) -> Result<Option<Attribu
                 "cannot specify both `{}` and `{}`",
                 attrs[0].kind, attrs[1].kind
             );
-            Error::builder()
+            ErrorBuilder::new()
                 .with_spanned(&attrs[0].src, &msg)
                 .with_spanned(&attrs[1].src, &msg)
-                .build_err() // checked in tests/fail/derive_struct_attributes.rs
+                .build_err()
         }
         _ => {
-            let items = list_items(&attrs, |attr| format!("`{}`", attr.kind));
-            let msg = format!("only one of {} is allowed", items);
-            let mut error = Error::builder();
+            let items = list_items_with(&attrs, |attr| format!("`{}`", attr.kind));
+            let msg = format!("only one of {items} is allowed");
+            let mut error = ErrorBuilder::new();
             for attr in attrs {
                 error.with_spanned(attr.src, &msg);
             }
-            error.build_err() // checked in tests/fail/derive_struct_attributes.rs
+            error.build_err()
         }
     }
 }
@@ -379,14 +373,22 @@ where
     pub fn from_attrs_with(attrs: Vec<syn::Attribute>, data: Data) -> Result<Option<Self>> {
         let attrs = find_attrs::<A>(attrs)?;
 
-        let attr = match expect_one(attrs)? {
-            Some(attr) => attr,
-            None => return Ok(None),
+        let Some(attr) = expect_one(attrs)? else {
+            return Ok(None);
         };
 
         let src = attr.src.clone();
         let kind = Kind::from_attribute(attr, data)?;
 
         Ok(Some(Self::new(src, kind)))
+    }
+}
+
+impl<A: Attr, Kind, Data> ErrorTarget for SingleAttributeContainer<A, Kind, Data>
+where
+    Kind: FromAttribute<A, Data>,
+{
+    fn error(&self, message: impl Display) -> Error {
+        self.src.error(message)
     }
 }

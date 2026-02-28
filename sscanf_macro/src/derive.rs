@@ -1,14 +1,37 @@
-use std::collections::{HashMap, HashSet};
-
 use crate::*;
 
-pub struct Field {
+use std::collections::{HashMap, HashSet};
+
+/// A field on a struct or struct-like enum variant.
+pub struct Field<'a> {
+    /// The identifier of the field
     ident: FieldIdent,
-    ty: Type<'static>,
-    value_source: Option<ValueSource>,
-    conversion: Option<ValueConversion>,
+    /// The type that the field should be parsed to (might be different from the output type due to conversions)
+    parsed_type: Type<'static>,
+    /// The source where the value for the field will come from
+    value_source: ValueSource<'a>,
+    /// The conversion that should be applied to the parsed value
+    conversion: ValueConversion,
+    /// The type that the field will be output as. The same type as the struct field type
+    output_type: Type<'static>,
+}
+impl Field<'_> {
+    pub fn to_parser(&self, parsers: &[Parser]) -> TokenStream {
+        let parsed_value = self.value_source.get(&self.parsed_type, parsers);
+
+        let converted_value =
+            self.conversion
+                .apply(parsed_value, &self.parsed_type, &self.output_type);
+
+        let ident = &self.ident;
+        quote! { #ident: #converted_value }
+    }
 }
 
+/// An identifier for a field, either named (struct with curly brackets) or indexed (tuple struct).
+///
+/// This is a bit of a workaround because `syn::Ident` doesn't accept numbers as identifiers,
+/// but when working with a tuple struct(-variant), we are effectively using the index as an identifier.
 enum FieldIdent {
     Named(syn::Ident),
     Index(proc_macro2::Literal),
@@ -23,83 +46,98 @@ impl FieldIdent {
 impl ToTokens for FieldIdent {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match self {
-            FieldIdent::Named(ident) => tokens.extend(quote! { #ident }),
-            FieldIdent::Index(index) => tokens.extend(quote! { #index }),
+            FieldIdent::Named(ident) => ident.to_tokens(tokens),
+            FieldIdent::Index(index) => index.to_tokens(tokens),
         }
     }
 }
-impl std::fmt::Display for FieldIdent {
+impl Display for FieldIdent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            FieldIdent::Named(ident) => write!(f, "{}", ident),
-            FieldIdent::Index(index) => write!(f, "{}", index),
+            FieldIdent::Named(ident) => write!(f, "{ident}"),
+            FieldIdent::Index(index) => write!(f, "{index}"),
         }
     }
 }
 
-enum ValueSource {
+/// The source of a field's value when parsing.
+enum ValueSource<'a> {
+    /// Field is parsed directly from a placeholder
+    Placeholder {
+        /// The index of the placeholder in the format string
+        index: usize,
+        /// The source of the placeholder, used for error reporting
+        src: StrLitSlice<'a>,
+    },
+
+    /// Field is set to a default value
     Default {
+        /// The default value expression, if any. `Default::default()` is used if this is None
         def: Option<syn::Expr>,
+        /// The source of the default value, used for error reporting
         src: TokenStream,
     },
-    Placeholder(usize),
 }
-impl ValueSource {
-    fn error<U: std::fmt::Display>(&self, msg: U, placeholders: &[Placeholder]) -> Error {
+impl ValueSource<'_> {
+    /// Returns a token stream that returns the value for this field
+    fn get(&self, field_ty: &Type, parsers: &[Parser]) -> TokenStream {
         match self {
-            ValueSource::Default { src, .. } => Error::new_spanned(src, msg),
-            ValueSource::Placeholder(i) => placeholders[*i].src.error(msg),
-        }
-    }
-
-    fn get(&self, field_ty: &Type, matchers: &[Matcher]) -> TokenStream {
-        match self {
-            ValueSource::Default { def, .. } => def
-                .as_ref()
-                .map(|expr| quote! { #expr })
-                .unwrap_or_else(|| {
+            ValueSource::Default { def, .. } => {
+                if let Some(expr) = def {
+                    quote! { #expr }
+                } else {
                     field_ty
                         .full_span()
                         .apply(quote! { ::std::default::Default }, quote! { ::default() })
-                }),
-            ValueSource::Placeholder(i) => {
-                let matcher = &matchers[*i];
-                quote! { #matcher }
+                }
             }
+            ValueSource::Placeholder { index, .. } => parsers[*index].to_token_stream(),
         }
     }
 
-    fn index_or(&self, n: usize) -> usize {
+    /// Returns true if the value makes use of the parsed type
+    fn uses_parsed_type(&self) -> bool {
         match self {
-            ValueSource::Default { .. } => n,
-            ValueSource::Placeholder(i) => *i,
+            ValueSource::Default { .. } => false, // default values are not parsed
+            ValueSource::Placeholder { .. } => true, // placeholder values are parsed from a placeholder
+        }
+    }
+}
+impl ErrorTarget for ValueSource<'_> {
+    fn error(&self, message: impl Display) -> Error {
+        match self {
+            ValueSource::Default { src, .. } => src.error(message),
+            ValueSource::Placeholder { src, .. } => src.error(message),
         }
     }
 }
 
-struct ValueConversion {
-    from: syn::Type,
-    to: syn::Type,
-    with: ValueConversionMethod,
-}
-enum ValueConversionMethod {
+/// A conversion applied to a field's value after parsing.
+enum ValueConversion {
+    /// No conversion, just use the parsed value as-is
+    None,
+    /// Use the `From` trait
     From,
+    /// Use the `TryFrom` trait
     TryFrom,
+    /// Use a closure to map the value
     Map(syn::ExprClosure),
+    /// Use a closure to filter and map the value
     FilterMap(syn::ExprClosure),
 }
 impl ValueConversion {
-    fn apply(&self, value: TokenStream, field_name: &FieldIdent) -> TokenStream {
-        let ValueConversion { from, to, with } = self;
-        use ValueConversionMethod::*;
-        match with {
+    /// Applies the conversion to the given value, converting it from `from` type to `to` type
+    fn apply(&self, value: TokenStream, from: &Type, to: &Type) -> TokenStream {
+        use ValueConversion::*;
+        match self {
+            None => value,
             From => FullSpan::from_spanned(from).apply(
                 quote! { <#to as ::std::convert::From<#from>> },
                 quote! { ::from(#value) },
             ),
             TryFrom => FullSpan::from_spanned(from).apply(
                 quote! { <#to as ::std::convert::TryFrom<#from>> },
-                quote! { ::try_from(#value)? },
+                quote! { ::try_from(#value).ok()? },
             ),
             Map(closure) => {
                 let span = closure.body.span();
@@ -112,9 +150,7 @@ impl ValueConversion {
                 let span = closure.body.span();
                 quote::quote_spanned! {span=> {
                     let f: fn(#from) -> ::std::option::Option<#to> = #closure;
-                    f(#value).ok_or(::sscanf::errors::FilterMapNoneError {
-                        field_name: stringify!(#field_name)
-                    })?
+                    f(#value)?
                 }}
             }
         }
@@ -123,205 +159,235 @@ impl ValueConversion {
 
 fn parse_format(
     attr: StructAttribute,
-    raw_fields: syn::Fields,
-) -> Result<(RegexParts, TokenStream, HashSet<syn::Lifetime>)> {
+    struct_fields: syn::Fields,
+) -> Result<(SequenceMatcher, TokenStream, HashSet<syn::Lifetime>)> {
     let (value, escape) = match attr.kind {
         StructAttributeKind::Format { value, escape } => (value, escape),
         StructAttributeKind::Transparent => {
-            if raw_fields.len() != 1 {
-                let msg = format!(
-                    "structs or variants marked as `{}` must have exactly one field",
-                    attr::Struct::Transparent
-                );
-                return Error::err_spanned(attr.src, msg); // checked in tests/fail/derive_struct_attributes.rs
-            }
-            let lit = syn::LitStr::new("{}", attr.src.span());
-            (StrLit::new(lit), true)
+            assert_or_bail!(struct_fields.len() == 1, attr => "structs or variants marked as `{}` must have exactly one field", attr::Struct::Transparent);
+
+            (StrLit::from_parts("{}", attr.src.span()), true)
         }
     };
     let format = FormatString::new(value.to_slice(), escape)?;
 
+    // Map from the ident (field name or index) used in a placeholder to its index in the format string
+    let mut explicit_ph_identifiers = HashMap::new();
+    // List of indices of the placeholders that *don't* have an explicit identifier
+    let mut unused_ph_indices = vec![];
+    for (i, ph) in format.placeholders.iter().enumerate() {
+        if let Some(ident) = &ph.ident {
+            let name = ident.text();
+            if let Some(prev_entry) = explicit_ph_identifiers.insert(name, i) {
+                let prev = &format.placeholders[prev_entry];
+                bail!({ph, prev} => "placeholder `{name}` is used multiple times in the format string");
+            }
+        } else {
+            unused_ph_indices.push(i);
+        }
+    }
+    let mut unused_ph_indices = unused_ph_indices.into_iter(); // convert to an iterator for easier access
+
+    // List of fields that are neither default nor provided by a placeholder
+    let mut unspecified_fields = vec![];
+
     let mut fields = vec![];
-    let mut field_map = HashMap::new();
-    let mut str_lifetimes = HashSet::new();
-    for (i, field) in raw_fields.into_iter().enumerate() {
-        let mut ty = field.ty;
+    for (i, field) in struct_fields.into_iter().enumerate() {
+        let output_type = field.ty;
+
+        let mut ph_index = None;
         let ident = if let Some(ident) = field.ident {
-            field_map.insert(ident.to_string(), i);
+            // check if the field is explicitly used in a placeholder
+            if let Some(index) = explicit_ph_identifiers.remove(ident.to_string().as_str()) {
+                ph_index = Some(index);
+            }
             FieldIdent::Named(ident)
         } else {
-            FieldIdent::from_index(i, ty.span())
+            FieldIdent::from_index(i, output_type.span())
         };
-        field_map.insert(i.to_string(), i);
 
-        let attr = FieldAttribute::from_attrs_with(field.attrs, &ty)?;
+        // check if the field is referred to by index in a placeholder
+        if let Some(index) = explicit_ph_identifiers.remove(i.to_string().as_str()) {
+            if let Some(prev_index) = ph_index {
+                let prev = &format.placeholders[prev_index];
+                let ph = &format.placeholders[index];
+                bail!({ph, prev} => "field `{ident}` is used in multiple placeholders");
+            }
+            ph_index = Some(index);
+        }
 
+        // if the field is not explicitly used in a placeholder, we would need to use the next unused placeholder index.
+        // However, we first need to check if the field is marked as default
+
+        let attr = FieldAttribute::from_attrs_with(field.attrs, &output_type)?;
+
+        let mut parsed_type = output_type.clone(); // by default, these are assumed to be the same
         let mut value_source = None;
-        let mut conversion = None;
+        let mut conversion = ValueConversion::None;
         if let Some(attr) = attr {
-            use FieldAttributeKind as AttrKind;
-            use ValueConversionMethod as Conv;
+            use ValueConversion as Conv;
             match attr.kind {
-                AttrKind::Default(def) => {
+                FieldAttributeKind::Default(def) => {
+                    if let Some(ph_index) = ph_index {
+                        let ph = &format.placeholders[ph_index];
+                        bail!({ph, attr.src} => "field `{ident}` is marked as default, but is also used in a placeholder");
+                    }
                     value_source = Some(ValueSource::Default { def, src: attr.src });
                 }
-                AttrKind::Map {
+                FieldAttributeKind::From { ty: from, tries } => {
+                    parsed_type = from.clone();
+                    conversion = if tries { Conv::TryFrom } else { Conv::From };
+                }
+                FieldAttributeKind::Map {
                     mapper,
                     ty: from,
                     filters,
                 } => {
-                    let to = std::mem::replace(&mut ty, from.clone());
-                    let conv = if filters { Conv::FilterMap } else { Conv::Map };
-                    let with = conv(mapper);
-                    conversion = Some(ValueConversion { from, to, with });
-                }
-                AttrKind::From { ty: from, tries } => {
-                    let to = std::mem::replace(&mut ty, from.clone());
-                    let with = if tries { Conv::TryFrom } else { Conv::From };
-                    conversion = Some(ValueConversion { from, to, with });
+                    parsed_type = from;
+                    conversion = if filters { Conv::FilterMap } else { Conv::Map }(mapper);
                 }
             }
         }
 
-        let ty = Type::from_ty(ty);
-
-        if value_source.is_none() {
-            if let Some(lt) = ty.lifetime() {
-                str_lifetimes.insert(lt.clone());
+        let value_source = if let Some(value_source) = value_source {
+            // value is provided by an attribute
+            // ph_index is None here, because we already checked for it above
+            value_source
+        } else if let Some(index) = ph_index.or_else(|| unused_ph_indices.next()) {
+            // value is provided by a placeholder
+            ValueSource::Placeholder {
+                index,
+                src: format.placeholders[index].src,
             }
-        }
+        } else {
+            unspecified_fields.push(ident);
+            continue; // skip this field for now and print an error later
+        };
+
+        let parsed_type = Type::from_field(parsed_type, ident.to_string());
+        let output_type = Type::from_ty(output_type);
 
         fields.push(Field {
             ident,
-            ty,
+            parsed_type,
             value_source,
             conversion,
+            output_type,
         });
     }
 
-    let mut ph_to_field_map = vec![0; format.placeholders.len()];
-    let mut error = Error::builder();
-    for (ph_index, ph) in format.placeholders.iter().enumerate() {
-        let name = match ph.ident.as_ref() {
-            Some(name) => name,
-            None => continue,
-        };
+    let mut error = ErrorBuilder::new();
 
-        let index = if let Some(i) = field_map.get(name.text()) {
-            *i
-        } else {
-            let msg = if let Ok(n) = name.text().parse::<usize>() {
-                // checked in tests/fail/derive_placeholders.rs
-                format!("field index {} out of range of {} fields", n, fields.len())
-            } else {
-                // checked in tests/fail/derive_placeholders.rs
-                format!("field `{}` does not exist", name.text())
-            };
-            error.push(name.error(msg));
-            continue;
-        };
+    // produce errors for any unused placeholders or unspecified fields.
+    // Note that we technically can't have both and there is no real point in handling them at once, but there is the
+    // possibility that the user made a typo in the placeholder identifier, so we first collect all offenders in order
+    // to provide a "Did you mean..." suggestion.
 
-        let field = &mut fields[index];
-
-        if let Some(existing) = field.value_source.as_ref() {
-            let msg = format!("field `{}` has multiple sources", name.text());
-            error.push(existing.error(&msg, &format.placeholders)); // checked in tests/fail/derive_placeholders.rs
-            error.push(ph.src.error(&msg)); // checked in tests/fail/derive_placeholders.rs
-            continue;
-        }
-        field.value_source = Some(ValueSource::Placeholder(ph_index));
-        ph_to_field_map[ph_index] = index;
+    for unused in unused_ph_indices {
+        // There is an empty placeholder with no matching field
+        let ph = &format.placeholders[unused];
+        add_error!(error, ph => "More placeholders than fields in the format string");
     }
-
-    let mut unused_field_iter = fields
-        .iter_mut()
-        .enumerate()
-        .filter(|(_, f)| f.value_source.is_none());
-
-    for (ph_index, ph) in format.placeholders.iter().enumerate() {
-        if ph.ident.is_some() {
-            continue;
-        }
-        let (index, field) = if let Some(val) = unused_field_iter.next() {
-            val
+    for (name, index) in &explicit_ph_identifiers {
+        let ph = &format.placeholders[*index];
+        if let Ok(n) = name.parse::<usize>() {
+            // User specified a number that seems to be out of range
+            add_error!(error, ph => "No field with index {n} exists");
+        } else if let Some(closest) = take_closest(name, &mut unspecified_fields) {
+            // User provided an unknown field name, but we can suggest a closest match
+            add_error!(error, ph => "placeholder `{name}` does not match any field. Did you mean `{closest}`?");
         } else {
-            let msg = "too many placeholders";
-            error.push(ph.src.error(msg)); // checked in tests/fail/derive_placeholders.rs
-            continue;
-        };
-        // field.ph_index is guaranteed to be None because of the iterator filter
-        field.value_source = Some(ValueSource::Placeholder(ph_index));
-        ph_to_field_map[ph_index] = index;
+            // User provided an unknown field name
+            add_error!(error, ph => "placeholder `{name}` does not match any field");
+        }
     }
-
-    for (_, unused) in unused_field_iter {
-        let msg = format!(
-            "FromScanf: field `{}` is not specified in the format string and has no default value. You must specify exactly one of these.
-The syntax for default values is: `#[sscanf(default)]` to use Default::default() or `#[sscanf(default = ...)]` to provide a custom value.",
-            unused.ident
-        );
-        error.with_spanned(&unused.ident, msg); // checked in tests/fail/<channel>/derive_placeholders.rs
+    for field in unspecified_fields {
+        // There is a field that is not specified in the format string
+        add_error!(error, field => "Field `{field}` is not specified in the format string.
+Either add more placeholders or provide a default value with `#[sscanf(default)]` or `#[sscanf(default = ...)]`");
     }
 
     error.ok_or_build()?;
 
-    let ph_types = ph_to_field_map
-        .iter()
-        .map(|i| fields[*i].ty.clone())
-        .collect::<Vec<_>>();
-    let regex_parts = RegexParts::new(&format, &ph_types)?;
-
-    let mut from_matches = vec![];
-
-    // types from placeholders have to be extracted in order, since they rely on the iterator
-    // => sort them by placeholder index, with defaults at the end
-    let n = fields.len();
-    fields.sort_by_key(|f| f.value_source.as_ref().map(|s| s.index_or(n)));
-
-    for field in fields {
-        let ident = field.ident;
-        let ty = field.ty;
-
-        let mut value = field.value_source.unwrap().get(&ty, &regex_parts.matchers);
-        // unwrap is safe because the unused_field_iter above ensures that all fields have a value_source
-
-        if let Some(conv) = field.conversion {
-            value = conv.apply(value, &ident);
+    // grab the type that each placeholder should be parsed to
+    let mut types_by_placeholder = vec![None; format.placeholders.len()];
+    for field in &fields {
+        if let ValueSource::Placeholder { index, .. } = field.value_source {
+            if types_by_placeholder[index].is_some() {
+                // this case should never happen, because any place where we create ValueSource::Placeholder
+                // we use a unique index and remove it from the map/iterator so that it can't be used again
+                let ph = &format.placeholders[index];
+                bail!(ph => "sscanf: Internal error: placeholder {index} is used multiple times");
+            }
+            types_by_placeholder[index] = Some(field.parsed_type.clone());
         }
-
-        from_matches.push(quote! { #ident: #value });
     }
-    error.ok_or_build()?;
 
-    let from_matches = quote! { { #(#from_matches),* } };
+    // convert Vec<Option> to Option<Vec>
+    let Some(types_by_placeholder): Option<Vec<_>> = types_by_placeholder.into_iter().collect()
+    else {
+        // this case should never happen, because we already checked through the unused placeholders
+        bail!(attr.src => "sscanf: Internal error: A placeholder was not assigned a type");
+    };
 
-    Ok((regex_parts, from_matches, str_lifetimes))
+    let matcher = SequenceMatcher::new(&format, &types_by_placeholder, escape);
+
+    let from_matches = fields.iter().map(|field| field.to_parser(&matcher.parsers));
+
+    let parser = quote! { { #(#from_matches),* } };
+
+    let mut lifetimes = HashSet::new();
+    for field in &fields {
+        if field.value_source.uses_parsed_type() {
+            // if the field is parsed from a placeholder, we need to extract the lifetimes from the parsed type
+            // and add them to the list of lifetimes
+            extract_lifetimes(field.parsed_type.inner(), &mut lifetimes);
+        }
+    }
+
+    Ok((matcher, parser, lifetimes))
 }
 
 fn merge_lifetimes(
-    str_lifetimes: HashSet<syn::Lifetime>,
+    mut lifetimes: HashSet<syn::Lifetime>,
     src_generics: &syn::Generics,
 ) -> (syn::Lifetime, syn::Generics) {
-    let mut lifetime = syn::Lifetime::new("'__from_scanf_lifetime", Span::call_site());
-    let mut is_static = false;
-    if let Some(lt) = str_lifetimes.iter().find(|lt| lt.ident == "static") {
-        lifetime = lt.clone();
-        is_static = true;
+    if let Some(lt) = lifetimes.iter().find(|lt| lt.ident == "static") {
+        return (lt.clone(), src_generics.clone());
     }
 
-    let mut lifetimed_generics = src_generics.clone();
-    if !is_static {
-        lifetimed_generics
+    let out_lifetime = syn::Lifetime::new("'input", Span::call_site());
+
+    let mut generics_with_lifetimes = src_generics.clone();
+
+    if !generics_with_lifetimes.params.iter().any(
+        |p| matches!(p, syn::GenericParam::Lifetime(lt) if lt.lifetime.ident == out_lifetime.ident),
+    ) {
+        generics_with_lifetimes
             .params
-            .push(syn::parse_quote! { #lifetime });
-
-        let where_clause = &mut lifetimed_generics.make_where_clause().predicates;
-        for lt in str_lifetimes {
-            where_clause.push(syn::parse_quote! { #lifetime: #lt });
-        }
+            .push(syn::GenericParam::Lifetime(syn::LifetimeParam {
+                attrs: vec![],
+                lifetime: out_lifetime.clone(),
+                colon_token: None,
+                bounds: syn::punctuated::Punctuated::new(),
+            }));
     }
 
-    (lifetime, lifetimed_generics)
+    lifetimes.retain(|lt| lt.ident != "static" && lt.ident != out_lifetime.ident);
+
+    if !lifetimes.is_empty() {
+        // make sure that the output lifetime outlives all other lifetimes
+        generics_with_lifetimes
+            .make_where_clause()
+            .predicates
+            .push(syn::WherePredicate::Lifetime(syn::PredicateLifetime {
+                lifetime: out_lifetime.clone(),
+                colon_token: syn::Token![:](Span::call_site()),
+                bounds: lifetimes.into_iter().collect(),
+            }));
+    }
+
+    (out_lifetime, generics_with_lifetimes)
 }
 
 pub fn parse_struct(
@@ -330,65 +396,50 @@ pub fn parse_struct(
     attrs: Vec<syn::Attribute>,
     data: syn::DataStruct,
 ) -> Result<TokenStream> {
-    let attr = StructAttribute::from_attrs(attrs)?
-        .ok_or_else(|| {
-            let mut msg = "FromScanf: structs must have a format string as an attribute.
-Please add either of #[sscanf(format = \"...\")], #[sscanf(format_unescaped = \"...\")] or #[sscanf(\"...\")]".to_string();
-            if data.fields.len() == 1 {
-                msg += ".
+    let Some(attr) = StructAttribute::from_attrs(attrs)? else {
+        let mut hint = "";
+        if data.fields.len() == 1 {
+            hint = ".
 Alternatively, you can use #[sscanf(transparent)] to derive FromScanf for a single-field struct";
-            }
-            Error::new_spanned(name, msg) // checked in tests/fail/derive_struct_attributes.rs
-        })?;
-
-    let (regex_parts, from_matches, str_lifetimes) = parse_format(attr, data.fields)?;
-
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-
-    let regex = regex_parts.regex();
-    let regex_impl = quote! {
-        #[automatically_derived]
-        impl #impl_generics ::sscanf::RegexRepresentation for #name #ty_generics #where_clause {
-            const REGEX: &'static ::std::primitive::str = #regex;
         }
+
+        bail!(name => r#"FromScanf: structs must have a format string as an attribute.
+Please add either of #[sscanf(format = "...")], #[sscanf(format_regex = "...")] or #[sscanf("...")]{hint}"#);
     };
 
-    let (lifetime, lt_generics) = merge_lifetimes(str_lifetimes, generics);
+    let (sequence_matcher, from_matches, lifetimes) = parse_format(attr, data.fields)?;
+
+    let ty_generics = generics.split_for_impl().1; // generics of the type have to be kept as-is from the struct definition
+
+    let (lifetime, lt_generics) = merge_lifetimes(lifetimes, generics);
     let (impl_generics, _, where_clause) = lt_generics.split_for_impl();
 
-    let num_captures = regex_parts.num_captures();
+    let matcher = sequence_matcher.get_matcher();
+    let expected_parts = sequence_matcher.num_parts();
     let from_sscanf_impl = quote! {
         #[automatically_derived]
         impl #impl_generics ::sscanf::FromScanf<#lifetime> for #name #ty_generics #where_clause {
-            type Err = ::sscanf::errors::FromScanfFailedError;
-            const NUM_CAPTURES: usize = #num_captures;
-            fn from_matches(src: &mut ::sscanf::regex::SubCaptureMatches<'_, #lifetime>) -> ::std::result::Result<Self, Self::Err> {
-                let start_len = src.len();
-                src.next().unwrap(); // skip the whole match
+            fn get_matcher(_: &::sscanf::advanced::FormatOptions) -> ::sscanf::advanced::Matcher {
+                #matcher
+            }
 
-                let mut catcher = || -> ::std::result::Result<Self, ::std::boxed::Box<dyn ::std::error::Error>> {
-                    ::std::result::Result::Ok(#name #from_matches)
-                };
-                let res = catcher().map_err(|error| ::sscanf::errors::FromScanfFailedError {
-                    type_name: stringify!(#name),
-                    error,
-                })?;
-                let n = start_len - src.len();
-                if n != Self::NUM_CAPTURES {
-                    panic!(
-                        "sscanf: {}::NUM_CAPTURES = {} but {} were taken{}",
-                        stringify!(#name), Self::NUM_CAPTURES, n, ::sscanf::errors::WRONG_CAPTURES_HINT
-                    );
-                }
-                Ok(res)
+            fn from_match(src: ::sscanf::advanced::Match<'_, #lifetime>, _: &::sscanf::advanced::FormatOptions) -> ::std::option::Option<Self> {
+                let src = src.as_seq();
+
+                assert_eq!(
+                    src.num_children(),
+                    #expected_parts,
+                    "FromScanf: Internal error: unexpected number of matches when parsing struct {}",
+                    stringify!(#name)
+                );
+
+                struct __SscanfTokenExtensionWrapper<T>(T);
+                ::std::option::Option::Some(Self #from_matches)
             }
         }
     };
 
-    Ok(quote! {
-        #regex_impl
-        #from_sscanf_impl
-    })
+    Ok(from_sscanf_impl)
 }
 
 pub fn parse_enum(
@@ -400,22 +451,21 @@ pub fn parse_enum(
     let attr = EnumAttribute::from_attrs(attrs)?;
     let autogen = attr.as_ref().and_then(|attr| match attr.kind {
         EnumAttributeKind::AutoGen(kind) => Some((kind, attr.src.clone())),
-        #[allow(unreachable_patterns)]
+        #[allow(
+            unreachable_patterns,
+            reason = "Currently there is only one variant, but this allows for future extensions"
+        )]
         _ => None,
     });
 
-    if data.variants.is_empty() {
-        let msg = "FromScanf: enums must have at least one variant";
-        return Error::err_spanned(name, msg); // checked in tests/fail/derive_enum_attributes.rs
-    }
+    assert_or_bail!(!data.variants.is_empty(), name => "FromScanf: enums must have at least one variant");
 
-    let mut regex_parts = RegexParts::empty();
-    regex_parts.push_literal("(?:");
-    let mut variant_constructors = vec![];
-    let mut num_captures_list = vec![NumCaptures::One];
-    let mut str_lifetimes = HashSet::new();
-    let mut first = true;
+    let mut variant_matchers = vec![];
+    let mut variant_parsers = vec![];
+    let mut variant_names = vec![];
+    let mut lifetimes = HashSet::new();
 
+    let mut match_index = 0usize;
     for variant in data.variants {
         let variant_attr = VariantAttribute::from_attrs(variant.attrs)?;
 
@@ -427,120 +477,80 @@ pub fn parse_enum(
                 }
             }
         } else if let Some((autogen, src)) = autogen.as_ref() {
-            if !variant.fields.is_empty() {
-                let msg = "FromScanf: autogen only works if the variants have no fields.
-Use `#[sscanf(format = \"...\")]` to specify a format for a variant with fields or `#[sscanf(skip)]` to skip a variant";
-                return Error::err_spanned(variant.fields, msg); // checked in tests/fail/derive_enum_attributes.rs
-            }
+            assert_or_bail!(variant.fields.is_empty(), variant.fields => r#"FromScanf: autogen only works if the variants have no fields.
+Use `#[sscanf(format = "...")]` to specify a format for a variant with fields or `#[sscanf(skip)]` to skip a variant"#);
+
             autogen.create_struct_attr(&variant.ident.to_string(), src.clone())
         } else {
             continue;
         };
 
-        if first {
-            regex_parts.push_literal("(");
-            first = false;
-        } else {
-            regex_parts.push_literal("|(");
-        };
-
         let ident = variant.ident;
 
-        let (variant_parts, from_matches, variant_str_lifetimes) =
+        let (variant_matcher, from_matches, variant_lifetimes) =
             parse_format(variant_attr, variant.fields)?;
 
-        let variant_num_captures_list = variant_parts.num_captures_list();
-        let num_captures = quote! { #(#variant_num_captures_list)+* };
-        num_captures_list.extend(variant_num_captures_list);
+        let expected_parts = variant_matcher.num_parts();
 
-        regex_parts
-            .regex_builder
-            .extend(variant_parts.regex_builder);
+        variant_matchers.push(variant_matcher.get_matcher());
 
-        str_lifetimes.extend(variant_str_lifetimes);
+        lifetimes.extend(variant_lifetimes);
 
-        let matcher = quote! {
-            let expected = #num_captures;
+        variant_parsers.push(quote! {
+            #match_index => {
+                let src = src.as_seq();
 
-            remaining -= expected;
-            if src.next().expect(::sscanf::errors::EXPECT_NEXT_HINT).is_some() {
-                return ::std::result::Result::Ok(#name::#ident #from_matches);
-            } else if expected > 1 { // one was already taken by `src.next()` above
-                src.nth(expected - 2).expect(::sscanf::errors::EXPECT_NEXT_HINT);
+                assert_eq!(
+                    src.num_children(),
+                    #expected_parts,
+                    "FromScanf: Internal error: unexpected number of matches when parsing struct {}",
+                    stringify!(#name)
+                );
+
+                return ::std::option::Option::Some(Self::#ident #from_matches);
             }
-        };
-        variant_constructors.push(matcher);
+        });
+        variant_names.push(ident.to_string());
 
-        regex_parts.push_literal(")");
+        match_index += 1; // only increment if the variant is constructable from sscanf
     }
-    regex_parts.push_literal(")");
 
-    if variant_constructors.is_empty() {
-        let msg = if autogen.is_some() {
-            "at least one variant has to be constructable from sscanf and not skipped."
+    if variant_parsers.is_empty() {
+        if autogen.is_some() {
+            bail!(name => "at least one variant has to be constructable from sscanf and not skipped.");
         } else {
-            "at least one variant has to be constructable from sscanf.
-To do this, add #[sscanf(format = \"...\")] to a variant"
-        };
-        return Error::err_spanned(name, msg); // checked in tests/fail/derive_enum_attributes.rs
+            bail!(name => "at least one variant has to be constructable from sscanf.
+To do this, add #[sscanf(format = \"...\")] to a variant");
+        }
     }
 
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    let ty_generics = generics.split_for_impl().1; // generics of the type have to be kept as-is from the enum definition
 
-    let regex = regex_parts.regex();
-    let regex_impl = quote! {
-        #[automatically_derived]
-        impl #impl_generics ::sscanf::RegexRepresentation for #name #ty_generics #where_clause {
-            const REGEX: &'static ::std::primitive::str = #regex;
-        }
-    };
-
-    let (lifetime, lt_generics) = merge_lifetimes(str_lifetimes, generics);
+    let (lifetime, lt_generics) = merge_lifetimes(lifetimes, generics);
     let (impl_generics, _, where_clause) = lt_generics.split_for_impl();
 
     let from_sscanf_impl = quote! {
         #[automatically_derived]
         impl #impl_generics ::sscanf::FromScanf<#lifetime> for #name #ty_generics #where_clause {
-            type Err = ::sscanf::errors::FromScanfFailedError;
+            fn get_matcher(_: &::sscanf::advanced::FormatOptions) -> ::sscanf::advanced::Matcher {
+                ::sscanf::advanced::Matcher::Alt(vec![ #(#variant_matchers),* ])
+            }
 
-            const NUM_CAPTURES: usize = #(#num_captures_list)+*;
-
-            fn from_matches(src: &mut ::sscanf::regex::SubCaptureMatches<'_, #lifetime>) -> ::std::result::Result<Self, Self::Err> {
-                let start_len = src.len();
-                let mut remaining = Self::NUM_CAPTURES;
-                src.next().unwrap(); // skip the whole match
-                remaining -= 1;
-
-                let mut catcher = || -> ::std::result::Result<Self, ::std::boxed::Box<dyn ::std::error::Error>> {
-                    #(#variant_constructors)*
-
-                    unreachable!("sscanf: enum regex matched but no variant was captured");
-                };
-                let res = catcher().map_err(|error| ::sscanf::errors::FromScanfFailedError {
-                    type_name: stringify!(#name),
-                    error,
-                })?;
-
-                if remaining > 0 {
-                    src.nth(remaining - 1).expect(::sscanf::errors::EXPECT_NEXT_HINT);
+            fn from_match(variants: ::sscanf::advanced::Match<'_, #lifetime>, _: &::sscanf::advanced::FormatOptions) -> ::std::option::Option<Self> {
+                let variants = variants.as_alt_enum(&[#(#variant_names),*]);
+                let src = variants.get();
+                struct __SscanfTokenExtensionWrapper<T>(T);
+                match variants.matched_index() {
+                    #(#variant_parsers)*
+                    x => {
+                        panic!("FromScanf: Unexpected variant index {x} in enum {}", stringify!(#name));
+                    }
                 }
-
-                let n = start_len - src.len();
-                if n != Self::NUM_CAPTURES {
-                    panic!(
-                        "sscanf: {}::NUM_CAPTURES = {} but {} were taken{}",
-                        stringify!(#name), Self::NUM_CAPTURES, n, ::sscanf::errors::WRONG_CAPTURES_HINT
-                    );
-                }
-                Ok(res)
             }
         }
     };
 
-    Ok(quote! {
-        #regex_impl
-        #from_sscanf_impl
-    })
+    Ok(from_sscanf_impl)
 }
 
 pub fn parse_union(
@@ -549,6 +559,5 @@ pub fn parse_union(
     _attrs: Vec<syn::Attribute>,
     _data: syn::DataUnion,
 ) -> Result<TokenStream> {
-    let msg = "FromScanf: unions not supported yet";
-    Error::err_spanned(name, msg)
+    bail!(name => "FromScanf: unions not supported yet");
 }
