@@ -177,3 +177,76 @@ fn extract_type_param_bound_lifetimes(bound: &syn::TypeParamBound, out: &mut Lif
         _ => {}
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use quote::quote;
+    use syn::parse::Parser;
+
+    #[track_caller]
+    fn check(ty: TokenStream, expected: &[&str]) {
+        let ty: syn::Type = syn::parse2(ty.clone())
+            .unwrap_or_else(|e| panic!("Failed to parse type: {}\nError: {}", ty, e));
+        let mut lifetimes = HashSet::new();
+        extract_lifetimes(&ty, &mut lifetimes);
+
+        let actual = lifetimes
+            .iter()
+            .map(|l| l.to_string())
+            .collect::<HashSet<_>>();
+        let expected: HashSet<_> = expected.iter().map(|s| s.to_string()).collect();
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_references() {
+        check(quote!(&'a i32), &["'a"]);
+        check(quote!(&'a mut i32), &["'a"]);
+        check(quote!(&'a &'b i32), &["'a", "'b"]);
+    }
+
+    #[test]
+    fn test_generics() {
+        check(quote!(Foo<'a, 'b>), &["'a", "'b"]);
+        check(quote!(Foo<'a, Bar<'b>>), &["'a", "'b"]);
+    }
+
+    #[test]
+    fn test_trait_objects() {
+        check(quote!(Box<dyn Trait + 'a>), &["'a"]);
+        check(quote!(Box<dyn Trait<'a> + 'b>), &["'a", "'b"]);
+    }
+
+    #[test]
+    fn test_bare_fn() {
+        check(quote!(fn(&'a i32) -> &'b i32), &["'a", "'b"]);
+        // Higher-ranked trait bounds (HRTB) / bound lifetimes should be excluded
+        check(quote!(for<'a> fn(&'a i32) -> &'b i32), &["'b"]);
+        check(quote!(for<'a, 'b> fn(&'a i32) -> &'b i32), &[]);
+    }
+
+    #[test]
+    fn test_parenthesized() {
+        check(quote!(fn(&'a i32) -> &'b i32), &["'a", "'b"]);
+    }
+
+    #[test]
+    fn test_nested() {
+        check(quote!(Vec<&'a i32>), &["'a"]);
+        check(quote!([&'a i32]), &["'a"]);
+        check(quote!([&'a i32; 10]), &["'a"]);
+        check(quote!((&'a i32, &'b i32)), &["'a", "'b"]);
+    }
+
+    #[test]
+    fn test_impl_trait() {
+        check(quote!(impl Trait + 'a), &["'a"]);
+        check(quote!(impl Trait<'a>), &["'a"]);
+    }
+
+    #[test]
+    fn test_qself() {
+        check(quote!(<Option<&'a i32> as Trait>::Type), &["'a"]);
+    }
+}

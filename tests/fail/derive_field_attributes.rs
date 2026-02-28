@@ -87,7 +87,7 @@ struct TestDefaultAndMapMulti(
 #[derive(sscanf::FromScanf)]
 #[sscanf(format = "")]
 struct TestNoPlaceholder(#[sscanf(map = |x: usize| { x as u8 })] u8);
-//~                                                              ^^ More fields than placeholders in the format string.
+//~                                                              ^^ Field `0` is not specified in the format string.
 //~                                                                 Either add more placeholders or provide a default value with `#[sscanf(default)]` or `#[sscanf(default = ...)]`
 
 ///// MapNoAssign /////

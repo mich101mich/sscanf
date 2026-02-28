@@ -303,13 +303,8 @@ fn parse_format(
     }
     for field in unspecified_fields {
         // There is a field that is not specified in the format string
-        if explicit_ph_identifiers.is_empty() {
-            add_error!(error, field => "More fields than placeholders in the format string.
+        add_error!(error, field => "Field `{field}` is not specified in the format string.
 Either add more placeholders or provide a default value with `#[sscanf(default)]` or `#[sscanf(default = ...)]`");
-        } else {
-            add_error!(error, field => "Field {field} is not specified in the format string.
-Either specify it in a placeholder or provide a default value with `#[sscanf(default)]` or `#[sscanf(default = ...)]`");
-        }
     }
 
     error.ok_or_build()?;
