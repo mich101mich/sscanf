@@ -181,10 +181,7 @@ fn primitive_from_regex_override<T: PrimitiveNumber>(
         if options.number.prefix_policy() == NumberPrefixPolicy::Required {
             rest = rest
                 .strip_prefix(prefix)
-                .or_else(|| rest.strip_prefix(&prefix_upper))
-                .unwrap_or_else(|| {
-                    panic!("sscanf: Expected required prefix '{prefix}' but not found in input '{input}'")
-                });
+                .or_else(|| rest.strip_prefix(&prefix_upper))?;
         } else {
             // optional
             rest = rest

@@ -159,6 +159,25 @@ fn config_numbers() {
     let input = "0xab01";
     let parsed = sscanf!(input, "{MyNumber:x}");
     assert_eq!(parsed.unwrap(), 0xab01);
+
+    // regex overrides
+    let input = "123";
+    assert_eq!(sscanf!(input, "{usize:/\\d{3}/}").unwrap(), 123);
+    assert_eq!(sscanf!(input, "{usize:x /\\d{3}/}").unwrap(), 0x123);
+    assert_eq!(sscanf!(input, "{usize:o /\\d{3}/}").unwrap(), 0o123);
+    assert_eq!(sscanf!(input, "{usize:r36 /\\d{3}/}").unwrap(), 1371);
+
+    assert!(sscanf!(input, "{usize:#b /\\d{3}/}").is_none());
+    assert!(sscanf!(input, "{usize:#o /\\d{3}/}").is_none());
+    assert!(sscanf!(input, "{usize:#x /\\d{3}/}").is_none());
+
+    let input = "0x123";
+    assert_eq!(sscanf!(input, "{usize:x /.*/}").unwrap(), 0x123);
+    assert_eq!(sscanf!(input, "{usize:#x /.*/}").unwrap(), 0x123);
+    assert!(sscanf!(input, "{usize:/.*/}").is_none());
+
+    assert_eq!(sscanf!("0b1010", "{usize:b /.*/}").unwrap(), 0b1010);
+    assert_eq!(sscanf!("0o17", "{usize:o /.*/}").unwrap(), 0o17);
 }
 
 #[test]
