@@ -11,7 +11,7 @@ use std::str::FromStr;
 /// A trait for parsing a type with `sscanf`.
 ///
 /// There are three ways to implement this trait:
-/// - [`#[derive(FromScanf)]`] (simple, readable, foolproof) - see [Option 1](#option-1-deriving)
+/// - [`#[derive(FromScanf)]`](derive.FromScanf.html) (simple, readable, foolproof) - see [Option 1](#option-1-deriving)
 /// - Manually implement [`FromScanfSimple`] (more flexible, more code) - see [Option 2](#option-2-manually-implement-fromscanfsimple)
 /// - Manually implement [`FromScanf`] (maximum flexibility and complexity) - see [Option 3](#option-3-manually-implement-fromscanf)
 ///
@@ -30,7 +30,7 @@ use std::str::FromStr;
 /// ```
 ///
 /// The derive macro generates the code to parse the type from the format string. It knows the field types and can
-/// generate the correct regex and parser implementation.
+/// generate the correct matcher and parser implementation.
 ///
 /// A detailed description of the syntax and options is available in [the derive documentation](derive.FromScanf.html).
 ///
@@ -126,7 +126,7 @@ use std::str::FromStr;
 /// assert_eq!(parsed, Fraction { numerator: -10, denominator: 3 });
 /// ```
 /// This option offers fine-grained control over matching and parsing. It is generally faster than
-/// [`FromScanfSimple`], since you can access capture groups directly without reparsing the string. In return, it
+/// [`FromScanfSimple`], since you can access match results directly without reparsing the string. In return, it
 /// requires more code and is more complex to implement and maintain.
 ///
 /// Therefore, using the derive macro is recommended to hide this complexity while keeping the same performance.
@@ -241,25 +241,6 @@ pub trait FromScanf<'input>: Sized {
     ///     }
     /// }
     /// ```
-    ///
-    /// ## Guide to `panic!` vs `return None`
-    ///
-    /// Assuming the following regex:
-    /// ```text
-    /// (\d+) item(s)?
-    /// ```
-    /// This regex has two capture groups, the first one is required, the second one is optional.
-    ///
-    /// | Problem Description | Example | Action | Explanation |
-    /// |---------------------|---------|--------|-------------|
-    /// | The regex is too broad | The first capture group can match 100+ digits, but our final data type might not store that many | return&nbsp;`None` | This case should have been filtered by the regex, but wasn't. <br/>Note that this might be unavoidable. For example `u8`'s regex matches only three digits, but 999 is not a valid `u8` and has to be filtered during the parsing process |
-    /// | The `Match` has fewer children than there are direct capture groups in the regex | The `Match` only has 0 or 1 child | `panic!()` | This is a programming error in the calling code |
-    /// | You tried to access a capture group that does not exist | Attempting to access a third capture group | `panic!()` | This is a programming error in your code |
-    /// | An optional capture group did not match | the second group did not match an `s` | continue parsing | This is a valid case, so the parsing should be able to handle it. Otherwise, the group should be made non-optional |
-    /// | A non-optional capture group did not match | The first capture group is `None` | `panic!()` | This is a programming error in the calling code |
-    ///
-    /// If a programming error occurs and you are certain that it is not your fault, please open an issue on GitHub.
-    ///
     fn from_match(matches: Match<'_, 'input>, options: &FormatOptions) -> Option<Self>;
 }
 
@@ -311,18 +292,18 @@ where
     ///
     /// # Guide to `panic!` vs `return None`
     ///
-    /// As the example above shows, convert the `Result` from `FromStr::from_str` to an `Option` with `ok()`, which
-    /// returns `None` on error. This is the recommended way to handle parsing errors here when the regex is not a
-    /// strict 1:1 match for all valid inputs.
+    /// The example converts the `Result` from `FromStr::from_str` to an `Option` with `ok()`, which returns `None` for
+    /// errors. This is the recommended way to handle parsing errors here when the regex is not a strict 1:1 match for
+    /// all valid inputs.
     ///
-    /// The example in the [`FromScanf`](trait.FromScanf.html#option-2-manually-implement-fromscanfsimple) docs used
+    /// The [example in the `FromScanfSimple` docs](trait.FromScanf.html#option-2-manually-implement-fromscanfsimple) used
     /// `unwrap()` to assert the presence of `/`. This is acceptable there, since the regex guarantees it.
     ///
     /// This is the rough guideline:
     /// - The input to this function is **guaranteed** to match [`REGEX`](FromScanfSimple::REGEX). Any violation is a
     ///   programming error in the calling code and should `panic!()`.
     ///   - This also includes mistakes in the regex itself, since it is a compile-time constant.
-    /// - If the regex matched something the parser can't handle, return `None` for invalid inputs.
+    /// - If the regex matched something the parser can't handle, return `None`.
     fn from_match(input: &'input str) -> Option<Self>;
 }
 

@@ -33,7 +33,7 @@ as neither works without the other and versions are always released in parallel.
     - Note: Parsing the types was previously possible through a hack in the `sscanf` macro.
   - This also improves the error message in case `FromScanf` is not implemented.
   - The same functionality can still be achieved with the [`FromScanfSimple`][FromScanfSimple@0.5.0] trait.
-- Removed the [`RegexRepresentation`][RegexRepresentation@0.4.3] trait. The `REGEX` constant is now part of
+- Removed the [`RegexRepresentation`][RegexRepresentation@0.4.4] trait. The `REGEX` constant is now part of
   [`FromScanfSimple`][FromScanfSimple@0.5.0] (**BREAKING**).
 - Removed the previously deprecated `FullF32`, `FullF64`, and `HexNumber` (technically breaking, but they have been
   deprecated for 3 years or more).
@@ -50,10 +50,10 @@ as neither works without the other and versions are always released in parallel.
 [0.5.0]:                            https://github.com/mich101mich/sscanf/releases/tag/0.5.0
 [Span methods]:                     https://doc.rust-lang.org/stable/proc_macro/struct.Span.html#method.start
 [on_unimplemented]:                 https://doc.rust-lang.org/stable/reference/attributes/diagnostics.html#the-diagnosticon_unimplemented-attribute
-[RegexRepresentation@0.4.3]:        https://docs.rs/sscanf/0.4.3/sscanf/trait.RegexRepresentation.html
+[RegexRepresentation@0.4.4]:        https://docs.rs/sscanf/0.4.4/sscanf/trait.RegexRepresentation.html
 [FromScanfSimple@0.5.0]:            https://docs.rs/sscanf/0.5.0/sscanf/trait.FromScanfSimple.html
 [parse@0.5.0]:                      https://docs.rs/sscanf/0.5.0/sscanf/fn.parse.html
-[Parser@0.5.0]:                     https://docs.rs/sscanf/0.5.0/sscanf/advanced/struct.Parser.html
+[Parser@0.5.0]:                     https://docs.rs/sscanf/0.5.0/sscanf/struct.Parser.html
 [sscanf_parser@0.5.0]:              https://docs.rs/sscanf/0.5.0/sscanf/macro.sscanf_parser.html
 [sscanf_parser_with_regex@0.5.0]:   https://docs.rs/sscanf/0.5.0/sscanf/macro.sscanf_parser_with_regex.html
 

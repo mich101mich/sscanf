@@ -4,7 +4,7 @@ version = "0.5.0"
 authors = ["mich101mich <mich101mich@gmail.com>"]
 edition = "2024"
 rust-version = "1.88.0"
-description = "A sscanf (inverse of format!()) Macro with near endless parsing capabilities"
+description = "A sscanf (inverse of format!()) macro with near unlimited parsing capabilities"
 repository = "https://github.com/mich101mich/sscanf"
 readme = "Readme.md"
 license = "MIT OR Apache-2.0"
@@ -21,5 +21,5 @@ regex-automata = "0.4.0" # Note when updating: regex-automata depends on regex-s
 regex-syntax = "0.8.0" # Should match regex-syntax in sscanf_macro/Cargo.toml
 
 [dev-dependencies]
-err_span_check = "0.1.0"
+err_span_check = "0.1.1"
 rustc_version = "0.4.0"

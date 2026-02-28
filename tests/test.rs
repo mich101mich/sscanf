@@ -153,6 +153,12 @@ fn config_numbers() {
     // :r16 etc have no prefix
     assert!(sscanf!(prefix, "{u8:r16} {u8:r8} {u8:r2}").is_none());
     assert_eq!(out, sscanf!(no_prefix, "{u8:r16} {u8:r8} {u8:r2}").unwrap());
+
+    // using type aliases
+    type MyNumber = usize;
+    let input = "0xab01";
+    let parsed = sscanf!(input, "{MyNumber:x}");
+    assert_eq!(parsed.unwrap(), 0xab01);
 }
 
 #[test]

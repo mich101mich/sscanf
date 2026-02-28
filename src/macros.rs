@@ -12,7 +12,9 @@ use crate::Parser;
 ///
 /// ## Parameters
 /// * `input`: The string to parse. Can be anything that auto-derefs to `str` (e.g. `&str`, `String`, `Cow<str>`, etc.).
-///   See the examples below. Note that `sscanf` does not take ownership of the input.
+///   See the examples below. Note that `sscanf` does not take ownership of the input.\
+///   More formally, `sscanf` adds a `&` before the input and then passes it to [`Parser::parse`](crate::Parser::parse),
+///   so the input must be something that rust can coerce to `&str`.
 /// * `format`: A literal string. No `const` or `static` allowed, just like with [`format!()`](std::format).
 /// * `Type...`: Any types that are not written into the format string. See [Custom Types](index.html#custom-types)
 ///   for details.
@@ -60,6 +62,7 @@ use crate::Parser;
 ///
 /// ```compile_fail
 /// // temporary value: does not work
+/// # use sscanf::sscanf;
 /// sscanf!(String::from("5"), "{usize}");
 /// ```
 ///
@@ -178,23 +181,22 @@ pub use sscanf_macro::sscanf_parser_with_regex;
 /// #[sscanf(format = "<format>")] // format string; must contain placeholders for all
 /// struct MyStruct {              // non-default fields: {<field>}, {<field_2>}, {<field_with_conversion>}
 ///
-///     <field>: <type>, // requires <type>: FromScanf (implemented for all primitive types
-///                      // and several others in std)
+///     <field>: <type>, // requires <type> to implement FromScanf
 ///
-///     <field_2>: <type_2>, // requires <type_2>: FromScanf
+///     <field_2>: <type_2>, // requires `<type_2>: FromScanf`
 ///
 ///     // ...
 ///
 ///     // possible attributes on fields:
 ///
 ///     #[sscanf(default)]
-///     <field_with_default>: <type>, // requires <type>: Default, but doesn't need FromScanf
+///     <field_with_default>: <type>, // requires `<type>: Default`, but doesn't need FromScanf
 ///
 ///     #[sscanf(default = <expression>)] // accepts any expression that returns <type>
 ///     <field_with_custom_default>: <type>, // no traits required.
 ///
 ///     #[sscanf(map = |input: <matched_type>| { <conversion from <matched_type> to <actual_type>> })]
-///     <field_with_conversion>: <actual_type>, // requires <matched_type>: FromScanf
+///     <field_with_conversion>: <actual_type>, // requires `<matched_type>: FromScanf`
 /// }
 ///
 /// // tuple structs have the same capabilities, just without field names:
@@ -238,10 +240,10 @@ pub use sscanf_macro::sscanf_parser_with_regex;
 /// enum MyEnum {
 ///     #[sscanf(format = "<format>")] // has to contain `{<field>}` and any other fields
 ///     Variant1 {
-///         <field>: <type>, // requires <type>: FromScanf
+///         <field>: <type>, // requires `<type>: FromScanf`
 ///
 ///         #[sscanf(default)]
-///         <field_with_default>: <type2>, // requires <type2>: Default
+///         <field_with_default>: <type2>, // requires `<type2>: Default`
 ///
 ///         // ... (same as for structs)
 ///     },
