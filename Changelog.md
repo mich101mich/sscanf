@@ -11,7 +11,7 @@ as neither works without the other and versions are always released in parallel.
 [sscanf_macro]: https://crates.io/crates/sscanf_macro
 [sscanf]: https://crates.io/crates/sscanf
 
-## [0.5.0] - unreleased
+## [0.5.0] - 2026-02-28
 
 ### Changed
 - Bumped MSRV to `1.88.0` (**BREAKING**).
