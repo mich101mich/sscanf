@@ -72,7 +72,7 @@ impl Matcher {
         Self::Regex(RegexMatcher { hir })
     }
 
-    pub(crate) fn compile(self, capture_index: &mut usize) -> (Hir, MatchTreeTemplate) {
+    pub(crate) fn compile(self, capture_index: &mut usize) -> (Capture, MatchTreeTemplate) {
         let index = *capture_index;
         *capture_index += 1;
         let (hir, kind) = match self {
@@ -88,8 +88,8 @@ impl Matcher {
                 for matcher in matchers {
                     match matcher {
                         MatchPart::Matcher(matcher) => {
-                            let (hir, child_index) = matcher.compile(capture_index);
-                            hirs.push(hir);
+                            let (capture, child_index) = matcher.compile(capture_index);
+                            hirs.push(Hir::capture(capture));
                             children.push(Some(child_index));
                         }
                         MatchPart::Regex(regex_part) => {
@@ -114,16 +114,17 @@ impl Matcher {
                 let (hirs, children) = matchers
                     .into_iter()
                     .map(|m| m.compile(capture_index))
-                    .collect();
+                    .map(|(capture, child_index)| (Hir::capture(capture), child_index))
+                    .unzip();
                 (Hir::alternation(hirs), MatchTreeKind::Alt(children))
             }
             Matcher::Optional(matcher) => {
-                let (hir, child_index) = matcher.compile(capture_index);
+                let (capture, child_index) = matcher.compile(capture_index);
                 let hir = Hir::repetition(regex_syntax::hir::Repetition {
                     min: 0,
                     max: Some(1),
                     greedy: true,
-                    sub: Box::new(hir),
+                    sub: Box::new(Hir::capture(capture)),
                 });
                 (hir, MatchTreeKind::Optional(Box::new(child_index)))
             }
@@ -133,7 +134,7 @@ impl Matcher {
             name: None,
             sub: Box::new(hir),
         };
-        (Hir::capture(capture), MatchTreeTemplate { index, kind })
+        (capture, MatchTreeTemplate { index, kind })
     }
 
     /// Convert a matcher to a regex string.
@@ -147,8 +148,8 @@ impl Matcher {
     /// the `Debug` implementation.
     pub fn debug_to_regex(&self) -> String {
         let mut capture_index = 0;
-        let hir = self.clone().compile(&mut capture_index);
-        hir.0.to_string()
+        let (capture, _) = self.clone().compile(&mut capture_index);
+        Hir::capture(capture).to_string()
     }
 }
 

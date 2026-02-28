@@ -96,7 +96,7 @@ impl ToTokens for NumberFormatOption {
             Octal(policy) => quote! { Octal(#policy) },
             Decimal => quote! { Decimal },
             Hexadecimal(policy) => quote! { Hexadecimal(#policy) },
-            Other(base) => quote! { Other(#base) },
+            Other(base) => quote! { Other(::sscanf::advanced::CustomRadix::new(#base).unwrap()) }, // unwrap: we checked the base when parsing
         });
     }
 }

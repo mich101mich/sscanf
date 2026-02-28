@@ -75,6 +75,10 @@ impl Builder {
     ///
     /// The base must be in the range `2..=36`.
     /// Note that this does not change the prefix policy.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the radix is not in the range `2..=36`.
     #[track_caller]
     pub fn custom_radix(mut self, radix: u32) -> Self {
         if !(2..=36).contains(&radix) {
@@ -102,6 +106,11 @@ impl Builder {
     }
 
     /// Builds the [`FormatOptions`] struct.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the configured options are inconsistent, e.g. if a prefix is required/optional but the number format
+    /// (decimal or custom radix) does not support prefixes.
     #[track_caller]
     pub fn build(self) -> FormatOptions {
         use NumberFormatOption::*;
@@ -111,9 +120,9 @@ impl Builder {
                 (2, policy) => Binary(policy),
                 (8, policy) => Octal(policy),
                 (10, Forbidden) => Decimal,
-                (10, _) => panic!("Decimal format does not allow a prefix"),
+                (10, _) => panic!("Decimal format (the default) does not allow a prefix"),
                 (16, policy) => Hexadecimal(policy),
-                (radix, Forbidden) => Other(radix),
+                (radix, Forbidden) => Other(CustomRadix::new(radix).unwrap()), // unwrap: The checks in custom_radix and this match arm ensure that this cannot fail
                 (radix, _) => panic!("Custom radix {radix} does not allow a prefix"),
             },
             custom: self.custom,
@@ -139,7 +148,7 @@ pub enum NumberFormatOption {
     /// be mapped to `Binary(NumberPrefixPolicy::Forbidden)` to simplify the implementation for types that only care
     /// about the usual bases. Types that deal with arbitrary bases can call [`NumberFormatOption::to_number`] to
     /// get the base as a number.
-    Other(u32),
+    Other(CustomRadix),
 }
 
 impl NumberFormatOption {
@@ -153,7 +162,7 @@ impl NumberFormatOption {
             Self::Octal(_) => 8,
             Self::Decimal => 10,
             Self::Hexadecimal(_) => 16,
-            Self::Other(base) => base,
+            Self::Other(base) => base.0,
         }
     }
 
@@ -192,6 +201,35 @@ impl NumberFormatOption {
     }
 }
 
+/// A custom radix for a number format.
+///
+/// This type guarantees that the radix is in the range `2..=36` and not `2`, `8`, `10`, or `16`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CustomRadix(u32);
+
+impl CustomRadix {
+    /// Creates a new `CustomRadix` if the value is valid.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the radix is not in `2..=36`, or if it is one of the standard bases
+    /// `2`, `8`, `10`, or `16` (which should use the specific variants of [`NumberFormatOption`] instead).
+    pub const fn new(radix: u32) -> Result<Self, &'static str> {
+        if radix < 2 || radix > 36 {
+            return Err("Radix must be in the range 2..=36");
+        }
+        if matches!(radix, 2 | 8 | 10 | 16) {
+            return Err("Radix 2, 8, 10, and 16 are covered by other variants");
+        }
+        Ok(Self(radix))
+    }
+
+    /// Returns the value of the custom radix.
+    pub fn value(self) -> u32 {
+        self.0
+    }
+}
+
 /// The possible policies for the prefix of [`NumberFormatOption`].
 ///
 /// The following table shows which prefixes (hexadecimal in this case) are allowed for each policy:
@@ -212,4 +250,111 @@ pub enum NumberPrefixPolicy {
     Optional,
     /// The prefix is required and must be present.
     Required,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_custom_radix_new() {
+        assert!(CustomRadix::new(1).is_err());
+        assert!(CustomRadix::new(3).is_ok());
+        assert!(CustomRadix::new(36).is_ok());
+        assert!(CustomRadix::new(37).is_err());
+
+        assert!(CustomRadix::new(2).is_err());
+        assert!(CustomRadix::new(8).is_err());
+        assert!(CustomRadix::new(10).is_err());
+        assert!(CustomRadix::new(16).is_err());
+
+        let valid_ranges = [3..=7, 9..=9, 11..=15, 17..=36];
+        for range in valid_ranges {
+            for radix in range {
+                assert!(
+                    CustomRadix::new(radix).is_ok(),
+                    "CustomRadix::new({radix}) should be valid"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_to_number() {
+        let options = NumberFormatOption::Binary(NumberPrefixPolicy::Forbidden);
+        assert_eq!(options.to_number(), 2);
+
+        let options = NumberFormatOption::Octal(NumberPrefixPolicy::Forbidden);
+        assert_eq!(options.to_number(), 8);
+
+        let options = NumberFormatOption::Decimal;
+        assert_eq!(options.to_number(), 10);
+
+        let options = NumberFormatOption::Hexadecimal(NumberPrefixPolicy::Forbidden);
+        assert_eq!(options.to_number(), 16);
+
+        let radix = CustomRadix::new(3).unwrap();
+        let options = NumberFormatOption::Other(radix);
+        assert_eq!(options.to_number(), 3);
+    }
+
+    #[test]
+    fn test_builder_mapping() {
+        // Builder should map 2, 8, 10, 16 to appropriate variants
+        let opts = FormatOptions::builder().custom_radix(2).build();
+        assert!(matches!(opts.number, NumberFormatOption::Binary(_)));
+
+        let opts = FormatOptions::builder().custom_radix(8).build();
+        assert!(matches!(opts.number, NumberFormatOption::Octal(_)));
+
+        let opts = FormatOptions::builder().custom_radix(10).build();
+        assert!(matches!(opts.number, NumberFormatOption::Decimal));
+
+        let opts = FormatOptions::builder().custom_radix(16).build();
+        assert!(matches!(opts.number, NumberFormatOption::Hexadecimal(_)));
+    }
+
+    #[test]
+    fn test_builder_custom() {
+        // Custom radix 3 is valid and handled as Other
+        let opts = FormatOptions::builder().custom_radix(3).build();
+        assert_eq!(opts.number, NumberFormatOption::Other(CustomRadix(3)));
+    }
+
+    #[test]
+    fn test_prefix_policies() {
+        // Test that prefix policies are set correctly
+        let opts = FormatOptions::builder()
+            .binary()
+            .with_optional_prefix()
+            .build();
+        assert_eq!(opts.number.prefix_policy(), NumberPrefixPolicy::Optional);
+        assert_eq!(opts.number.prefix(), Some("0b"));
+
+        let opts = FormatOptions::builder().octal().with_prefix().build();
+        assert_eq!(opts.number.prefix_policy(), NumberPrefixPolicy::Required);
+        assert_eq!(opts.number.prefix(), Some("0o"));
+
+        let opts = FormatOptions::builder().hex().build();
+        assert_eq!(opts.number.prefix_policy(), NumberPrefixPolicy::Forbidden);
+        assert_eq!(opts.number.prefix(), None);
+    }
+
+    #[test]
+    #[should_panic(expected = "Custom radix 3 does not allow a prefix")]
+    fn test_builder_custom_prefix_panic() {
+        FormatOptions::builder()
+            .custom_radix(3)
+            .with_optional_prefix()
+            .build();
+    }
+
+    #[test]
+    #[should_panic(expected = "Decimal format (the default) does not allow a prefix")]
+    fn test_builder_decimal_prefix_panic() {
+        FormatOptions::builder()
+            .decimal()
+            .with_optional_prefix()
+            .build();
+    }
 }

@@ -43,6 +43,7 @@ impl From<Context> for ContextChain<'_> {
 impl std::fmt::Display for ContextChain<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(parent) = &self.parent {
+            // this recursion could probably be optimized, but it is only used for panic messages, so it doesn't matter
             parent.fmt(f)?;
             f.write_str(" -> ")?;
         }

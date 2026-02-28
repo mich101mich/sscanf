@@ -1,6 +1,6 @@
 use crate::{FromScanf, advanced::*};
 
-use regex_syntax::hir::{Hir, HirKind, Look};
+use regex_syntax::hir::{Hir, Look};
 
 /// A parser that can be reused to parse multiple inputs.
 ///
@@ -44,7 +44,6 @@ impl<'input, T> Parser<'input, T> {
     ///
     /// Prefer [`Parser::new`], which constructs the matcher and parser from `T` to ensure consistency.
     /// This method is exposed for situations without a single `T`, like the `sscanf!` macro.
-    #[track_caller]
     pub fn from_matcher(
         matcher: Matcher,
         parse_fn: impl FnMut(Match<'_, 'input>) -> Option<T> + 'static,
@@ -53,21 +52,14 @@ impl<'input, T> Parser<'input, T> {
         // should start at 1. However, since our outermost Matcher is itself the whole match, we assign it
         // to group 0 but then remove it again after compilation.
         let mut capture_index = 0;
-        let (hir, match_tree_template) = matcher.compile(&mut capture_index);
+        let (capture, match_tree_template) = matcher.compile(&mut capture_index);
 
         // Remove the outermost capture group since it is identical to the whole match.
-        let HirKind::Capture(capture) = hir.into_kind() else {
-            // Matcher::compile returns a capture, so this should never happen
-            panic!("sscanf: Internal error: Matcher did not compile to a capture group!");
-        };
+        let hir = *capture.sub;
         capture_index -= 1;
 
         // Ensure we match the entire input string (equivalent to adding `^` and `$` around the regex)
-        let hir = Hir::concat(vec![
-            Hir::look(Look::Start),
-            *capture.sub,
-            Hir::look(Look::End),
-        ]);
+        let hir = Hir::concat(vec![Hir::look(Look::Start), hir, Hir::look(Look::End)]);
 
         if hir.properties().explicit_captures_len() != capture_index {
             // Since we manually re-indexed the capture groups, this should never happen
