@@ -76,7 +76,15 @@ pub use sscanf_macro::sscanf;
 /// Parameters are the same as [`sscanf`], but any non-placeholder parts of the format string are treated as regex.
 ///
 /// Note that the `{{` and `}}` escaping for literal `{` and `}` is still required. So if you want to have a
-/// counted repetition like `[0-9]{4}` as part of the regex, you have to write it as `[0-9]{{4}}`.
+/// counted repetition like `[0-9]{4}` as part of the regex, you have to write it as `[0-9]{{4}}`.\
+/// Also, each part between placeholders is treated as a separate regex, so you won't be able to e.g. surround
+/// a placeholder with a capture group or similar:
+///
+/// ```compile_fail
+/// # use sscanf::sscanf_with_regex;
+/// # let input = "...";
+/// sscanf_with_regex!(input, r"a(b{usize}c)+d"); // won't work, because the regex is split into "a(b", "c)+d" and the placeholder {usize}
+/// ```
 ///
 /// The pattern is automatically anchored: `^` at the start and `$` at the end.
 ///

@@ -92,8 +92,9 @@ impl Matcher {
                             hirs.push(Hir::capture(capture));
                             children.push(Some(child_index));
                         }
-                        MatchPart::Regex(regex_part) => {
-                            hirs.push(regex_part.hir);
+                        MatchPart::Regex(RegexPart { mut hir }) => {
+                            strip_captures(&mut hir);
+                            hirs.push(hir);
                             children.push(None);
                         }
                         MatchPart::Literal(Cow::Owned(s)) => {
@@ -158,9 +159,11 @@ impl Matcher {
 pub enum MatchPart {
     /// An inner matcher for fields etc.
     Matcher(Matcher),
-    /// A regex string that should be matched. Must not contain any capture groups.
+    /// A regex string that should be matched. Any capture groups are removed.
     Regex(RegexPart),
     /// A literal string that should be matched exactly.
+    ///
+    /// Uses a `Cow` to allow for both string literals and owned strings.
     Literal(Cow<'static, str>),
 }
 
@@ -177,10 +180,7 @@ impl MatchPart {
     /// [`Matcher::from_regex`].
     pub fn regex(s: impl AsRef<str>) -> Result<Self, String> {
         regex_syntax::parse(s.as_ref())
-            .map(|mut hir| {
-                strip_captures(&mut hir);
-                MatchPart::Regex(RegexPart { hir })
-            })
+            .map(|hir| MatchPart::Regex(RegexPart { hir }))
             .map_err(|err| format!("sscanf: Invalid regex segment: {err}"))
     }
     /// Convenience method to create a [`MatchPart::Literal`] from a `String`, `&'static str`, or `Cow<str>`.
