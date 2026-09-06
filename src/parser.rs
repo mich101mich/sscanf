@@ -12,9 +12,8 @@ use regex_syntax::hir::{Hir, Look};
 ///   inputs with different lifetimes, create multiple `Parser` instances.
 pub struct Parser<'input, T> {
     regex: regex_automata::meta::Regex,
-    captures: regex_automata::util::captures::Captures,
     match_tree_template: MatchTreeTemplate,
-    parse_fn: Box<dyn FnMut(Match<'_, 'input>) -> Option<T>>,
+    parse_fn: Box<dyn Fn(Match<'_, 'input>) -> Option<T>>,
 }
 
 impl<'input, T> Parser<'input, T> {
@@ -46,7 +45,7 @@ impl<'input, T> Parser<'input, T> {
     /// This method is exposed for situations without a single `T`, like the `sscanf!` macro.
     pub fn from_matcher(
         matcher: Matcher,
-        parse_fn: impl FnMut(Match<'_, 'input>) -> Option<T> + 'static,
+        parse_fn: impl Fn(Match<'_, 'input>) -> Option<T> + 'static,
     ) -> Self {
         // We need to re-index the capture groups. Capture group 0 is the whole match, so our matchers
         // should start at 1. However, since our outermost Matcher is itself the whole match, we assign it
@@ -78,24 +77,22 @@ impl<'input, T> Parser<'input, T> {
         // - Conflicting capture indices (we index them ourselves, so this should never happen)
         // - Internal errors in regex-automata (the regex crate is very well tested, so this should never happen)
 
-        let captures = regex.create_captures();
-
         Self {
             regex,
-            captures,
             match_tree_template,
             parse_fn: Box::new(parse_fn),
         }
     }
 
     /// Parse the given input string into a value of type `T`.
-    pub fn parse(&mut self, input: &'input str) -> Option<T> {
-        self.regex.captures(input, &mut self.captures);
+    pub fn parse(&self, input: &'input str) -> Option<T> {
+        let mut captures = self.regex.create_captures();
+        self.regex.captures(input, &mut captures);
         let match_tree = Match::new(
             &self.match_tree_template,
-            &self.captures,
+            &captures,
             input,
-            self.captures.get_group(0)?,
+            captures.get_group(0)?,
             Context::Root.into(),
         );
         (self.parse_fn)(match_tree)
