@@ -14,6 +14,7 @@ exclude = ["/.vscode", "/.gitignore", "/.github", "/*.bat", "/*.sh", "/todo.md",
 
 [workspace]
 members = ["sscanf_macro"]
+exclude = ["benches/compare_0.4_to_0.5"]
 
 [dependencies]
 sscanf_macro = { path = "sscanf_macro", version = "=0.5.0" }
