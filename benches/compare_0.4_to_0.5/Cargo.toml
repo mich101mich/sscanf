@@ -1,0 +1,13 @@
+[package]
+name = "sscanf_test"
+version = "0.1.0"
+edition = "2021"
+
+
+[features]
+complex = []
+multi = []
+new_sscanf = []
+
+[dependencies]
+sscanf = "0.4.4"
