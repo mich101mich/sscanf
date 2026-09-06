@@ -18,7 +18,25 @@
 //
 //! Procedural macros for the [`sscanf`](https://crates.io/crates/sscanf) crate. Not usable as a standalone crate.
 
-use proc_macro::TokenStream as TokenStream1;
+mod attribute;
+mod derive;
+mod format_string;
+mod local_utils;
+mod sequence_matcher;
+mod str_lit;
+mod ty;
+mod utils;
+
+pub(crate) use attribute::*;
+pub(crate) use format_string::*;
+pub(crate) use local_utils::*;
+pub(crate) use sequence_matcher::*;
+pub(crate) use str_lit::*;
+pub(crate) use ty::*;
+pub(crate) use utils::*;
+
+pub(crate) use std::fmt::Display;
+
 pub(crate) use proc_macro2::{Span, TokenStream};
 pub(crate) use quote::{ToTokens, quote, quote_spanned};
 pub(crate) use syn::{
@@ -27,23 +45,7 @@ pub(crate) use syn::{
     spanned::Spanned,
 };
 
-mod attribute;
-mod error;
-mod format_string;
-mod sequence_matcher;
-mod str_lit;
-mod ty;
-mod utils;
-
-pub(crate) use attribute::*;
-pub(crate) use error::*;
-pub(crate) use format_string::*;
-pub(crate) use sequence_matcher::*;
-pub(crate) use str_lit::*;
-pub(crate) use ty::*;
-pub(crate) use utils::*;
-
-mod derive;
+use proc_macro::TokenStream as TokenStream1;
 
 /// Input string, format string, and types for `sscanf` and `sscanf_with_regex`.
 struct Sscanf {

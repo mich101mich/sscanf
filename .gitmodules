@@ -1,3 +1,6 @@
 [submodule "submodules/test_script"]
 	path = submodules/test_script
 	url = ../test_script
+[submodule "sscanf_macro/src/utils"]
+	path = sscanf_macro/src/utils
+	url = ../proc_macro_utils
