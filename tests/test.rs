@@ -298,6 +298,26 @@ fn respects_raw_strings() {
 }
 
 #[test]
+fn parser_works_with_multithreading() {
+    let parser = std::sync::Arc::new(sscanf_parser!("Employee #{usize}!"));
+
+    let ta = std::thread::spawn({
+        let parser = parser.clone();
+        move || parser.parse("Employee #42!")
+    });
+    let tb = std::thread::spawn({
+        let parser = parser.clone();
+        move || parser.parse("Employee #7!")
+    });
+
+    let ra = ta.join().unwrap();
+    let rb = tb.join().unwrap();
+
+    assert_eq!(ra, Some(42));
+    assert_eq!(rb, Some(7));
+}
+
+#[test]
 #[ignore]
 fn error_message_tests() {
     err_span_check::run_on_fail_dir();

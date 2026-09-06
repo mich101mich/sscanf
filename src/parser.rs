@@ -13,7 +13,7 @@ use regex_syntax::hir::{Hir, Look};
 pub struct Parser<'input, T> {
     regex: regex_automata::meta::Regex,
     match_tree_template: MatchTreeTemplate,
-    parse_fn: Box<dyn Fn(Match<'_, 'input>) -> Option<T>>,
+    parse_fn: Box<dyn Fn(Match<'_, 'input>) -> Option<T> + Send + Sync>,
 }
 
 impl<'input, T> Parser<'input, T> {
@@ -45,7 +45,7 @@ impl<'input, T> Parser<'input, T> {
     /// This method is exposed for situations without a single `T`, like the `sscanf!` macro.
     pub fn from_matcher(
         matcher: Matcher,
-        parse_fn: impl Fn(Match<'_, 'input>) -> Option<T> + 'static,
+        parse_fn: impl Fn(Match<'_, 'input>) -> Option<T> + 'static + Send + Sync,
     ) -> Self {
         // We need to re-index the capture groups. Capture group 0 is the whole match, so our matchers
         // should start at 1. However, since our outermost Matcher is itself the whole match, we assign it
