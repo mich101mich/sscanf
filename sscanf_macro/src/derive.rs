@@ -384,6 +384,7 @@ fn merge_lifetimes(
                 lifetime: out_lifetime.clone(),
                 colon_token: syn::Token![:](Span::call_site()),
                 bounds: lifetimes.into_iter().collect(),
+                attrs: Default::default(),
             }));
     }
 

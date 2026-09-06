@@ -14,10 +14,10 @@ exclude = ["/.vscode"]
 proc-macro = true
 
 [dependencies]
-convert_case = "0.11.0"
+convert_case = "0.12.0"
 proc-macro2 = "1.0.60"
 quote = "1.0.0"
 regex-syntax = "0.8.0"                                          # Should match regex-syntax in sscanf/Cargo.toml
 strsim = "0.11.1"
-syn = { version = "2.0.81", features = ["full"] }
+syn = { version = "3.0.0", features = ["full"] }
 unicode-width = { version = "0.2.1", default-features = false }

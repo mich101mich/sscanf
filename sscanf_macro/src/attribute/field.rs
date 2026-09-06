@@ -50,8 +50,8 @@ impl FromAttribute<attr::Field, &'_ syn::Type> for FieldAttributeKind {
                     }
                     if span_src.is_empty() {
                         // no arguments were given => point to the empty `||`
-                        mapper.or1_token.to_tokens(&mut span_src);
-                        mapper.or2_token.to_tokens(&mut span_src);
+                        mapper.inputs_begin.to_tokens(&mut span_src);
+                        mapper.inputs_end.to_tokens(&mut span_src);
                     }
                     bail!(span_src => "attribute `{}` requires a closure with exactly one argument", attr.kind);
                 };

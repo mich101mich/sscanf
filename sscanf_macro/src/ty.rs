@@ -21,7 +21,11 @@ impl<'a> Type<'a> {
     pub fn from_ty(mut ty: syn::Type) -> Self {
         let source = TypeSource::External;
 
-        if let syn::Type::Path(syn::TypePath { qself: None, path }) = &ty
+        if let syn::Type::Path(syn::TypePath {
+            qself: None,
+            path,
+            attrs: _,
+        }) = &ty
             && path.is_ident("str")
         {
             // str used to be hardcoded to take "str" as input and return a `&str` type.
@@ -32,6 +36,7 @@ impl<'a> Type<'a> {
                 lifetime: None,
                 mutability: None,
                 elem: Box::new(ty),
+                attrs: Default::default(),
             });
         }
 
@@ -90,9 +95,9 @@ impl Parse for Type<'_> {
 
         let ty = if input.peek(Token![&]) {
             // possibly &str
-            input.parse::<syn::TypeReference>()?.into()
+            syn::Type::Reference(input.parse::<syn::TypeReference>()?)
         } else {
-            input.parse::<syn::TypePath>()?.into()
+            syn::Type::Path(input.parse::<syn::TypePath>()?)
         };
         Ok(Self::from_ty(ty))
     }
