@@ -8,6 +8,7 @@ description = "Proc-Macros for the sscanf Crate. Not meant to be used as a stand
 repository = "https://github.com/mich101mich/sscanf"
 readme = "Readme.md"
 license = "MIT OR Apache-2.0"
+exclude = ["/.vscode"]
 
 [lib]
 proc-macro = true
