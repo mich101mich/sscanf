@@ -7,7 +7,7 @@ edition = "2021"
 [features]
 complex = []
 multi = []
-new_sscanf = []
+use_parser = []
 
 [dependencies]
 sscanf = "0.4.4"
