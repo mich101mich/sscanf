@@ -9,12 +9,22 @@ $originalManifest = Get-Content -Path $manifestPath -Raw
 New-Item -ItemType Directory -Path $outputDirectory -Force | Out-Null
 
 try {
-    foreach ($version in @('0.4.4', '0.5.0')) {
+    foreach ($configuration in @(
+            @{ Version = '0.4.4'; Parser = $false },
+            @{ Version = '0.5.0'; Parser = $false },
+            @{ Version = '0.5.0'; Parser = $true }
+        )) {
+        $version = $configuration.Version
+        $parser = $configuration.Parser
         $manifest = $originalManifest -replace 'sscanf\s*=\s*"[^"]+"', ('sscanf = "{0}"' -f $version)
         [System.IO.File]::WriteAllText($manifestPath, $manifest, (New-Object System.Text.UTF8Encoding -ArgumentList $false))
 
         foreach ($complex in @($false, $true)) {
             foreach ($multi in @($false, $true)) {
+                if ($parser -and -not $multi) {
+                    continue
+                }
+
                 $features = @()
                 if ($complex) {
                     $features += 'complex'
@@ -22,8 +32,8 @@ try {
                 if ($multi) {
                     $features += 'multi'
                 }
-                if ($version -eq '0.5.0') {
-                    $features += 'new_sscanf'
+                if ($parser) {
+                    $features += 'use_parser'
                 }
 
                 $featureArguments = @()
@@ -38,7 +48,8 @@ try {
 
                 $complexName = if ($complex) { 'complex' } else { 'simple' }
                 $multiName = if ($multi) { 'multi' } else { 'single' }
-                $outputName = "sscanf_{0}_{1}_{2}.exe" -f $complexName, $multiName, $version
+                $parserName = if ($parser) { '_use_parser' } else { '' }
+                $outputName = "sscanf_{0}_{1}_{2}{3}.exe" -f $complexName, $multiName, $version, $parserName
                 Copy-Item -Path $binaryPath -Destination (Join-Path $outputDirectory $outputName) -Force
             }
         }
@@ -49,16 +60,25 @@ finally {
 }
 
 foreach ($complex in @($false, $true)) {
-    # foreach ($multi in @($false, $true)) {
-        $complexName = if ($complex) { 'complex' } else { 'simple' }
-        $multiName = 'multi' # if ($multi) { 'multi' } else { 'single' }
-        $binary044 = Join-Path $outputDirectory ("sscanf_{0}_{1}_0.4.4.exe" -f $complexName, $multiName)
-        $binary050 = Join-Path $outputDirectory ("sscanf_{0}_{1}_0.5.0.exe" -f $complexName, $multiName)
+    $complexName = if ($complex) { 'complex' } else { 'simple' }
 
-        & hyperfine -w 10 -r 100 $binary044 $binary050
-        if ($LASTEXITCODE -ne 0) {
-            throw "Hyperfine benchmark failed for complex=$complex, multi=$multi."
-        }
-    # }
+    $singleBinaries = @(
+        Join-Path $outputDirectory "sscanf_${complexName}_single_0.4.4.exe"
+        Join-Path $outputDirectory "sscanf_${complexName}_single_0.5.0.exe"
+    )
+    & hyperfine -w 50 -r 1000 @singleBinaries
+    if ($LASTEXITCODE -ne 0) {
+        throw "Hyperfine benchmark failed for complex=$complex, multi=false."
+    }
+
+    $multiBinaries = @(
+        Join-Path $outputDirectory "sscanf_${complexName}_multi_0.4.4.exe"
+        Join-Path $outputDirectory "sscanf_${complexName}_multi_0.5.0.exe"
+        Join-Path $outputDirectory "sscanf_${complexName}_multi_0.5.0_use_parser.exe"
+    )
+    & hyperfine -w 5 -r 100 @multiBinaries
+    if ($LASTEXITCODE -ne 0) {
+        throw "Hyperfine benchmark failed for complex=$complex, multi=true."
+    }
 }
 

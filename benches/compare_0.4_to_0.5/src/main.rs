@@ -26,7 +26,7 @@ pub mod a {
 #[cfg(feature = "multi")]
 pub mod a {
     use crate::*;
-    // #[cfg(not(feature = "new_sscanf"))]
+    #[cfg(not(feature = "use_parser"))]
     pub fn run_benchmark() {
         for _ in 0..1000 {
             #[cfg(not(feature = "complex"))]
@@ -35,16 +35,16 @@ pub mod a {
             black_box(sscanf!(black_box(INPUT), "{BenchmarkMessage}").unwrap());
         }
     }
-    // #[cfg(feature = "new_sscanf")]
-    // pub fn run_benchmark() {
-    //     #[cfg(not(feature = "complex"))]
-    //     let mut parser = sscanf_parser!("Size: {usize}x{usize}");
-    //     #[cfg(feature = "complex")]
-    //     let mut parser = sscanf_parser!("{BenchmarkMessage}");
-    //     for _ in 0..1000 {
-    //         black_box(parser.parse(black_box(INPUT)).unwrap());
-    //     }
-    // }
+    #[cfg(feature = "use_parser")]
+    pub fn run_benchmark() {
+        #[cfg(not(feature = "complex"))]
+        let mut parser = sscanf_parser!("Size: {usize}x{usize}");
+        #[cfg(feature = "complex")]
+        let mut parser = sscanf_parser!("{BenchmarkMessage}");
+        for _ in 0..1000 {
+            black_box(parser.parse(black_box(INPUT)).unwrap());
+        }
+    }
 }
 
 fn main() {
