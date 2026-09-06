@@ -46,7 +46,7 @@ fn regex_format_string() {
 
 #[test]
 fn sscanf_parser() {
-    let mut parser = sscanf_parser!("Employee #{usize}!");
+    let parser = sscanf_parser!("Employee #{usize}!");
 
     let output = parser.parse("Employee #42!").unwrap();
     assert_eq!(output, 42);
