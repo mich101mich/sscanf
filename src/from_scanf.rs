@@ -82,7 +82,7 @@ use std::str::FromStr;
 /// }
 ///
 /// impl sscanf::FromScanfSimple<'_> for Fraction {
-///     const REGEX: &'static str = r"[-+]?\d+/\d+"; // (sign) digits '/' digits
+///     const REGEX: &'static str = r"[-+]?[0-9]+/[0-9]+"; // (sign) digits '/' digits
 ///
 ///     fn from_match(input: &str) -> Option<Self> {
 ///         input.parse().ok() // reuse FromStr implementation

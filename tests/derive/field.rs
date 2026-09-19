@@ -70,7 +70,7 @@ fn defaults() {
     assert_eq!(ret, correct);
 
     for input in WRONG_INPUTS {
-        assert!(sscanf!(input, "Testing with {TestStruct}!").is_none());
+        assert_eq!(sscanf!(input, "Testing with {TestStruct}!"), None);
     }
 }
 
@@ -92,7 +92,7 @@ fn mapper() {
     assert_eq!(ret, correct_result!(named));
 
     for input in WRONG_INPUTS {
-        assert!(sscanf!(input, "Testing with {TestStruct}!").is_none());
+        assert_eq!(sscanf!(input, "Testing with {TestStruct}!"), None);
     }
 }
 
@@ -119,11 +119,11 @@ fn filter_mapper() {
         "Testing with (3.4,2,-2,0)!", // b != 1
         "Testing with (3.4,1,2,0)!",  // c is not negative
     ] {
-        assert!(sscanf!(input, "Testing with {TestStruct}!").is_none());
+        assert_eq!(sscanf!(input, "Testing with {TestStruct}!"), None);
     }
 
     for input in WRONG_INPUTS {
-        assert!(sscanf!(input, "Testing with {TestStruct}!").is_none());
+        assert_eq!(sscanf!(input, "Testing with {TestStruct}!"), None);
     }
 }
 
@@ -145,7 +145,7 @@ fn from() {
     assert_eq!(ret, correct_result!(named));
 
     for input in WRONG_INPUTS {
-        assert!(sscanf!(input, "Testing with {TestStruct}!").is_none());
+        assert_eq!(sscanf!(input, "Testing with {TestStruct}!"), None);
     }
 }
 

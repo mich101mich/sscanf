@@ -41,7 +41,7 @@ fn basic() {
     assert_eq!(ret, correct_result!(named));
 
     for input in WRONG_INPUTS {
-        assert!(sscanf!(input, "Testing with {TestStruct}!").is_none());
+        assert_eq!(sscanf!(input, "Testing with {TestStruct}!"), None);
     }
 }
 
@@ -60,7 +60,7 @@ fn indexed() {
     assert_eq!(ret, correct_result!(named));
 
     for input in WRONG_INPUTS {
-        assert!(sscanf!(input, "Testing with {TestStruct}!").is_none());
+        assert_eq!(sscanf!(input, "Testing with {TestStruct}!"), None);
     }
 }
 
@@ -79,7 +79,7 @@ fn auto_indexed() {
     assert_eq!(ret, correct_result!(named));
 
     for input in WRONG_INPUTS {
-        assert!(sscanf!(input, "Testing with {TestStruct}!").is_none());
+        assert_eq!(sscanf!(input, "Testing with {TestStruct}!"), None);
     }
 }
 
@@ -93,7 +93,7 @@ fn tuple_struct() {
     assert_eq!(ret, correct_result!(unnamed));
 
     for input in WRONG_INPUTS {
-        assert!(sscanf!(input, "Testing with {TestStruct}!").is_none());
+        assert_eq!(sscanf!(input, "Testing with {TestStruct}!"), None);
     }
 }
 

@@ -11,6 +11,17 @@ as neither works without the other and versions are always released in parallel.
 [sscanf_macro]: https://crates.io/crates/sscanf_macro
 [sscanf]: https://crates.io/crates/sscanf
 
+## [1.0.0] - Unreleased
+
+### Changed
+- Changed [`Parser::from_matcher`][Parser::from_matcher@1.0.0] to take `Fn` rather than `FnMut`. This allows
+  [`Parser::parse`][Parser::parse@1.0.0] to take an immutable `self`-borrow, thus simplifying usage and enabling
+  multi-threaded parsing. (technically breaking change)
+- Changed `String`, `&str`, `Cow<str>`, and `char` to match newline characters as well.
+
+[Parser::from_matcher@1.0.0]: https://docs.rs/sscanf/1.0.0/sscanf/struct.Parser.html#method.from_matcher
+[Parser::parse@1.0.0]: https://docs.rs/sscanf/1.0.0/sscanf/struct.Parser.html#method.parse
+
 ## [0.5.0] - 2026-02-28
 
 ### Changed

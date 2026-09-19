@@ -542,8 +542,8 @@ mod tests {
         let parser = Parser::<T>::with_options(options);
         let result = parser.parse(value_str);
 
-        assert!(
-            result.is_none(),
+        assert_eq!(
+            result, None,
             "Parser for {name} should have failed to parse {value_str}, but it succeeded with {result:?}",
         );
     }

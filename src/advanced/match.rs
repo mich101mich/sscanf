@@ -50,7 +50,7 @@ pub(crate) use template::*;
 ///     // matches either digits or letters, but not both
 ///     fn get_matcher(_: &FormatOptions) -> Matcher {
 ///         Matcher::Alt(vec![
-///             Matcher::from_regex(r"\d+").unwrap(),
+///             Matcher::from_regex(r"[0-9]+").unwrap(),
 ///             Matcher::from_regex(r"[a-zA-Z]+").unwrap(),
 ///         ])
 ///     }
@@ -59,7 +59,7 @@ pub(crate) use template::*;
 ///         let matches = matches.as_alt();
 ///         let text = matches.get().text();
 ///         if matches.matched_index() == 0 {
-///             // The first alternative matched (\d+)
+///             // The first alternative matched ([0-9]+)
 ///             Some(Self::Digits(text.parse().ok()?))
 ///         } else {
 ///             // exactly one of the capture groups will match
@@ -86,7 +86,7 @@ pub(crate) use template::*;
 /// # use sscanf::advanced::Matcher;
 /// # fn get_matcher() -> Matcher {
 /// Matcher::Alt(vec![
-///     Matcher::from_regex(r"\d+").unwrap(),
+///     Matcher::from_regex(r"[0-9]+").unwrap(),
 ///     Matcher::from_regex(r"[a-zA-Z]+").unwrap(),
 /// ])
 /// # }

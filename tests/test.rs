@@ -16,7 +16,7 @@ fn basic() {
     assert_eq!(c, "bob");
 
     let n = sscanf!(input, "hi");
-    assert!(n.is_none());
+    assert_eq!(n, None);
 
     let input = "Position<5,0.3,2>; Dir: N24E10";
     let output = sscanf!(
@@ -34,7 +34,7 @@ fn no_types() {
     let result = sscanf!("hi", "hi");
     result.unwrap();
     let result = sscanf!("hi", "no");
-    assert!(result.is_none());
+    assert_eq!(result, None);
 }
 
 #[test]
@@ -126,7 +126,7 @@ fn config_numbers() {
     // negative number on unsigned
     let input = "-0xab01";
     let parsed = sscanf!(input, "{usize:x}");
-    assert!(parsed.is_none());
+    assert_eq!(parsed, None);
 
     // explicit positive number with prefix
     let input = "+10 +0xab01 +0o127 +0b101010";
@@ -148,10 +148,10 @@ fn config_numbers() {
 
     // :#x etc forces the prefix
     assert_eq!(out, sscanf!(prefix, "{u8:#x} {u8:#o} {u8:#b}").unwrap());
-    assert!(sscanf!(no_prefix, "{u8:#x} {u8:#o} {u8:#b}").is_none());
+    assert_eq!(sscanf!(no_prefix, "{u8:#x} {u8:#o} {u8:#b}"), None);
 
     // :r16 etc have no prefix
-    assert!(sscanf!(prefix, "{u8:r16} {u8:r8} {u8:r2}").is_none());
+    assert_eq!(sscanf!(prefix, "{u8:r16} {u8:r8} {u8:r2}"), None);
     assert_eq!(out, sscanf!(no_prefix, "{u8:r16} {u8:r8} {u8:r2}").unwrap());
 
     // using type aliases
@@ -167,14 +167,14 @@ fn config_numbers() {
     assert_eq!(sscanf!(input, "{usize:o /\\d{3}/}").unwrap(), 0o123);
     assert_eq!(sscanf!(input, "{usize:r36 /\\d{3}/}").unwrap(), 1371);
 
-    assert!(sscanf!(input, "{usize:#b /\\d{3}/}").is_none());
-    assert!(sscanf!(input, "{usize:#o /\\d{3}/}").is_none());
-    assert!(sscanf!(input, "{usize:#x /\\d{3}/}").is_none());
+    assert_eq!(sscanf!(input, "{usize:#b /\\d{3}/}"), None);
+    assert_eq!(sscanf!(input, "{usize:#o /\\d{3}/}"), None);
+    assert_eq!(sscanf!(input, "{usize:#x /\\d{3}/}"), None);
 
     let input = "0x123";
     assert_eq!(sscanf!(input, "{usize:x /.*/}").unwrap(), 0x123);
     assert_eq!(sscanf!(input, "{usize:#x /.*/}").unwrap(), 0x123);
-    assert!(sscanf!(input, "{usize:/.*/}").is_none());
+    assert_eq!(sscanf!(input, "{usize:/.*/}"), None);
 
     assert_eq!(sscanf!("0b1010", "{usize:b /.*/}").unwrap(), 0b1010);
     assert_eq!(sscanf!("0o17", "{usize:o /.*/}").unwrap(), 0o17);
@@ -315,6 +315,23 @@ fn parser_works_with_multithreading() {
 
     assert_eq!(ra, Some(42));
     assert_eq!(rb, Some(7));
+}
+
+#[test]
+fn string_matches_newline() {
+    let input = "Hello\nWorld";
+    let parsed = sscanf!(input, "{String}");
+    assert_eq!(parsed.unwrap(), "Hello\nWorld");
+
+    let parsed = sscanf!(input, "Hello{char}World");
+    assert_eq!(parsed.unwrap(), '\n');
+
+    let input = "Hello\rWorld";
+    let parsed = sscanf!(input, "{String}");
+    assert_eq!(parsed.unwrap(), "Hello\rWorld");
+
+    let parsed = sscanf!(input, "Hello{char}World");
+    assert_eq!(parsed.unwrap(), '\r');
 }
 
 #[test]

@@ -1,6 +1,17 @@
 use std::{borrow::Cow, path::PathBuf};
 
+use regex_syntax::hir::{Dot, Hir, Repetition};
+
 use crate::{advanced::*, *};
+
+fn any_string_matcher() -> Matcher {
+    Matcher::from_raw(Hir::repetition(Repetition {
+        min: 1,
+        max: None,
+        greedy: false,
+        sub: Box::new(Hir::dot(Dot::AnyChar)),
+    }))
+}
 
 /// Matches any sequence of characters.
 ///
@@ -8,7 +19,7 @@ use crate::{advanced::*, *};
 /// Use [`&str`](#impl-FromScanf<'input>-for-%26str) unless you explicitly need ownership.
 impl FromScanf<'_> for String {
     fn get_matcher(_: &FormatOptions) -> Matcher {
-        Matcher::from_regex(r".+?").unwrap()
+        any_string_matcher()
     }
 
     fn from_match(matches: Match<'_, '_>, _: &FormatOptions) -> Option<Self> {
@@ -27,7 +38,7 @@ impl AcceptsRegexOverride<'_> for String {
 /// using this type. If the input string doesn't live long enough, use [`String`](#impl-FromScanf<'_>-for-String) instead.
 impl<'input> FromScanf<'input> for &'input str {
     fn get_matcher(_: &FormatOptions) -> Matcher {
-        Matcher::from_regex(r".+?").unwrap()
+        any_string_matcher()
     }
 
     fn from_match(matches: Match<'_, 'input>, _: &FormatOptions) -> Option<Self> {
@@ -46,7 +57,7 @@ impl<'input> AcceptsRegexOverride<'input> for &'input str {
 /// using this type. If the input string doesn't live long enough, use [`String`](#impl-FromScanf<'_>-for-String) instead.
 impl<'input> FromScanf<'input> for Cow<'input, str> {
     fn get_matcher(_: &FormatOptions) -> Matcher {
-        Matcher::from_regex(r".+?").unwrap()
+        any_string_matcher()
     }
 
     fn from_match(matches: Match<'_, 'input>, _: &FormatOptions) -> Option<Self> {
@@ -62,7 +73,7 @@ impl<'input> AcceptsRegexOverride<'input> for Cow<'input, str> {
 /// Matches a single character.
 impl FromScanf<'_> for char {
     fn get_matcher(_: &FormatOptions) -> Matcher {
-        Matcher::from_regex(r".").unwrap()
+        Matcher::from_raw(Hir::dot(Dot::AnyChar))
     }
 
     fn from_match(matches: Match<'_, '_>, _: &FormatOptions) -> Option<Self> {
@@ -117,7 +128,7 @@ fn parse_bool(input: &str) -> Option<bool> {
 /// If you need more specific parsing (e.g. standard unix paths), consider using a regex override.
 impl FromScanf<'_> for PathBuf {
     fn get_matcher(_: &FormatOptions) -> Matcher {
-        Matcher::from_regex(r".+?").unwrap()
+        any_string_matcher()
     }
 
     fn from_match(matches: Match<'_, '_>, _: &FormatOptions) -> Option<Self> {

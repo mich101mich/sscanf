@@ -63,8 +63,8 @@ fn not_constructible() {
     }
 
     assert_eq!(sscanf!("0", "{Number}").unwrap(), Number::Zero);
-    assert!(sscanf!("5", "{Number}").is_none());
-    assert!(sscanf!("-1/2", "{Number}").is_none());
+    assert_eq!(sscanf!("5", "{Number}"), None);
+    assert_eq!(sscanf!("-1/2", "{Number}"), None);
 }
 
 #[test]
@@ -102,7 +102,7 @@ fn autogen() {
     assert_eq!(parsed, expected);
 
     let input_lower = "hello world hi";
-    assert!(sscanf!(input_lower, "{Words} {Words} {Words}").is_none());
+    assert_eq!(sscanf!(input_lower, "{Words} {Words} {Words}"), None);
 
     #[derive(FromScanf, Debug, PartialEq)]
     #[allow(dead_code)]
@@ -121,7 +121,7 @@ fn autogen() {
     assert_eq!(parsed, expected);
 
     let input_world = "World";
-    assert!(sscanf!(input_world, "{WordsWithFields}").is_none());
+    assert_eq!(sscanf!(input_world, "{WordsWithFields}"), None);
 }
 
 #[test]

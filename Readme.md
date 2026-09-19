@@ -103,7 +103,7 @@ The parsing part of this macro has very few limitations, since it replaces the `
 For example:
 - `char` is just one character (regex `"."`)
 - `str` is any sequence of characters (regex `".+?"`)
-- Numbers are any sequence of digits (regex `"[-+]?\d+"`)
+- Numbers are any sequence of digits (regex `"[-+]?[0-9]+"`)
 
 And so on. The actual implementation for numbers tries to take the size of the type into
 account and some other details, but that is the gist of the parsing.
@@ -135,7 +135,7 @@ assert_eq!(parsed.unwrap(), ("rando", "m Text"));
 ```
 
 The regex uses the [`same escaping logic as JavaScripts /.../ syntax`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions#escaping),
-meaning that the normal regex escaping with `\d` for digits etc. is in effect, with the addition
+meaning that the normal regex escaping with `[0-9]` for digits etc. is in effect, with the addition
 that any `/` need to be escaped as `\/` since they are used to end the regex.
 
 **NOTE:** You should use raw strings for a format string containing a regex, since otherwise you
