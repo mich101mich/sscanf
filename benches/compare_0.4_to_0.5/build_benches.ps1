@@ -19,15 +19,15 @@ try {
         $manifest = $originalManifest -replace 'sscanf\s*=\s*"[^"]+"', ('sscanf = "{0}"' -f $version)
         [System.IO.File]::WriteAllText($manifestPath, $manifest, (New-Object System.Text.UTF8Encoding -ArgumentList $false))
 
-        foreach ($complex in @($false, $true)) {
+        foreach ($complexName in @('simple', 'complex', 'complex_no_numbers')) {
             foreach ($multi in @($false, $true)) {
                 if ($parser -and -not $multi) {
                     continue
                 }
 
                 $features = @()
-                if ($complex) {
-                    $features += 'complex'
+                if ($complexName -ne 'simple') {
+                    $features += $complexName
                 }
                 if ($multi) {
                     $features += 'multi'
@@ -43,10 +43,9 @@ try {
 
                 & cargo build --release @featureArguments
                 if ($LASTEXITCODE -ne 0) {
-                    throw "Cargo build failed for version $version, complex=$complex, multi=$multi."
+                    throw "Cargo build failed for version $version, target=$complexName, multi=$multi."
                 }
 
-                $complexName = if ($complex) { 'complex' } else { 'simple' }
                 $multiName = if ($multi) { 'multi' } else { 'single' }
                 $parserName = if ($parser) { '_use_parser' } else { '' }
                 $outputName = "sscanf_{0}_{1}_{2}{3}.exe" -f $complexName, $multiName, $version, $parserName
@@ -59,26 +58,59 @@ finally {
     [System.IO.File]::WriteAllText($manifestPath, $originalManifest, (New-Object System.Text.UTF8Encoding -ArgumentList $false))
 }
 
-foreach ($complex in @($false, $true)) {
-    $complexName = if ($complex) { 'complex' } else { 'simple' }
-
-    $singleBinaries = @(
-        Join-Path $outputDirectory "sscanf_${complexName}_single_0.4.4.exe"
-        Join-Path $outputDirectory "sscanf_${complexName}_single_0.5.0.exe"
+function Measure-Benchmark {
+    param(
+        [string]$Path,
+        [string]$Target,
+        [string]$Mode,
+        [int]$WarmupRuns,
+        [int]$Runs
     )
-    & hyperfine -w 50 -r 1000 @singleBinaries
-    if ($LASTEXITCODE -ne 0) {
-        throw "Hyperfine benchmark failed for complex=$complex, multi=false."
+
+    Write-Host "Running benchmark: Path=$Path, Target=$Target, Mode=$Mode, WarmupRuns=$WarmupRuns, Runs=$Runs"
+
+    for ($run = 0; $run -lt $WarmupRuns; $run++) {
+        & $Path *> $null
+        if ($LASTEXITCODE -ne 0) {
+            throw "Benchmark failed during warmup: $Path"
+        }
     }
 
-    $multiBinaries = @(
-        Join-Path $outputDirectory "sscanf_${complexName}_multi_0.4.4.exe"
-        Join-Path $outputDirectory "sscanf_${complexName}_multi_0.5.0.exe"
-        Join-Path $outputDirectory "sscanf_${complexName}_multi_0.5.0_use_parser.exe"
-    )
-    & hyperfine -w 5 -r 100 @multiBinaries
-    if ($LASTEXITCODE -ne 0) {
-        throw "Hyperfine benchmark failed for complex=$complex, multi=true."
+    $measurement = Measure-Command {
+        for ($run = 0; $run -lt $Runs; $run++) {
+            & $Path *> $null
+            if ($LASTEXITCODE -ne 0) {
+                throw "Benchmark failed: $Path"
+            }
+        }
+    }
+
+    [PSCustomObject]@{
+        Target              = $Target
+        Mode                = $Mode
+        Binary              = [System.IO.Path]::GetFileNameWithoutExtension($Path)
+        Runs                = $Runs
+        TotalMilliseconds   = [math]::Round($measurement.TotalMilliseconds, 2)
+        AverageMilliseconds = [math]::Round($measurement.TotalMilliseconds / $Runs, 4)
     }
 }
+
+$results = @()
+foreach ($complexName in @('simple', 'complex', 'complex_no_numbers')) {
+    foreach ($binary in @(
+            @{ Name = "sscanf_${complexName}_single_0.4.4.exe"; Mode = 'single' },
+            @{ Name = "sscanf_${complexName}_single_0.5.0.exe"; Mode = 'single' },
+            @{ Name = "sscanf_${complexName}_multi_0.4.4.exe"; Mode = 'multi' },
+            @{ Name = "sscanf_${complexName}_multi_0.5.0.exe"; Mode = 'multi' },
+            @{ Name = "sscanf_${complexName}_multi_0.5.0_use_parser.exe"; Mode = 'multi, parser' }
+        )) {
+        $warmupRuns = if ($binary.Mode -eq 'single') { 50 } else { 5 }
+        $runs = if ($binary.Mode -eq 'single') { 1000 } else { 100 }
+        $path = Join-Path $outputDirectory $binary.Name
+        $results += Measure-Benchmark -Path $path -Target $complexName -Mode $binary.Mode `
+            -WarmupRuns $warmupRuns -Runs $runs
+    }
+}
+
+$results | Format-Table -AutoSize
 

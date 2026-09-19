@@ -2,23 +2,30 @@
 use sscanf::*;
 use std::{hint::black_box, time::Instant};
 
-#[cfg(feature = "complex")]
+#[cfg(all(feature = "complex", not(feature = "complex_no_numbers")))]
 mod complex;
-#[cfg(feature = "complex")]
+#[cfg(all(feature = "complex", not(feature = "complex_no_numbers")))]
 use complex::*;
 
-#[cfg(feature = "complex")]
+#[cfg(feature = "complex_no_numbers")]
+mod complex_no_numbers;
+#[cfg(feature = "complex_no_numbers")]
+use complex_no_numbers::*;
+
+#[cfg(all(feature = "complex", not(feature = "complex_no_numbers")))]
 const INPUT: &str = "BEGIN::version=7::environment=production-eu-west::record[trace=trace-20260905-000042|user=918273645|source=ingestion-worker-primary|attempt=3|payload<primary<config<id=42|name=orders-replicator|enabled=true|retries=5|ratio=0.875> endpoint<host=collector.eu-west.example.internal;port=8443;secure=true;region=eu-west;zone=eu-west-1b;timeout=2500> metrics<method=POST,path=/v1/telemetry/records,status=202,bytes=1048576,latency=1842>>>|checksum=1837465920|finished=true]::signature=sha256-9e107d9c4b7a::END";
-#[cfg(not(feature = "complex"))]
+#[cfg(feature = "complex_no_numbers")]
+const INPUT: &str = "BEGIN::version=seven::environment=production-eu-west::record[trace=trace-alpha|user=user-primary|source=ingestion-worker-primary|attempt=third|payload<primary<config<id=service-orders|name=orders-replicator|enabled=true|retries=five|ratio=high> endpoint<host=collector.eu-west.example.internal;port=secure-port;secure=true;region=eu-west;zone=eu-west-primary;timeout=short> metrics<method=POST,path=/v1/telemetry/records,status=accepted,bytes=large,latency=fast>>>|checksum=verified|finished=true]::signature=sha256-verified::END";
+#[cfg(not(any(feature = "complex", feature = "complex_no_numbers")))]
 const INPUT: &str = "Size: 1920x1080";
 
 #[cfg(not(feature = "multi"))]
 pub mod a {
     use crate::*;
     pub fn run_benchmark() {
-        #[cfg(not(feature = "complex"))]
+        #[cfg(not(any(feature = "complex", feature = "complex_no_numbers")))]
         black_box(sscanf!(black_box(INPUT), "Size: {usize}x{usize}").unwrap());
-        #[cfg(feature = "complex")]
+        #[cfg(any(feature = "complex", feature = "complex_no_numbers"))]
         black_box(sscanf!(black_box(INPUT), "{BenchmarkMessage}").unwrap());
     }
 }
@@ -29,17 +36,17 @@ pub mod a {
     #[cfg(not(feature = "use_parser"))]
     pub fn run_benchmark() {
         for _ in 0..1000 {
-            #[cfg(not(feature = "complex"))]
+            #[cfg(not(any(feature = "complex", feature = "complex_no_numbers")))]
             black_box(sscanf!(black_box(INPUT), "Size: {usize}x{usize}").unwrap());
-            #[cfg(feature = "complex")]
+            #[cfg(any(feature = "complex", feature = "complex_no_numbers"))]
             black_box(sscanf!(black_box(INPUT), "{BenchmarkMessage}").unwrap());
         }
     }
     #[cfg(feature = "use_parser")]
     pub fn run_benchmark() {
-        #[cfg(not(feature = "complex"))]
+        #[cfg(not(any(feature = "complex", feature = "complex_no_numbers")))]
         let mut parser = sscanf_parser!("Size: {usize}x{usize}");
-        #[cfg(feature = "complex")]
+        #[cfg(any(feature = "complex", feature = "complex_no_numbers"))]
         let mut parser = sscanf_parser!("{BenchmarkMessage}");
         for _ in 0..1000 {
             black_box(parser.parse(black_box(INPUT)).unwrap());
